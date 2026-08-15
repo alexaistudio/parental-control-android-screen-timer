@@ -36,4 +36,22 @@ public final class PinHasherTest {
         assertEquals(first, same);
         assertNotEquals(first, otherSalt);
     }
+
+    @Test
+    public void verifiesLegacyRecordsWithTheirStoredIterationCount() {
+        PinHasher.Record legacy = PinHasher.create("4826", PinHasher.LEGACY_ITERATIONS);
+
+        assertTrue(PinHasher.verify(
+                "4826",
+                legacy.getSaltHex(),
+                legacy.getHashHex(),
+                legacy.getIterations()
+        ));
+        assertFalse(PinHasher.verify(
+                "4826",
+                legacy.getSaltHex(),
+                legacy.getHashHex(),
+                PinHasher.CURRENT_ITERATIONS
+        ));
+    }
 }

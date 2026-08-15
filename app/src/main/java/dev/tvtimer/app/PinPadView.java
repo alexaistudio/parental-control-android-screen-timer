@@ -1,6 +1,7 @@
 package dev.tvtimer.app;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.text.InputType;
 import android.view.Gravity;
@@ -20,6 +21,8 @@ public final class PinPadView extends LinearLayout {
     private final TextView display;
     private final TextView message;
     private final Listener listener;
+    private final GridLayout keys;
+    private boolean busy;
 
     public PinPadView(Context context) {
         this(context, pin -> {
@@ -35,22 +38,22 @@ public final class PinPadView extends LinearLayout {
 
         display = new TextView(context);
         display.setTextColor(Color.WHITE);
-        display.setTextSize(28f);
+        display.setTextSize(25f);
         display.setGravity(Gravity.CENTER);
-        display.setMinWidth(dp(280));
-        display.setMinHeight(dp(54));
+        display.setMinWidth(dp(240));
+        display.setMinHeight(dp(40));
         display.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
         display.setContentDescription("Введённый PIN");
         addView(display, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
 
         message = new TextView(context);
         message.setTextColor(0xffff8a80);
-        message.setTextSize(16f);
+        message.setTextSize(15f);
         message.setGravity(Gravity.CENTER);
-        LayoutParams messageParams = new LayoutParams(LayoutParams.WRAP_CONTENT, dp(32));
+        LayoutParams messageParams = new LayoutParams(LayoutParams.WRAP_CONTENT, dp(26));
         addView(message, messageParams);
 
-        GridLayout keys = new GridLayout(context);
+        keys = new GridLayout(context);
         keys.setColumnCount(3);
         keys.setRowCount(4);
         addDigitButton(keys, "1");
@@ -72,8 +75,19 @@ public final class PinPadView extends LinearLayout {
     }
 
     public void showError(String text) {
+        setBusy(false);
         message.setText(text);
         clearPin();
+    }
+
+    public void setBusy(boolean busy) {
+        this.busy = busy;
+        for (int index = 0; index < keys.getChildCount(); index++) {
+            keys.getChildAt(index).setEnabled(!busy);
+        }
+        if (busy) {
+            message.setText("Проверка…");
+        }
     }
 
     public void clearPin() {
@@ -83,6 +97,9 @@ public final class PinPadView extends LinearLayout {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (busy) {
+            return true;
+        }
         if (event.getAction() == KeyEvent.ACTION_UP) {
             int keyCode = event.getKeyCode();
             if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
@@ -112,14 +129,16 @@ public final class PinPadView extends LinearLayout {
     private void addActionButton(GridLayout grid, String label, OnClickListener onClickListener) {
         Button button = new Button(getContext());
         button.setText(label);
-        button.setTextSize(20f);
-        button.setMinWidth(dp(88));
-        button.setMinHeight(dp(58));
+        button.setTextSize(19f);
+        button.setMinWidth(dp(72));
+        button.setMinHeight(dp(44));
+        button.setAllCaps(false);
+        applyTvFocus(button);
         button.setOnClickListener(onClickListener);
         GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-        params.width = dp(96);
-        params.height = dp(66);
-        params.setMargins(dp(5), dp(5), dp(5), dp(5));
+        params.width = dp(82);
+        params.height = dp(48);
+        params.setMargins(dp(3), dp(2), dp(3), dp(2));
         grid.addView(button, params);
     }
 
@@ -139,11 +158,35 @@ public final class PinPadView extends LinearLayout {
     }
 
     private void submit() {
+        if (busy) {
+            return;
+        }
         if (!PinHasher.isValidFormat(pin.toString())) {
             showError("Введите от 4 до 8 цифр");
             return;
         }
         listener.onPinSubmitted(pin.toString());
+    }
+
+    private void applyTvFocus(Button button) {
+        int[][] states = new int[][]{
+                new int[]{android.R.attr.state_focused},
+                new int[]{android.R.attr.state_pressed},
+                new int[]{}
+        };
+        button.setBackgroundTintList(new ColorStateList(
+                states,
+                new int[]{0xffffd54f, 0xffffb300, 0xff37474f}
+        ));
+        button.setTextColor(new ColorStateList(
+                states,
+                new int[]{Color.BLACK, Color.BLACK, Color.WHITE}
+        ));
+        button.setOnFocusChangeListener((view, hasFocus) -> {
+            float scale = hasFocus ? 1.10f : 1f;
+            view.animate().scaleX(scale).scaleY(scale).setDuration(90L).start();
+            view.setElevation(hasFocus ? dp(10) : dp(2));
+        });
     }
 
     private void updateDisplay() {

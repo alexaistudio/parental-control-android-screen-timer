@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
@@ -27,14 +28,18 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.util.Collections;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class LimiterAccessibilityService extends AccessibilityService {
     private static final String TAG = "TVTimerService";
     private static final long TICK_MILLIS = 1_000L;
-    private static final long PERSIST_INTERVAL_MILLIS = 5_000L;
+    private static final long PERSIST_INTERVAL_MILLIS = 15_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
     private final Runnable ticker = new Runnable() {
         @Override
         public void run() {
@@ -51,6 +56,10 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private boolean dreaming;
     private boolean countedDuringPreviousInterval;
     private boolean connected;
+    private boolean enforcementEnabled;
+    private String targetScope = AppScope.ALL;
+    private Set<String> targetPackages = Collections.emptySet();
+    private long dailyLimitMillis = ConfigStore.DEFAULT_LIMIT_MILLIS;
     private long lastTickElapsed = -1L;
     private long pendingUsageMillis;
     private String pendingUsageDay;
@@ -61,6 +70,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private BroadcastReceiver stateReceiver;
     private BroadcastReceiver usbReceiver;
     private SharedPreferences.OnSharedPreferenceChangeListener preferenceListener;
+    private int pinPromptGeneration;
 
     @Override
     protected void onServiceConnected() {
@@ -70,9 +80,17 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         interactive = powerManager != null && powerManager.isInteractive();
         connected = true;
+        refreshRuntimeConfiguration();
         lastTickElapsed = SystemClock.elapsedRealtime();
         registerReceivers();
-        preferenceListener = (preferences, key) -> handler.post(this::evaluateNow);
+        preferenceListener = (preferences, key) -> {
+            if (ConfigStore.affectsRuntimeConfiguration(key)) {
+                handler.post(() -> {
+                    refreshRuntimeConfiguration();
+                    evaluateNow();
+                });
+            }
+        };
         store.registerListener(preferenceListener);
         handler.removeCallbacks(ticker);
         handler.post(ticker);
@@ -85,8 +103,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             return;
         }
         int type = event.getEventType();
-        if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-                && type != AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+        if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             return;
         }
         CharSequence packageName = event.getPackageName();
@@ -94,9 +111,12 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             return;
         }
         String nextPackage = packageName.toString();
+        CharSequence className = event.getClassName();
         if (!ForegroundEventPolicy.shouldReplaceActivePackage(
                 nextPackage,
+                className == null ? null : className.toString(),
                 getPackageName(),
+                MainActivity.class.getName(),
                 type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
         )) {
             return;
@@ -126,7 +146,22 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     @Override
     public void onDestroy() {
         shutdown();
+        backgroundExecutor.shutdownNow();
         super.onDestroy();
+    }
+
+    private void refreshRuntimeConfiguration() {
+        if (store == null) {
+            enforcementEnabled = false;
+            targetScope = AppScope.ALL;
+            targetPackages = Collections.emptySet();
+            dailyLimitMillis = ConfigStore.DEFAULT_LIMIT_MILLIS;
+            return;
+        }
+        enforcementEnabled = store.isEnforcementEnabled();
+        targetScope = store.getScope();
+        targetPackages = store.getSelectedPackages();
+        dailyLimitMillis = store.getDailyLimitMillis();
     }
 
     private void evaluateNow() {
@@ -151,14 +186,13 @@ public final class LimiterAccessibilityService extends AccessibilityService {
 
         boolean screenActive = powerManager != null && powerManager.isInteractive() && !dreaming;
         interactive = screenActive;
-        Set<String> selectedPackages = store.getSelectedPackages();
-        boolean targetActive = store.isEnforcementEnabled()
+        boolean targetActive = enforcementEnabled
                 && interactive
                 && AppScope.isTarget(
-                        store.getScope(),
+                        targetScope,
                         activePackage,
                         getPackageName(),
-                        selectedPackages
+                        targetPackages
                 );
 
         ConfigStore.DayState dayState = store.getDayState(day);
@@ -167,7 +201,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 ? Long.MAX_VALUE
                 : dayState.getUsedMillis() + inMemoryUsage;
         long remaining = LimitMath.remaining(
-                store.getDailyLimitMillis(),
+                dailyLimitMillis,
                 dayState.getBonusMillis(),
                 used
         );
@@ -224,7 +258,10 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 return;
             }
         }
-        timerView.setText(LimitMath.formatCountdown(remainingMillis));
+        String countdown = LimitMath.formatCountdown(remainingMillis);
+        if (!countdown.contentEquals(timerView.getText())) {
+            timerView.setText(countdown);
+        }
     }
 
     private void showBlocker() {
@@ -272,6 +309,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     }
 
     private void renderPinPrompt(LinearLayout panel) {
+        int generation = ++pinPromptGeneration;
         panel.removeAllViews();
         TextView title = overlayText("Время закончилось", 30f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
@@ -282,16 +320,35 @@ public final class LimiterAccessibilityService extends AccessibilityService {
 
         final PinPadView[] holder = new PinPadView[1];
         holder[0] = new PinPadView(this, pin -> {
-            if (store.verifyPin(pin)) {
-                renderParentActions(panel);
-            } else {
-                holder[0].showError("Неверный PIN");
-            }
+            holder[0].setBusy(true);
+            backgroundExecutor.execute(() -> {
+                boolean verified;
+                try {
+                    verified = store != null && store.verifyPin(pin);
+                } catch (RuntimeException exception) {
+                    Log.e(TAG, "Unable to verify parent PIN", exception);
+                    verified = false;
+                }
+                boolean result = verified;
+                handler.post(() -> {
+                    if (!connected
+                            || blockerView == null
+                            || generation != pinPromptGeneration) {
+                        return;
+                    }
+                    if (result) {
+                        renderParentActions(panel);
+                    } else {
+                        holder[0].showError("Неверный PIN");
+                    }
+                });
+            });
         });
         panel.addView(holder[0], wrapParams(0));
     }
 
     private void renderParentActions(LinearLayout panel) {
+        pinPromptGeneration++;
         panel.removeAllViews();
         TextView title = overlayText("Что сделать?", 28f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
@@ -451,6 +508,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
 
     private void removeBlocker() {
         if (blockerView != null) {
+            pinPromptGeneration++;
             removeViewSafely(blockerView);
             blockerView = null;
         }
@@ -480,6 +538,25 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         button.setTextSize(18f);
         button.setMinWidth(dp(320));
         button.setMinHeight(dp(58));
+        button.setAllCaps(false);
+        int[][] states = new int[][]{
+                new int[]{android.R.attr.state_focused},
+                new int[]{android.R.attr.state_pressed},
+                new int[]{}
+        };
+        button.setBackgroundTintList(new ColorStateList(
+                states,
+                new int[]{0xffffd54f, 0xffffb300, 0xff455a64}
+        ));
+        button.setTextColor(new ColorStateList(
+                states,
+                new int[]{Color.BLACK, Color.BLACK, Color.WHITE}
+        ));
+        button.setOnFocusChangeListener((view, hasFocus) -> {
+            float scale = hasFocus ? 1.06f : 1f;
+            view.animate().scaleX(scale).scaleY(scale).setDuration(90L).start();
+            view.setElevation(hasFocus ? dp(10) : dp(2));
+        });
         return button;
     }
 

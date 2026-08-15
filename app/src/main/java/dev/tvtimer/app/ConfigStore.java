@@ -15,6 +15,7 @@ public final class ConfigStore {
     private static final String KEY_ENFORCEMENT_ENABLED = "enforcement_enabled";
     private static final String KEY_PIN_SALT = "pin_salt";
     private static final String KEY_PIN_HASH = "pin_hash";
+    private static final String KEY_PIN_ITERATIONS = "pin_iterations";
     private static final String KEY_DAILY_LIMIT = "daily_limit_ms";
     private static final String KEY_SCOPE = "scope";
     private static final String KEY_SELECTED_PACKAGES = "selected_packages";
@@ -70,6 +71,7 @@ public final class ConfigStore {
                 .putBoolean(KEY_ENFORCEMENT_ENABLED, true)
                 .putString(KEY_PIN_SALT, pinRecord.getSaltHex())
                 .putString(KEY_PIN_HASH, pinRecord.getHashHex())
+                .putInt(KEY_PIN_ITERATIONS, pinRecord.getIterations())
                 .putLong(KEY_DAILY_LIMIT, dailyLimitMillis)
                 .putString(KEY_SCOPE, scope)
                 .putStringSet(KEY_SELECTED_PACKAGES, new HashSet<>(safeSelectedPackages))
@@ -100,15 +102,33 @@ public final class ConfigStore {
         return preferences.edit()
                 .putString(KEY_PIN_SALT, pinRecord.getSaltHex())
                 .putString(KEY_PIN_HASH, pinRecord.getHashHex())
+                .putInt(KEY_PIN_ITERATIONS, pinRecord.getIterations())
                 .commit();
     }
 
     public boolean verifyPin(String pin) {
-        return isConfigured() && PinHasher.verify(
+        if (!isConfigured()) {
+            return false;
+        }
+        int iterations = preferences.getInt(
+                KEY_PIN_ITERATIONS,
+                PinHasher.LEGACY_ITERATIONS
+        );
+        boolean verified = PinHasher.verify(
                 pin,
                 preferences.getString(KEY_PIN_SALT, null),
-                preferences.getString(KEY_PIN_HASH, null)
+                preferences.getString(KEY_PIN_HASH, null),
+                iterations
         );
+        if (verified && iterations != PinHasher.CURRENT_ITERATIONS) {
+            PinHasher.Record upgraded = PinHasher.create(pin);
+            preferences.edit()
+                    .putString(KEY_PIN_SALT, upgraded.getSaltHex())
+                    .putString(KEY_PIN_HASH, upgraded.getHashHex())
+                    .putInt(KEY_PIN_ITERATIONS, upgraded.getIterations())
+                    .commit();
+        }
+        return verified;
     }
 
     public synchronized DayState getDayState(String dayKey) {
@@ -124,7 +144,8 @@ public final class ConfigStore {
         long current = preferences.getLong(KEY_USAGE_MILLIS, 0L);
         long safeDelta = Math.max(0L, deltaMillis);
         long updated = current > Long.MAX_VALUE - safeDelta ? Long.MAX_VALUE : current + safeDelta;
-        return preferences.edit().putLong(KEY_USAGE_MILLIS, updated).commit();
+        preferences.edit().putLong(KEY_USAGE_MILLIS, updated).apply();
+        return true;
     }
 
     public synchronized boolean addBonus(String dayKey, long bonusMillis) {
@@ -132,11 +153,13 @@ public final class ConfigStore {
         long current = preferences.getLong(KEY_BONUS_MILLIS, 0L);
         long safeBonus = Math.max(0L, bonusMillis);
         long updated = current > Long.MAX_VALUE - safeBonus ? Long.MAX_VALUE : current + safeBonus;
-        return preferences.edit().putLong(KEY_BONUS_MILLIS, updated).commit();
+        preferences.edit().putLong(KEY_BONUS_MILLIS, updated).apply();
+        return true;
     }
 
     public boolean setEnforcementEnabled(boolean enabled) {
-        return preferences.edit().putBoolean(KEY_ENFORCEMENT_ENABLED, enabled).commit();
+        preferences.edit().putBoolean(KEY_ENFORCEMENT_ENABLED, enabled).apply();
+        return true;
     }
 
     public boolean resetForUsbRecovery() {
@@ -158,6 +181,15 @@ public final class ConfigStore {
         preferences.unregisterOnSharedPreferenceChangeListener(listener);
     }
 
+    static boolean affectsRuntimeConfiguration(String key) {
+        return key == null
+                || KEY_CONFIGURED.equals(key)
+                || KEY_ENFORCEMENT_ENABLED.equals(key)
+                || KEY_DAILY_LIMIT.equals(key)
+                || KEY_SCOPE.equals(key)
+                || KEY_SELECTED_PACKAGES.equals(key);
+    }
+
     private void ensureDay(String dayKey) {
         String storedDay = preferences.getString(KEY_USAGE_DAY, null);
         if (!dayKey.equals(storedDay)) {
@@ -165,7 +197,7 @@ public final class ConfigStore {
                     .putString(KEY_USAGE_DAY, dayKey)
                     .putLong(KEY_USAGE_MILLIS, 0L)
                     .putLong(KEY_BONUS_MILLIS, 0L)
-                    .commit();
+                    .apply();
         }
     }
 

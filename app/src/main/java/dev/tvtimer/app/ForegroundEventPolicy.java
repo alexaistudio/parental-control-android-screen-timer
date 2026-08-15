@@ -6,10 +6,15 @@ final class ForegroundEventPolicy {
 
     static boolean shouldReplaceActivePackage(
             String eventPackage,
+            String eventClass,
             String ownPackage,
+            String ownActivityClass,
             boolean windowStateChanged
     ) {
         if (eventPackage == null || eventPackage.isEmpty()) {
+            return false;
+        }
+        if (!windowStateChanged) {
             return false;
         }
         if (eventPackage.equals("android")
@@ -18,8 +23,9 @@ final class ForegroundEventPolicy {
                 || eventPackage.contains("keyboard")) {
             return false;
         }
-        // Adding/removing our accessibility overlay also emits TYPE_WINDOWS_CHANGED.
-        // A real Activity transition emits TYPE_WINDOW_STATE_CHANGED and must be accepted.
-        return !eventPackage.equals(ownPackage) || windowStateChanged;
+        if (eventPackage.equals(ownPackage)) {
+            return ownActivityClass.equals(eventClass);
+        }
+        return true;
     }
 }

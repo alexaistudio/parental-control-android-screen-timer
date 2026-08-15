@@ -9,7 +9,8 @@ import javax.crypto.spec.PBEKeySpec;
 
 public final class PinHasher {
     private static final int SALT_BYTES = 16;
-    private static final int ITERATIONS = 150_000;
+    static final int CURRENT_ITERATIONS = 20_000;
+    static final int LEGACY_ITERATIONS = 150_000;
     private static final int KEY_LENGTH_BITS = 256;
 
     private PinHasher() {
@@ -20,20 +21,30 @@ public final class PinHasher {
     }
 
     public static Record create(String pin) {
+        return create(pin, CURRENT_ITERATIONS);
+    }
+
+    static Record create(String pin, int iterations) {
         if (!isValidFormat(pin)) {
             throw new IllegalArgumentException("PIN must contain 4 to 8 digits");
         }
+        validateIterations(iterations);
         byte[] salt = new byte[SALT_BYTES];
         new SecureRandom().nextBytes(salt);
-        return new Record(toHex(salt), derive(pin, salt));
+        return new Record(toHex(salt), derive(pin, salt, iterations), iterations);
     }
 
     public static boolean verify(String pin, String saltHex, String expectedHashHex) {
+        return verify(pin, saltHex, expectedHashHex, CURRENT_ITERATIONS);
+    }
+
+    static boolean verify(String pin, String saltHex, String expectedHashHex, int iterations) {
         if (!isValidFormat(pin) || saltHex == null || expectedHashHex == null) {
             return false;
         }
         try {
-            byte[] actual = fromHex(derive(pin, fromHex(saltHex)));
+            validateIterations(iterations);
+            byte[] actual = fromHex(derive(pin, fromHex(saltHex), iterations));
             byte[] expected = fromHex(expectedHashHex);
             return MessageDigest.isEqual(actual, expected);
         } catch (IllegalArgumentException exception) {
@@ -42,11 +53,11 @@ public final class PinHasher {
     }
 
     static String deriveForTest(String pin, String saltHex) {
-        return derive(pin, fromHex(saltHex));
+        return derive(pin, fromHex(saltHex), CURRENT_ITERATIONS);
     }
 
-    private static String derive(String pin, byte[] salt) {
-        PBEKeySpec keySpec = new PBEKeySpec(pin.toCharArray(), salt, ITERATIONS, KEY_LENGTH_BITS);
+    private static String derive(String pin, byte[] salt, int iterations) {
+        PBEKeySpec keySpec = new PBEKeySpec(pin.toCharArray(), salt, iterations, KEY_LENGTH_BITS);
         try {
             SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
             return toHex(factory.generateSecret(keySpec).getEncoded());
@@ -54,6 +65,12 @@ public final class PinHasher {
             throw new IllegalStateException("PIN hashing is unavailable", exception);
         } finally {
             keySpec.clearPassword();
+        }
+    }
+
+    private static void validateIterations(int iterations) {
+        if (iterations < 1 || iterations > 1_000_000) {
+            throw new IllegalArgumentException("Invalid PIN hash iteration count");
         }
     }
 
@@ -85,10 +102,12 @@ public final class PinHasher {
     public static final class Record {
         private final String saltHex;
         private final String hashHex;
+        private final int iterations;
 
-        Record(String saltHex, String hashHex) {
+        Record(String saltHex, String hashHex, int iterations) {
             this.saltHex = saltHex;
             this.hashHex = hashHex;
+            this.iterations = iterations;
         }
 
         public String getSaltHex() {
@@ -97,6 +116,10 @@ public final class PinHasher {
 
         public String getHashHex() {
             return hashHex;
+        }
+
+        public int getIterations() {
+            return iterations;
         }
     }
 }

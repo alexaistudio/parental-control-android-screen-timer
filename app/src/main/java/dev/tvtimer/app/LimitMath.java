@@ -1,7 +1,5 @@
 package dev.tvtimer.app;
 
-import java.util.Locale;
-
 public final class LimitMath {
     private static final long MAX_SINGLE_TICK_MILLIS = 60_000L;
 
@@ -30,6 +28,19 @@ public final class LimitMath {
         long hours = totalSeconds / 3_600L;
         long minutes = (totalSeconds % 3_600L) / 60L;
         long seconds = totalSeconds % 60L;
-        return String.format(Locale.ROOT, "%02d:%02d:%02d", hours, minutes, seconds);
+        StringBuilder result = new StringBuilder(8);
+        appendAtLeastTwoDigits(result, hours);
+        result.append(':');
+        appendAtLeastTwoDigits(result, minutes);
+        result.append(':');
+        appendAtLeastTwoDigits(result, seconds);
+        return result.toString();
+    }
+
+    private static void appendAtLeastTwoDigits(StringBuilder destination, long value) {
+        if (value < 10L) {
+            destination.append('0');
+        }
+        destination.append(value);
     }
 }

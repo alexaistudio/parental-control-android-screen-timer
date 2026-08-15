@@ -3,6 +3,7 @@ package dev.tvtimer.app;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
@@ -30,19 +31,25 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
     private ConfigStore store;
+    private ScrollView scrollView;
     private LinearLayout content;
     private boolean adminUnlocked;
     private TextView serviceStatus;
+    private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
+    private int screenGeneration;
+    private boolean destroyed;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         store = new ConfigStore(this);
 
-        ScrollView scrollView = new ScrollView(this);
+        scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
         scrollView.setBackgroundColor(0xff121212);
         content = new LinearLayout(this);
@@ -54,6 +61,23 @@ public final class MainActivity extends Activity {
         ));
         setContentView(scrollView);
         renderCurrentScreen();
+    }
+
+    @Override
+    protected void onDestroy() {
+        destroyed = true;
+        backgroundExecutor.shutdownNow();
+        super.onDestroy();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (store != null && store.isConfigured() && adminUnlocked) {
+            adminUnlocked = false;
+            renderLockedHome();
+            return;
+        }
+        super.onBackPressed();
     }
 
     @Override
@@ -103,7 +127,7 @@ public final class MainActivity extends Activity {
         TextView appHeading = addSubheading("Приложения");
         LinearLayout appList = new LinearLayout(this);
         appList.setOrientation(LinearLayout.VERTICAL);
-        Map<String, CheckBox> appChecks = populateAppChecks(appList, Collections.emptySet());
+        AppCheckState appChecks = populateAppChecksAsync(appList, Collections.emptySet());
         addSection(appList);
         appHeading.setVisibility(View.GONE);
         appList.setVisibility(View.GONE);
@@ -122,6 +146,7 @@ public final class MainActivity extends Activity {
         accessibilityConsent.setText("Я понимаю назначение службы и разрешаю определять активное приложение для применения лимита");
         accessibilityConsent.setTextColor(Color.WHITE);
         accessibilityConsent.setTextSize(17f);
+        applyRowFocus(accessibilityConsent);
         addSection(accessibilityConsent);
         addNotice(
                 "Аварийный сброс: подключение USB-флешки очищает PIN и выключает защиту. На некоторых прошивках события от USB-клавиатур и приёмников приложению не передаются.",
@@ -146,7 +171,11 @@ public final class MainActivity extends Activity {
                 return;
             }
             String scope = selectedApps.isChecked() ? AppScope.SELECTED : AppScope.ALL;
-            Set<String> selected = checkedPackages(appChecks);
+            if (AppScope.SELECTED.equals(scope) && !appChecks.loaded) {
+                showError("Подождите, пока загрузится список приложений");
+                return;
+            }
+            Set<String> selected = checkedPackages(appChecks.checks);
             if (AppScope.SELECTED.equals(scope) && selected.isEmpty()) {
                 showError("Выберите хотя бы одно приложение");
                 return;
@@ -156,52 +185,72 @@ public final class MainActivity extends Activity {
                 accessibilityConsent.requestFocus();
                 return;
             }
-            try {
-                if (!store.configure(value, dailyLimit, scope, selected)) {
-                    showError("Не удалось сохранить настройки");
-                    return;
+            int generation = screenGeneration;
+            setButtonBusy(save, true, "Сохранение…");
+            backgroundExecutor.execute(() -> {
+                try {
+                    boolean saved = store.configure(value, dailyLimit, scope, selected);
+                    postToScreen(generation, () -> {
+                        if (!saved) {
+                            setButtonBusy(save, false, "Сохранить и открыть включение службы");
+                            showError("Не удалось сохранить настройки");
+                            return;
+                        }
+                        adminUnlocked = true;
+                        Toast.makeText(this, "Настройки сохранены", Toast.LENGTH_SHORT).show();
+                        renderSettings();
+                        openAccessibilitySettings();
+                    });
+                } catch (RuntimeException exception) {
+                    postToScreen(generation, () -> {
+                        setButtonBusy(save, false, "Сохранить и открыть включение службы");
+                        showError("Проверьте введённые настройки");
+                    });
                 }
-            } catch (IllegalArgumentException exception) {
-                showError("Проверьте введённые настройки");
-                return;
-            }
-            adminUnlocked = true;
-            Toast.makeText(this, "Настройки сохранены", Toast.LENGTH_SHORT).show();
-            renderSettings();
-            openAccessibilitySettings();
+            });
         });
     }
 
     private void renderLockedHome() {
         clearScreen();
-        addTitle("TV Timer");
-        serviceStatus = addParagraph("");
-        updateServiceStatus();
+        content.setPadding(dp(18), dp(10), dp(18), dp(10));
+        content.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView title = textView("TV Timer — PIN родителя", 26f, Color.WHITE);
+        title.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams titleParams = matchWrapParams();
+        titleParams.bottomMargin = dp(4);
+        content.addView(title, titleParams);
 
-        String day = DayKey.localDay(System.currentTimeMillis());
-        ConfigStore.DayState dayState = store.getDayState(day);
-        long remaining = LimitMath.remaining(
-                store.getDailyLimitMillis(),
-                dayState.getBonusMillis(),
-                dayState.getUsedMillis()
-        );
-        addParagraph("Осталось сегодня: " + LimitMath.formatCountdown(remaining));
-        addParagraph("Защита: " + (store.isEnforcementEnabled() ? "включена" : "отключена родителем"));
-        addSubheading("PIN родителя");
+        int generation = screenGeneration;
         final PinPadView[] holder = new PinPadView[1];
         holder[0] = new PinPadView(this, enteredPin -> {
-            if (store.verifyPin(enteredPin)) {
-                adminUnlocked = true;
-                renderSettings();
-            } else {
-                holder[0].showError("Неверный PIN");
-            }
+            holder[0].setBusy(true);
+            backgroundExecutor.execute(() -> {
+                boolean verified;
+                try {
+                    verified = store.verifyPin(enteredPin);
+                } catch (RuntimeException exception) {
+                    verified = false;
+                }
+                boolean result = verified;
+                postToScreen(generation, () -> {
+                    if (result) {
+                        adminUnlocked = true;
+                        renderSettings();
+                    } else {
+                        holder[0].showError("Неверный PIN");
+                    }
+                });
+            });
         });
         addSection(holder[0]);
-
-        Button accessibility = addButton("Открыть системную настройку службы");
-        accessibility.setOnClickListener(view -> openAccessibilitySettings());
-        addNotice("Если PIN забыт, вставьте USB-флешку. PIN и настройки будут сброшены.", 0xffffcc80);
+        scrollView.post(() -> {
+            if (!destroyed && screenGeneration == generation && !adminUnlocked) {
+                content.setMinimumHeight(scrollView.getHeight());
+                content.setGravity(Gravity.CENTER);
+                scrollView.scrollTo(0, 0);
+            }
+        });
     }
 
     private void renderSettings() {
@@ -225,6 +274,7 @@ public final class MainActivity extends Activity {
         enforcement.setTextColor(Color.WHITE);
         enforcement.setTextSize(18f);
         enforcement.setChecked(store.isEnforcementEnabled());
+        applyRowFocus(enforcement);
         addSection(enforcement);
 
         EditText minutes = addInput("Минут в день (1–1440)", false);
@@ -244,7 +294,7 @@ public final class MainActivity extends Activity {
         TextView appHeading = addSubheading("Приложения");
         LinearLayout appList = new LinearLayout(this);
         appList.setOrientation(LinearLayout.VERTICAL);
-        Map<String, CheckBox> appChecks = populateAppChecks(appList, store.getSelectedPackages());
+        AppCheckState appChecks = populateAppChecksAsync(appList, store.getSelectedPackages());
         addSection(appList);
         boolean appsVisible = selectedApps.isChecked();
         appHeading.setVisibility(appsVisible ? View.VISIBLE : View.GONE);
@@ -266,7 +316,11 @@ public final class MainActivity extends Activity {
                 return;
             }
             String scope = selectedApps.isChecked() ? AppScope.SELECTED : AppScope.ALL;
-            Set<String> selected = checkedPackages(appChecks);
+            if (AppScope.SELECTED.equals(scope) && !appChecks.loaded) {
+                showError("Подождите, пока загрузится список приложений");
+                return;
+            }
+            Set<String> selected = checkedPackages(appChecks.checks);
             if (AppScope.SELECTED.equals(scope) && selected.isEmpty()) {
                 showError("Выберите хотя бы одно приложение");
                 return;
@@ -282,24 +336,42 @@ public final class MainActivity extends Activity {
                     return;
                 }
             }
-            try {
-                if (!store.updateSettings(dailyLimit, scope, selected, enforcement.isChecked())) {
-                    showError("Не удалось сохранить настройки");
-                    return;
+            boolean enforcementEnabled = enforcement.isChecked();
+            int generation = screenGeneration;
+            setButtonBusy(save, true, "Сохранение…");
+            backgroundExecutor.execute(() -> {
+                try {
+                    boolean settingsSaved = store.updateSettings(
+                            dailyLimit,
+                            scope,
+                            selected,
+                            enforcementEnabled
+                    );
+                    boolean pinSaved = replacementPin.isEmpty() || store.changePin(replacementPin);
+                    postToScreen(generation, () -> {
+                        if (!settingsSaved) {
+                            setButtonBusy(save, false, "Сохранить настройки");
+                            showError("Не удалось сохранить настройки");
+                            return;
+                        }
+                        if (!pinSaved) {
+                            setButtonBusy(save, false, "Сохранить настройки");
+                            showError("Настройки сохранены, но PIN изменить не удалось");
+                            return;
+                        }
+                        Toast.makeText(this, "Настройки сохранены", Toast.LENGTH_SHORT).show();
+                        renderSettings();
+                    });
+                } catch (RuntimeException exception) {
+                    postToScreen(generation, () -> {
+                        setButtonBusy(save, false, "Сохранить настройки");
+                        showError("Проверьте введённые настройки");
+                    });
                 }
-                if (!replacementPin.isEmpty() && !store.changePin(replacementPin)) {
-                    showError("Настройки сохранены, но PIN изменить не удалось");
-                    return;
-                }
-            } catch (IllegalArgumentException exception) {
-                showError("Проверьте введённые настройки");
-                return;
-            }
-            Toast.makeText(this, "Настройки сохранены", Toast.LENGTH_SHORT).show();
-            renderSettings();
+            });
         });
 
-        Button lock = addButton("Закрыть настройки");
+        Button lock = addButton("Заблокировать настройки");
         lock.setOnClickListener(view -> {
             adminUnlocked = false;
             renderLockedHome();
@@ -310,29 +382,50 @@ public final class MainActivity extends Activity {
         );
     }
 
-    private Map<String, CheckBox> populateAppChecks(LinearLayout container, Set<String> selected) {
-        Map<String, CheckBox> checks = new LinkedHashMap<>();
-        for (InstalledApp app : loadLaunchableApps(selected)) {
-            CheckBox checkBox = new CheckBox(this);
-            checkBox.setText(getString(R.string.app_entry_format, app.label, app.packageName));
-            checkBox.setTextColor(Color.WHITE);
-            checkBox.setTextSize(17f);
-            checkBox.setPadding(0, dp(4), 0, dp(4));
-            checkBox.setChecked(selected.contains(app.packageName));
-            container.addView(checkBox, matchWrapParams());
-            checks.put(app.packageName, checkBox);
-        }
-        if (checks.isEmpty()) {
-            TextView empty = textView("Запускаемые приложения не найдены", 16f, 0xffffcc80);
-            container.addView(empty, matchWrapParams());
-        }
-        return checks;
+    private AppCheckState populateAppChecksAsync(LinearLayout container, Set<String> selected) {
+        AppCheckState state = new AppCheckState();
+        TextView loading = textView("Загрузка списка приложений…", 16f, 0xffb0bec5);
+        container.addView(loading, matchWrapParams());
+        Set<String> safeSelected = selected == null
+                ? Collections.emptySet()
+                : new HashSet<>(selected);
+        int generation = screenGeneration;
+        backgroundExecutor.execute(() -> {
+            AppLoadResult result = loadLaunchableApps(safeSelected);
+            postToScreen(generation, () -> {
+                container.removeAllViews();
+                for (InstalledApp app : result.apps) {
+                    CheckBox checkBox = new CheckBox(this);
+                    checkBox.setText(getString(R.string.app_entry_format, app.label, app.packageName));
+                    checkBox.setTextColor(Color.WHITE);
+                    checkBox.setTextSize(17f);
+                    checkBox.setPadding(dp(8), dp(5), dp(8), dp(5));
+                    checkBox.setChecked(safeSelected.contains(app.packageName));
+                    applyRowFocus(checkBox);
+                    container.addView(checkBox, matchWrapParams());
+                    state.checks.put(app.packageName, checkBox);
+                }
+                if (state.checks.isEmpty()) {
+                    TextView empty = textView("Запускаемые приложения не найдены", 16f, 0xffffcc80);
+                    container.addView(empty, matchWrapParams());
+                }
+                state.loaded = true;
+                if (result.restricted) {
+                    Toast.makeText(
+                            this,
+                            "Прошивка ограничила чтение списка приложений",
+                            Toast.LENGTH_LONG
+                    ).show();
+                }
+            });
+        });
+        return state;
     }
 
-    private List<InstalledApp> loadLaunchableApps(Set<String> previouslySelected) {
+    private AppLoadResult loadLaunchableApps(Set<String> previouslySelected) {
         Map<String, InstalledApp> apps = new LinkedHashMap<>();
-        queryApps(Intent.CATEGORY_LEANBACK_LAUNCHER, apps);
-        queryApps(Intent.CATEGORY_LAUNCHER, apps);
+        boolean restricted = !queryApps(Intent.CATEGORY_LEANBACK_LAUNCHER, apps);
+        restricted |= !queryApps(Intent.CATEGORY_LAUNCHER, apps);
         for (String packageName : previouslySelected) {
             if (!apps.containsKey(packageName)) {
                 apps.put(packageName, new InstalledApp(packageName, packageName + " (сейчас не найдено)"));
@@ -342,11 +435,11 @@ public final class MainActivity extends Activity {
         Collections.sort(result, (first, second) -> first.label
                 .toLowerCase(Locale.ROOT)
                 .compareTo(second.label.toLowerCase(Locale.ROOT)));
-        return result;
+        return new AppLoadResult(result, restricted);
     }
 
     @SuppressWarnings("deprecation")
-    private void queryApps(String category, Map<String, InstalledApp> destination) {
+    private boolean queryApps(String category, Map<String, InstalledApp> destination) {
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.addCategory(category);
         PackageManager packageManager = getPackageManager();
@@ -363,8 +456,9 @@ public final class MainActivity extends Activity {
                 String label = loadedLabel == null ? packageName : loadedLabel.toString();
                 destination.put(packageName, new InstalledApp(packageName, label));
             }
+            return true;
         } catch (SecurityException exception) {
-            Toast.makeText(this, "Прошивка запретила чтение списка приложений", Toast.LENGTH_LONG).show();
+            return false;
         }
     }
 
@@ -428,8 +522,19 @@ public final class MainActivity extends Activity {
     }
 
     private void clearScreen() {
+        screenGeneration++;
         content.removeAllViews();
+        content.setMinimumHeight(0);
+        content.setGravity(Gravity.TOP);
+        content.setPadding(dp(40), dp(28), dp(40), dp(40));
         serviceStatus = null;
+        scrollView.scrollTo(0, 0);
+        int generation = screenGeneration;
+        scrollView.post(() -> {
+            if (!destroyed && screenGeneration == generation) {
+                scrollView.scrollTo(0, 0);
+            }
+        });
     }
 
     private void addTitle(String text) {
@@ -489,6 +594,8 @@ public final class MainActivity extends Activity {
         button.setTextColor(Color.WHITE);
         button.setTextSize(18f);
         button.setMinHeight(dp(50));
+        button.setPadding(dp(8), 0, dp(8), 0);
+        applyRowFocus(button);
         group.addView(button, matchWrapParams());
         return button;
     }
@@ -498,6 +605,8 @@ public final class MainActivity extends Activity {
         button.setText(text);
         button.setTextSize(17f);
         button.setMinHeight(dp(56));
+        button.setAllCaps(false);
+        applyTvButtonFocus(button);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 dp(60)
@@ -523,6 +632,48 @@ public final class MainActivity extends Activity {
         return view;
     }
 
+    private void applyTvButtonFocus(Button button) {
+        int[][] states = new int[][]{
+                new int[]{android.R.attr.state_focused},
+                new int[]{android.R.attr.state_pressed},
+                new int[]{}
+        };
+        button.setBackgroundTintList(new ColorStateList(
+                states,
+                new int[]{0xffffd54f, 0xffffb300, 0xff455a64}
+        ));
+        button.setTextColor(new ColorStateList(
+                states,
+                new int[]{Color.BLACK, Color.BLACK, Color.WHITE}
+        ));
+        button.setOnFocusChangeListener((view, hasFocus) -> {
+            float scale = hasFocus ? 1.06f : 1f;
+            view.animate().scaleX(scale).scaleY(scale).setDuration(90L).start();
+            view.setElevation(hasFocus ? dp(10) : dp(2));
+        });
+    }
+
+    private void applyRowFocus(View view) {
+        view.setOnFocusChangeListener((focusedView, hasFocus) -> {
+            focusedView.setBackgroundColor(hasFocus ? 0xff455a64 : Color.TRANSPARENT);
+            float scale = hasFocus ? 1.02f : 1f;
+            focusedView.animate().scaleX(scale).scaleY(scale).setDuration(90L).start();
+        });
+    }
+
+    private void setButtonBusy(Button button, boolean busy, String text) {
+        button.setEnabled(!busy);
+        button.setText(text);
+    }
+
+    private void postToScreen(int generation, Runnable action) {
+        runOnUiThread(() -> {
+            if (!destroyed && screenGeneration == generation) {
+                action.run();
+            }
+        });
+    }
+
     private LinearLayout.LayoutParams matchWrapParams() {
         return new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -545,6 +696,21 @@ public final class MainActivity extends Activity {
         private InstalledApp(String packageName, String label) {
             this.packageName = packageName;
             this.label = label;
+        }
+    }
+
+    private static final class AppCheckState {
+        private final Map<String, CheckBox> checks = new LinkedHashMap<>();
+        private boolean loaded;
+    }
+
+    private static final class AppLoadResult {
+        private final List<InstalledApp> apps;
+        private final boolean restricted;
+
+        private AppLoadResult(List<InstalledApp> apps, boolean restricted) {
+            this.apps = apps;
+            this.restricted = restricted;
         }
     }
 }
