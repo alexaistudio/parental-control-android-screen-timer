@@ -1,0 +1,89 @@
+plugins {
+    id "com.android.application"
+}
+
+def localSigningProperties = new Properties()
+def localSigningFile = rootProject.file("signing/release.properties")
+if (localSigningFile.isFile()) {
+    localSigningFile.withInputStream { stream ->
+        localSigningProperties.load(stream)
+    }
+}
+
+def signingValue = { name ->
+    def environmentValue = System.getenv(name)
+    environmentValue != null ? environmentValue : localSigningProperties.getProperty(name)
+}
+
+def releaseStoreFile = signingValue("TVTIMER_KEYSTORE_FILE")
+def releaseStorePassword = signingValue("TVTIMER_KEYSTORE_PASSWORD")
+def releaseKeyAlias = signingValue("TVTIMER_KEY_ALIAS")
+def releaseKeyPassword = signingValue("TVTIMER_KEY_PASSWORD")
+def hasReleaseSigning = [
+        releaseStoreFile,
+        releaseStorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword
+].every { value -> value != null && !value.isBlank() }
+
+android {
+    namespace "dev.tvtimer.app"
+    compileSdk 35
+    buildToolsVersion "35.0.0"
+
+    defaultConfig {
+        applicationId "dev.tvtimer.app"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile rootProject.file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = true
+    }
+}
+
+dependencies {
+    testImplementation "junit:junit:4.13.2"
+}
+
+tasks.configureEach { task ->
+    if (task.name == "assembleRelease" && !hasReleaseSigning) {
+        task.doFirst {
+            throw new GradleException(
+                    "Release signing is not configured. Create signing/release.properties or set the TVTIMER_KEYSTORE_* environment variables."
+            )
+        }
+    }
+}

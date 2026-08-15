@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TV Timer</string>
+    <string name="accessibility_service_label">Контроль времени TV Timer</string>
+    <string name="accessibility_service_description">Отслеживает только имя активного приложения, считает разрешённое время и показывает таймер или экран блокировки. Содержимое окон не читается и никуда не отправляется.</string>
+    <string name="default_minutes">60</string>
+    <string name="app_entry_format">%1$s\n%2$s</string>
+</resources>

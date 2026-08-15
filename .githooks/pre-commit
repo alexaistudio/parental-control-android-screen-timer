@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+python scripts/privacy_check.py --staged

@@ -1,0 +1,47 @@
+# Gradle and Android build state
+.gradle/
+.android-sdk/
+.kotlin/
+**/build/
+dist/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE state
+.idea/
+.vscode/
+*.iml
+
+# Signing and secrets
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.pem
+*.key
+*.p12
+*.pfx
+signing.properties
+signing/
+
+# Generated packages and diagnostics
+*.apk
+*.aab
+*.apks
+*.log
+*.hprof
+*.dmp
+coverage/
+
+# OS and temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
