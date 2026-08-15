@@ -78,6 +78,7 @@ public final class PinPadView extends LinearLayout {
         setBusy(false);
         message.setText(text);
         clearPin();
+        post(this::requestInitialFocus);
     }
 
     public void setBusy(boolean busy) {
