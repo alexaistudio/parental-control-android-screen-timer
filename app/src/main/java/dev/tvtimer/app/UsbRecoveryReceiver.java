@@ -3,6 +3,8 @@ package dev.tvtimer.app;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ComponentName;
+import android.app.admin.DevicePolicyManager;
 import android.net.Uri;
 import android.os.Environment;
 import android.util.Log;
@@ -49,9 +51,27 @@ public final class UsbRecoveryReceiver extends BroadcastReceiver {
             return;
         }
         if (store.resetForUsbRecovery()) {
+            removeDeviceAdmin(context);
             Log.i(TAG, "USB recovery cleared the local PIN and disabled enforcement");
         } else {
             Log.e(TAG, "USB recovery could not persist the reset");
+        }
+    }
+
+    private static void removeDeviceAdmin(Context context) {
+        DevicePolicyManager manager = (DevicePolicyManager) context.getSystemService(
+                Context.DEVICE_POLICY_SERVICE
+        );
+        if (manager == null) {
+            return;
+        }
+        ComponentName component = new ComponentName(context, TimerDeviceAdminReceiver.class);
+        try {
+            if (manager.isAdminActive(component)) {
+                manager.removeActiveAdmin(component);
+            }
+        } catch (RuntimeException exception) {
+            Log.w(TAG, "Unable to remove device-admin protection during USB recovery", exception);
         }
     }
 }

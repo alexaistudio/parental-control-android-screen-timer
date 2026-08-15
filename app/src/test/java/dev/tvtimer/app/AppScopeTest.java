@@ -16,6 +16,7 @@ public final class AppScopeTest {
         assertTrue(AppScope.isTarget(AppScope.ALL, "com.google.android.youtube.tv", OWN, null));
         assertFalse(AppScope.isTarget(AppScope.ALL, OWN, OWN, null));
         assertFalse(AppScope.isTarget(AppScope.ALL, "com.android.systemui", OWN, null));
+        assertFalse(AppScope.isTarget(AppScope.ALL, "com.google.android.tvlauncher", OWN, null));
         assertFalse(AppScope.isTarget(AppScope.ALL, "com.example.keyboard", OWN, null));
     }
 

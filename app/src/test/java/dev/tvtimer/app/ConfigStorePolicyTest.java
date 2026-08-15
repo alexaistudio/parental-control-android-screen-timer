@@ -13,6 +13,7 @@ public final class ConfigStorePolicyTest {
         assertTrue(ConfigStore.affectsRuntimeConfiguration("daily_limit_ms"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("scope"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("selected_packages"));
+        assertTrue(ConfigStore.affectsRuntimeConfiguration("maintenance_until_ms"));
 
         assertFalse(ConfigStore.affectsRuntimeConfiguration("usage_ms"));
         assertFalse(ConfigStore.affectsRuntimeConfiguration("bonus_ms"));

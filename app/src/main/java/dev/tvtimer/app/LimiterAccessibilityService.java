@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
@@ -29,6 +30,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,7 +38,7 @@ import java.util.concurrent.Executors;
 public final class LimiterAccessibilityService extends AccessibilityService {
     private static final String TAG = "TVTimerService";
     private static final long TICK_MILLIS = 1_000L;
-    private static final long PERSIST_INTERVAL_MILLIS = 15_000L;
+    private static final long PERSIST_INTERVAL_MILLIS = 5_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
@@ -56,15 +58,20 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private boolean dreaming;
     private boolean countedDuringPreviousInterval;
     private boolean connected;
+    private boolean configurationPresent;
     private boolean enforcementEnabled;
+    private boolean protectedScreenActive;
     private String targetScope = AppScope.ALL;
     private Set<String> targetPackages = Collections.emptySet();
+    private Set<String> homePackages = Collections.emptySet();
+    private Set<String> launchablePackages = Collections.emptySet();
     private long dailyLimitMillis = ConfigStore.DEFAULT_LIMIT_MILLIS;
     private long lastTickElapsed = -1L;
     private long pendingUsageMillis;
     private String pendingUsageDay;
     private TextView timerView;
     private View blockerView;
+    private BlockReason blockerReason;
     private int overlayFailureCount;
     private long nextOverlayAttemptElapsed;
     private BroadcastReceiver stateReceiver;
@@ -78,6 +85,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         store = new ConfigStore(this);
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        homePackages = loadHomePackages();
+        launchablePackages = loadLaunchablePackages();
         interactive = powerManager != null && powerManager.isInteractive();
         connected = true;
         refreshRuntimeConfiguration();
@@ -112,9 +121,31 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
         String nextPackage = packageName.toString();
         CharSequence className = event.getClassName();
+        String nextClass = className == null ? null : className.toString();
+        boolean protectionWasActive = protectedScreenActive;
+        if (nextPackage.equals(getPackageName())
+                && MainActivity.class.getName().equals(nextClass)) {
+            protectedScreenActive = false;
+        } else if (!nextPackage.equals(getPackageName())) {
+            if (RemovalProtectionPolicy.isSensitiveScreen(nextPackage, nextClass)) {
+                protectedScreenActive = true;
+            } else if (!RemovalProtectionPolicy.isProtectionPackage(nextPackage)) {
+                protectedScreenActive = false;
+            }
+        }
+        if (protectionWasActive != protectedScreenActive) {
+            evaluateNow();
+        }
+        if (!launchablePackages.isEmpty()
+                && !launchablePackages.contains(nextPackage)
+                && !homePackages.contains(nextPackage)
+                && !targetPackages.contains(nextPackage)
+                && !nextPackage.equals(getPackageName())) {
+            return;
+        }
         if (!ForegroundEventPolicy.shouldReplaceActivePackage(
                 nextPackage,
-                className == null ? null : className.toString(),
+                nextClass,
                 getPackageName(),
                 MainActivity.class.getName(),
                 type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
@@ -152,11 +183,16 @@ public final class LimiterAccessibilityService extends AccessibilityService {
 
     private void refreshRuntimeConfiguration() {
         if (store == null) {
+            configurationPresent = false;
             enforcementEnabled = false;
             targetScope = AppScope.ALL;
             targetPackages = Collections.emptySet();
             dailyLimitMillis = ConfigStore.DEFAULT_LIMIT_MILLIS;
             return;
+        }
+        configurationPresent = store.isConfigured();
+        if (!configurationPresent) {
+            protectedScreenActive = false;
         }
         enforcementEnabled = store.isEnforcementEnabled();
         targetScope = store.getScope();
@@ -186,8 +222,17 @@ public final class LimiterAccessibilityService extends AccessibilityService {
 
         boolean screenActive = powerManager != null && powerManager.isInteractive() && !dreaming;
         interactive = screenActive;
+        if (configurationPresent
+                && screenActive
+                && protectedScreenActive
+                && !store.isMaintenanceAllowed(System.currentTimeMillis())) {
+            countedDuringPreviousInterval = false;
+            showBlocker(BlockReason.REMOVAL_PROTECTION);
+            return;
+        }
         boolean targetActive = enforcementEnabled
                 && interactive
+                && !homePackages.contains(activePackage)
                 && AppScope.isTarget(
                         targetScope,
                         activePackage,
@@ -213,7 +258,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
         if (remaining <= 0L) {
             countedDuringPreviousInterval = false;
-            showBlocker();
+            showBlocker(BlockReason.TIME_LIMIT);
         } else {
             countedDuringPreviousInterval = true;
             showTimer(remaining);
@@ -264,22 +309,28 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
     }
 
-    private void showBlocker() {
+    private void showBlocker(BlockReason reason) {
         removeTimer();
-        if (blockerView != null || !canAttemptOverlay()) {
+        if (blockerView != null && blockerReason == reason) {
+            return;
+        }
+        if (blockerView != null) {
+            removeBlocker();
+        }
+        if (!canAttemptOverlay()) {
             return;
         }
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
-        root.setFocusable(true);
-        root.setFocusableInTouchMode(true);
+        root.setFocusable(false);
+        root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
 
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setGravity(Gravity.CENTER_HORIZONTAL);
         panel.setPadding(dp(24), dp(20), dp(24), dp(20));
-        renderPinPrompt(panel);
+        PinPadView initialPinPad = renderPinPrompt(panel, reason);
 
         FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
                 Math.min(dp(620), getResources().getDisplayMetrics().widthPixels - dp(40)),
@@ -293,28 +344,34 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-                        | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.OPAQUE
         );
         params.gravity = Gravity.TOP | Gravity.START;
         try {
             windowManager.addView(root, params);
             blockerView = root;
-            root.requestFocus();
+            blockerReason = reason;
+            initialPinPad.post(initialPinPad::requestInitialFocus);
             recordOverlaySuccess();
         } catch (RuntimeException exception) {
             recordOverlayFailure("blocker", exception);
         }
     }
 
-    private void renderPinPrompt(LinearLayout panel) {
+    private PinPadView renderPinPrompt(LinearLayout panel, BlockReason reason) {
         int generation = ++pinPromptGeneration;
         panel.removeAllViews();
-        TextView title = overlayText("Время закончилось", 30f, Color.WHITE);
+        String titleText = reason == BlockReason.TIME_LIMIT
+                ? "Время закончилось"
+                : "Защита настроек";
+        String instructionText = reason == BlockReason.TIME_LIMIT
+                ? "Введите PIN родителя"
+                : "Для удаления или отключения TV Timer нужен PIN родителя";
+        TextView title = overlayText(titleText, 30f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
         panel.addView(title, wrapParams(dp(8)));
-        TextView instructions = overlayText("Введите PIN родителя", 20f, 0xffeeeeee);
+        TextView instructions = overlayText(instructionText, 20f, 0xffeeeeee);
         instructions.setGravity(Gravity.CENTER);
         panel.addView(instructions, wrapParams(dp(12)));
 
@@ -337,7 +394,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                         return;
                     }
                     if (result) {
-                        renderParentActions(panel);
+                        renderParentActions(panel, reason);
                     } else {
                         holder[0].showError("Неверный PIN");
                     }
@@ -345,14 +402,41 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             });
         });
         panel.addView(holder[0], wrapParams(0));
+        holder[0].post(holder[0]::requestInitialFocus);
+        return holder[0];
     }
 
-    private void renderParentActions(LinearLayout panel) {
+    private void renderParentActions(LinearLayout panel, BlockReason reason) {
         pinPromptGeneration++;
         panel.removeAllViews();
         TextView title = overlayText("Что сделать?", 28f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
         panel.addView(title, wrapParams(dp(18)));
+
+        if (reason == BlockReason.REMOVAL_PROTECTION) {
+            Button allow = overlayButton("Разрешить изменения на 2 минуты");
+            allow.setOnClickListener(view -> {
+                if (store.grantMaintenanceWindow()) {
+                    removeBlocker();
+                    evaluateNow();
+                }
+            });
+            panel.addView(allow, buttonParams());
+
+            Button home = overlayButton("Вернуться на главный экран");
+            home.setOnClickListener(view -> {
+                protectedScreenActive = false;
+                removeBlocker();
+                performGlobalAction(GLOBAL_ACTION_HOME);
+            });
+            panel.addView(home, buttonParams());
+
+            Button back = overlayButton("Назад");
+            back.setOnClickListener(view -> renderPinPrompt(panel, reason));
+            panel.addView(back, buttonParams());
+            allow.post(allow::requestFocus);
+            return;
+        }
 
         Button addTime = overlayButton("Добавить 15 минут");
         addTime.setOnClickListener(view -> {
@@ -378,9 +462,9 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         panel.addView(disable, buttonParams());
 
         Button back = overlayButton("Назад");
-        back.setOnClickListener(view -> renderPinPrompt(panel));
+        back.setOnClickListener(view -> renderPinPrompt(panel, reason));
         panel.addView(back, buttonParams());
-        addTime.requestFocus();
+        addTime.post(addTime::requestFocus);
     }
 
     private void registerReceivers() {
@@ -429,6 +513,41 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         usbFilter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         usbFilter.addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED);
         registerSystemReceiver(usbReceiver, usbFilter);
+    }
+
+    private Set<String> loadHomePackages() {
+        Set<String> result = new HashSet<>();
+        Intent homeIntent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+        try {
+            for (ResolveInfo info : getPackageManager().queryIntentActivities(homeIntent, 0)) {
+                if (info.activityInfo != null && info.activityInfo.packageName != null) {
+                    result.add(info.activityInfo.packageName);
+                }
+            }
+        } catch (RuntimeException exception) {
+            Log.w(TAG, "Unable to enumerate TV launcher packages", exception);
+        }
+        return result;
+    }
+
+    private Set<String> loadLaunchablePackages() {
+        Set<String> result = new HashSet<>();
+        collectLaunchablePackages(Intent.CATEGORY_LEANBACK_LAUNCHER, result);
+        collectLaunchablePackages(Intent.CATEGORY_LAUNCHER, result);
+        return result;
+    }
+
+    private void collectLaunchablePackages(String category, Set<String> destination) {
+        Intent intent = new Intent(Intent.ACTION_MAIN).addCategory(category);
+        try {
+            for (ResolveInfo info : getPackageManager().queryIntentActivities(intent, 0)) {
+                if (info.activityInfo != null && info.activityInfo.packageName != null) {
+                    destination.add(info.activityInfo.packageName);
+                }
+            }
+        } catch (RuntimeException exception) {
+            Log.w(TAG, "Unable to enumerate launchable TV applications", exception);
+        }
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
@@ -511,7 +630,13 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             pinPromptGeneration++;
             removeViewSafely(blockerView);
             blockerView = null;
+            blockerReason = null;
         }
+    }
+
+    private enum BlockReason {
+        TIME_LIMIT,
+        REMOVAL_PROTECTION
     }
 
     private void removeViewSafely(View view) {

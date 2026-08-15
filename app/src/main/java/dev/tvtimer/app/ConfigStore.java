@@ -23,9 +23,11 @@ public final class ConfigStore {
     private static final String KEY_USAGE_MILLIS = "usage_ms";
     private static final String KEY_BONUS_MILLIS = "bonus_ms";
     private static final String KEY_USB_RECOVERY = "usb_recovery";
+    private static final String KEY_MAINTENANCE_UNTIL = "maintenance_until_ms";
 
     public static final long DEFAULT_LIMIT_MILLIS = 60L * 60L * 1_000L;
     public static final long EXTRA_TIME_MILLIS = 15L * 60L * 1_000L;
+    public static final long MAINTENANCE_WINDOW_MILLIS = 2L * 60L * 1_000L;
 
     private final SharedPreferences preferences;
 
@@ -144,8 +146,7 @@ public final class ConfigStore {
         long current = preferences.getLong(KEY_USAGE_MILLIS, 0L);
         long safeDelta = Math.max(0L, deltaMillis);
         long updated = current > Long.MAX_VALUE - safeDelta ? Long.MAX_VALUE : current + safeDelta;
-        preferences.edit().putLong(KEY_USAGE_MILLIS, updated).apply();
-        return true;
+        return preferences.edit().putLong(KEY_USAGE_MILLIS, updated).commit();
     }
 
     public synchronized boolean addBonus(String dayKey, long bonusMillis) {
@@ -160,6 +161,19 @@ public final class ConfigStore {
     public boolean setEnforcementEnabled(boolean enabled) {
         preferences.edit().putBoolean(KEY_ENFORCEMENT_ENABLED, enabled).apply();
         return true;
+    }
+
+    public boolean grantMaintenanceWindow() {
+        return preferences.edit()
+                .putLong(
+                        KEY_MAINTENANCE_UNTIL,
+                        System.currentTimeMillis() + MAINTENANCE_WINDOW_MILLIS
+                )
+                .commit();
+    }
+
+    public boolean isMaintenanceAllowed(long nowMillis) {
+        return nowMillis < preferences.getLong(KEY_MAINTENANCE_UNTIL, 0L);
     }
 
     public boolean resetForUsbRecovery() {
@@ -187,7 +201,8 @@ public final class ConfigStore {
                 || KEY_ENFORCEMENT_ENABLED.equals(key)
                 || KEY_DAILY_LIMIT.equals(key)
                 || KEY_SCOPE.equals(key)
-                || KEY_SELECTED_PACKAGES.equals(key);
+                || KEY_SELECTED_PACKAGES.equals(key)
+                || KEY_MAINTENANCE_UNTIL.equals(key);
     }
 
     private void ensureDay(String dayKey) {

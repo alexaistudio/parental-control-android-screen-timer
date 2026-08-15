@@ -19,7 +19,11 @@ TVUsage публично описывает сочетание Usage Stats, acce
 - Google TV Kids profiles уже имеют дневные лимиты, bedtime и bonus time, но наличие зависит от устройства, региона и профиля: <https://support.google.com/googletv/answer/10070481>
 - Текущий список возможностей tvusage и описание его accessibility-механизма: <https://play.google.com/store/apps/details?id=in.codeseed.tvusage>
 - Политика Google Play требует отдельного заметного раскрытия и положительного согласия для accessibility-службы, если приложение не является accessibility tool: <https://support.google.com/googleplay/android-developer/answer/10964491>
+- GitHub Releases API возвращает метаданные ассетов, включая SHA-256 digest: <https://docs.github.com/en/rest/releases/assets>
+- Android предоставляет сертификаты установленного и архивного APK через `SigningInfo`: <https://developer.android.com/reference/android/content/pm/SigningInfo>
+- Загрузка APK выполняется системным `DownloadManager`, а установка остаётся отдельным действием пользователя: <https://developer.android.com/reference/android/app/DownloadManager>
+- Настоящий `setUninstallBlocked` доступен Device/Profile Owner, поэтому обычный Device Admin рассматривается только как дополнительный барьер: <https://developer.android.com/reference/android/app/admin/DevicePolicyManager>
 
 ## Почему нет root, Usage Access и Device Owner
 
-Root противоречит требованию и повышает риск для телевизора. Usage Access хорошо подходит для истории, но не нужен для реального времени, когда уже используется accessibility event. Device Owner даёт более сильную защиту от обхода, но обычно требует factory reset/ADB provisioning и не является универсальной установкой обычного APK. Поэтому выбран обратимый пользовательский механизм с честно указанными ограничениями.
+Root противоречит требованию и повышает риск для телевизора. Usage Access хорошо подходит для истории, но не нужен для реального времени, когда уже используется accessibility event. Device Owner даёт более сильную защиту от обхода, но обычно требует factory reset/ADB provisioning и не является универсальной установкой обычного APK. Поэтому выбран обратимый PIN-барьер плюс опциональный обычный Device Admin с честно указанными ограничениями.

@@ -2,6 +2,8 @@ package dev.tvtimer.app;
 
 public final class LimitMath {
     private static final long MAX_SINGLE_TICK_MILLIS = 60_000L;
+    private static final long MIN_DAILY_MINUTES = 1L;
+    private static final long MAX_DAILY_MINUTES = 1_440L;
 
     private LimitMath() {
     }
@@ -21,6 +23,17 @@ public final class LimitMath {
             allowance = Long.MAX_VALUE;
         }
         return Math.max(0L, allowance - Math.max(0L, usedMillis));
+    }
+
+    public static long adjustDailyMinutes(long currentMinutes, long deltaMinutes) {
+        long safeCurrent = Math.max(MIN_DAILY_MINUTES, Math.min(MAX_DAILY_MINUTES, currentMinutes));
+        long adjusted;
+        try {
+            adjusted = Math.addExact(safeCurrent, deltaMinutes);
+        } catch (ArithmeticException exception) {
+            adjusted = deltaMinutes > 0L ? Long.MAX_VALUE : Long.MIN_VALUE;
+        }
+        return Math.max(MIN_DAILY_MINUTES, Math.min(MAX_DAILY_MINUTES, adjusted));
     }
 
     public static String formatCountdown(long remainingMillis) {

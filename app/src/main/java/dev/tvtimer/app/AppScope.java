@@ -35,6 +35,7 @@ public final class AppScope {
         return packageName.equals(ownPackage)
                 || packageName.equals("android")
                 || packageName.equals("com.android.systemui")
+                || packageName.contains("launcher")
                 || packageName.contains("inputmethod")
                 || packageName.contains("keyboard");
     }

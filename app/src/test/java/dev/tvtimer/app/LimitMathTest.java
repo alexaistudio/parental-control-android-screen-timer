@@ -26,4 +26,12 @@ public final class LimitMathTest {
         assertEquals("00:00:01", LimitMath.formatCountdown(1L));
         assertEquals("01:01:01", LimitMath.formatCountdown(3_661_000L));
     }
+
+    @Test
+    public void remoteLimitControlsClampToOneDay() {
+        assertEquals(45L, LimitMath.adjustDailyMinutes(60L, -15L));
+        assertEquals(1L, LimitMath.adjustDailyMinutes(5L, -15L));
+        assertEquals(1_440L, LimitMath.adjustDailyMinutes(1_435L, 15L));
+        assertEquals(1_440L, LimitMath.adjustDailyMinutes(60L, Long.MAX_VALUE));
+    }
 }

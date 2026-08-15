@@ -95,6 +95,12 @@ public final class PinPadView extends LinearLayout {
         updateDisplay();
     }
 
+    public void requestInitialFocus() {
+        if (keys.getChildCount() > 0) {
+            keys.getChildAt(0).requestFocus();
+        }
+    }
+
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (busy) {
@@ -112,10 +118,6 @@ public final class PinPadView extends LinearLayout {
             }
             if (keyCode == KeyEvent.KEYCODE_DEL) {
                 erase();
-                return true;
-            }
-            if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
-                submit();
                 return true;
             }
         }

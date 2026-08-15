@@ -1,15 +1,24 @@
 package dev.tvtimer.app;
 
 import android.app.Activity;
+import android.app.DownloadManager;
+import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.res.ColorStateList;
+import android.database.Cursor;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.InputType;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,6 +32,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -35,19 +46,33 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
+    private static final String TAG = "TVTimerActivity";
+    private static final String APK_MIME_TYPE = "application/vnd.android.package-archive";
+    private static final long UPDATE_TIMEOUT_MILLIS = 15L * 60L * 1_000L;
+
     private ConfigStore store;
+    private DownloadManager downloadManager;
+    private DevicePolicyManager devicePolicyManager;
     private ScrollView scrollView;
     private LinearLayout content;
     private boolean adminUnlocked;
     private TextView serviceStatus;
+    private TextView deviceAdminStatus;
+    private Button deviceAdminButton;
     private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
     private int screenGeneration;
     private boolean destroyed;
+    private volatile long activeDownloadId = -1L;
+    private volatile File activeDownloadFile;
+    private volatile boolean updateReady;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         store = new ConfigStore(this);
+        downloadManager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        devicePolicyManager = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
 
         scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
@@ -67,6 +92,10 @@ public final class MainActivity extends Activity {
     protected void onDestroy() {
         destroyed = true;
         backgroundExecutor.shutdownNow();
+        updateExecutor.shutdownNow();
+        if (!updateReady) {
+            discardActiveDownload();
+        }
         super.onDestroy();
     }
 
@@ -91,6 +120,8 @@ public final class MainActivity extends Activity {
             renderSetup();
         } else if (serviceStatus != null) {
             updateServiceStatus();
+            updateDeviceAdminStatus();
+            configureDeviceAdminButton();
         }
     }
 
@@ -114,8 +145,9 @@ public final class MainActivity extends Activity {
 
         EditText pin = addInput("PIN: 4–8 цифр", true);
         EditText confirmation = addInput("Повторите PIN", true);
-        EditText minutes = addInput("Минут в день (1–1440)", false);
-        minutes.setText(getString(R.string.default_minutes));
+        MinuteLimitControl limitControl = addMinuteLimitControl(
+                Long.parseLong(getString(R.string.default_minutes))
+        );
 
         RadioGroup scopeGroup = new RadioGroup(this);
         scopeGroup.setOrientation(LinearLayout.VERTICAL);
@@ -166,10 +198,7 @@ public final class MainActivity extends Activity {
                 confirmation.requestFocus();
                 return;
             }
-            Long dailyLimit = parseLimit(minutes);
-            if (dailyLimit == null) {
-                return;
-            }
+            long dailyLimit = limitControl.getLimitMillis();
             String scope = selectedApps.isChecked() ? AppScope.SELECTED : AppScope.ALL;
             if (AppScope.SELECTED.equals(scope) && !appChecks.loaded) {
                 showError("Подождите, пока загрузится список приложений");
@@ -262,6 +291,12 @@ public final class MainActivity extends Activity {
         Button accessibility = addButton("Открыть системную настройку службы");
         accessibility.setOnClickListener(view -> openAccessibilitySettings());
 
+        addSubheading("Защита удаления");
+        deviceAdminStatus = addParagraph("");
+        deviceAdminButton = addButton("Включить усиленную защиту удаления");
+        updateDeviceAdminStatus();
+        configureDeviceAdminButton();
+
         String day = DayKey.localDay(System.currentTimeMillis());
         ConfigStore.DayState dayState = store.getDayState(day);
         addParagraph("Использовано сегодня: " + LimitMath.formatCountdown(dayState.getUsedMillis()));
@@ -277,8 +312,9 @@ public final class MainActivity extends Activity {
         applyRowFocus(enforcement);
         addSection(enforcement);
 
-        EditText minutes = addInput("Минут в день (1–1440)", false);
-        minutes.setText(String.valueOf(store.getDailyLimitMillis() / 60_000L));
+        MinuteLimitControl limitControl = addMinuteLimitControl(
+                store.getDailyLimitMillis() / 60_000L
+        );
 
         RadioGroup scopeGroup = new RadioGroup(this);
         scopeGroup.setOrientation(LinearLayout.VERTICAL);
@@ -311,10 +347,7 @@ public final class MainActivity extends Activity {
 
         Button save = addButton("Сохранить настройки");
         save.setOnClickListener(view -> {
-            Long dailyLimit = parseLimit(minutes);
-            if (dailyLimit == null) {
-                return;
-            }
+            long dailyLimit = limitControl.getLimitMillis();
             String scope = selectedApps.isChecked() ? AppScope.SELECTED : AppScope.ALL;
             if (AppScope.SELECTED.equals(scope) && !appChecks.loaded) {
                 showError("Подождите, пока загрузится список приложений");
@@ -370,6 +403,13 @@ public final class MainActivity extends Activity {
                 }
             });
         });
+
+        addSubheading("Обновления");
+        TextView updateStatus = addParagraph("Установлена версия " + BuildConfig.VERSION_NAME);
+        updateStatus.setTypeface(Typeface.MONOSPACE);
+        Button updateButton = addButton("Проверить обновление");
+        UpdateUi updateUi = new UpdateUi(screenGeneration, updateStatus, updateButton);
+        updateButton.setOnClickListener(view -> checkForUpdate(updateUi));
 
         Button lock = addButton("Заблокировать настройки");
         lock.setOnClickListener(view -> {
@@ -472,20 +512,6 @@ public final class MainActivity extends Activity {
         return selected;
     }
 
-    private Long parseLimit(EditText input) {
-        try {
-            long minutes = Long.parseLong(input.getText().toString());
-            if (minutes < 1L || minutes > 1_440L) {
-                throw new NumberFormatException("outside range");
-            }
-            return minutes * 60_000L;
-        } catch (NumberFormatException exception) {
-            showError("Укажите от 1 до 1440 минут");
-            input.requestFocus();
-            return null;
-        }
-    }
-
     private void updateServiceStatus() {
         if (serviceStatus != null) {
             serviceStatus.setText(isAccessibilityServiceEnabled()
@@ -493,6 +519,61 @@ public final class MainActivity extends Activity {
                     : "Служба контроля: выключена — лимит пока не применяется");
             serviceStatus.setTextColor(isAccessibilityServiceEnabled() ? 0xffa5d6a7 : 0xffffcc80);
         }
+    }
+
+    private void updateDeviceAdminStatus() {
+        if (deviceAdminStatus == null) {
+            return;
+        }
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN)) {
+            deviceAdminStatus.setText("Прошивка не поддерживает администраторов устройства.");
+            deviceAdminStatus.setTextColor(0xffffcc80);
+            return;
+        }
+        boolean active = devicePolicyManager != null && devicePolicyManager.isAdminActive(
+                new ComponentName(this, TimerDeviceAdminReceiver.class)
+        );
+        deviceAdminStatus.setText(active
+                ? "Усиленная защита удаления: включена"
+                : "Усиленная защита удаления: выключена");
+        deviceAdminStatus.setTextColor(active ? 0xffa5d6a7 : 0xffffcc80);
+    }
+
+    private void configureDeviceAdminButton() {
+        if (deviceAdminButton == null) {
+            return;
+        }
+        deviceAdminButton.setEnabled(true);
+        deviceAdminButton.setText("Включить усиленную защиту удаления");
+        deviceAdminButton.setOnClickListener(null);
+        boolean supported = getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN);
+        boolean active = supported
+                && devicePolicyManager != null
+                && devicePolicyManager.isAdminActive(
+                        new ComponentName(this, TimerDeviceAdminReceiver.class)
+                );
+        if (!supported || active) {
+            deviceAdminButton.setEnabled(false);
+            deviceAdminButton.setText(active ? "Защита уже включена" : "Функция недоступна");
+            return;
+        }
+        deviceAdminButton.setOnClickListener(view -> {
+            store.grantMaintenanceWindow();
+            Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+                    .putExtra(
+                            DevicePolicyManager.EXTRA_DEVICE_ADMIN,
+                            new ComponentName(this, TimerDeviceAdminReceiver.class)
+                    )
+                    .putExtra(
+                            DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                            getString(R.string.device_admin_description)
+                    );
+            try {
+                startActivity(intent);
+            } catch (RuntimeException exception) {
+                showError("Прошивка не открыла включение защиты удаления");
+            }
+        });
     }
 
     private boolean isAccessibilityServiceEnabled() {
@@ -515,9 +596,233 @@ public final class MainActivity extends Activity {
 
     private void openAccessibilitySettings() {
         try {
+            store.grantMaintenanceWindow();
             startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
         } catch (RuntimeException exception) {
             showError("Прошивка не открыла настройки специальных возможностей");
+        }
+    }
+
+    private void checkForUpdate(UpdateUi ui) {
+        if (activeDownloadId >= 0L) {
+            discardActiveDownload();
+        }
+        setButtonBusy(ui.button, true, "Проверяю…");
+        ui.status.setText("Проверяю последний стабильный релиз…");
+        updateExecutor.execute(() -> {
+            try {
+                GithubUpdateClient.ReleaseInfo release = new GithubUpdateClient().fetchLatest();
+                if (!VersionComparator.isNewer(release.version, BuildConfig.VERSION_NAME)) {
+                    postToScreen(ui.generation, () -> {
+                        ui.status.setText("Установлена актуальная версия " + BuildConfig.VERSION_NAME);
+                        resetUpdateButton(ui);
+                    });
+                    return;
+                }
+                postToScreen(ui.generation, () -> startUpdateDownload(release, ui));
+            } catch (Exception exception) {
+                Log.e(TAG, "Unable to check GitHub release", exception);
+                postToScreen(ui.generation, () -> {
+                    ui.status.setText("Не удалось проверить обновление. Проверьте интернет и повторите.");
+                    resetUpdateButton(ui);
+                });
+            }
+        });
+    }
+
+    private void startUpdateDownload(GithubUpdateClient.ReleaseInfo release, UpdateUi ui) {
+        if (downloadManager == null) {
+            ui.status.setText("Системная служба загрузок недоступна на этой прошивке.");
+            resetUpdateButton(ui);
+            return;
+        }
+        File downloads = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (downloads == null) {
+            ui.status.setText("Хранилище для обновления недоступно.");
+            resetUpdateButton(ui);
+            return;
+        }
+        String relativePath = "updates/" + release.assetName;
+        File target = new File(downloads, relativePath);
+        File parent = target.getParentFile();
+        if ((parent != null && !parent.exists() && !parent.mkdirs())
+                || (target.exists() && !target.delete())) {
+            ui.status.setText("Не удалось подготовить файл обновления.");
+            resetUpdateButton(ui);
+            return;
+        }
+        try {
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(release.downloadUrl))
+                    .setTitle("TV Timer " + release.version)
+                    .setDescription("Безопасное обновление TV Timer")
+                    .setMimeType(APK_MIME_TYPE)
+                    .setAllowedOverMetered(true)
+                    .setAllowedOverRoaming(true)
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                    .setDestinationInExternalFilesDir(
+                            this,
+                            Environment.DIRECTORY_DOWNLOADS,
+                            relativePath
+                    );
+            long downloadId = downloadManager.enqueue(request);
+            activeDownloadId = downloadId;
+            activeDownloadFile = target;
+            updateReady = false;
+            ui.status.setText(
+                    "Обновление найдено: " + release.tag
+                            + "\nСкачиваю…\n"
+                            + UpdateProgress.render(0L, 0L)
+            );
+            updateExecutor.execute(() -> monitorDownload(downloadId, target, release, ui));
+        } catch (RuntimeException exception) {
+            Log.e(TAG, "Unable to enqueue update", exception);
+            ui.status.setText("Системная служба не смогла начать загрузку.");
+            resetUpdateButton(ui);
+        }
+    }
+
+    private void monitorDownload(
+            long downloadId,
+            File target,
+            GithubUpdateClient.ReleaseInfo release,
+            UpdateUi ui
+    ) {
+        int previousPercent = -2;
+        long deadline = SystemClock.elapsedRealtime() + UPDATE_TIMEOUT_MILLIS;
+        try {
+            boolean complete = false;
+            while (!Thread.currentThread().isInterrupted()
+                    && downloadId == activeDownloadId
+                    && !complete) {
+                if (SystemClock.elapsedRealtime() >= deadline) {
+                    throw new IOException("Update download timed out");
+                }
+                DownloadSnapshot snapshot = queryDownload(downloadId);
+                if (snapshot.status == DownloadManager.STATUS_FAILED) {
+                    throw new IOException("DownloadManager failure " + snapshot.reason);
+                }
+                if (snapshot.status == DownloadManager.STATUS_SUCCESSFUL) {
+                    complete = true;
+                }
+                int percent = UpdateProgress.percent(snapshot.downloadedBytes, snapshot.totalBytes);
+                if (percent != previousPercent) {
+                    previousPercent = percent;
+                    String progress = UpdateProgress.render(
+                            snapshot.downloadedBytes,
+                            snapshot.totalBytes
+                    );
+                    postToScreen(ui.generation, () -> ui.status.setText(
+                            "Обновление найдено: " + release.tag
+                                    + "\nСкачиваю…\n" + progress
+                    ));
+                }
+                if (!complete) {
+                    Thread.sleep(400L);
+                }
+            }
+            if (downloadId != activeDownloadId || Thread.currentThread().isInterrupted()) {
+                return;
+            }
+            UpdateVerifier.verify(this, target, release.digest, release.version);
+            Uri installerUri = downloadManager.getUriForDownloadedFile(downloadId);
+            if (installerUri == null) {
+                throw new IOException("DownloadManager did not provide a content URI");
+            }
+            updateReady = true;
+            postToScreen(ui.generation, () -> {
+                ui.status.setText(
+                        "Обновление " + release.tag + " скачано\n"
+                                + UpdateProgress.render(1L, 1L)
+                                + "\nSHA-256 и подпись проверены."
+                );
+                ui.button.setEnabled(true);
+                ui.button.setText("Установить обновление");
+                ui.button.setOnClickListener(view -> installUpdate(downloadId, ui));
+            });
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        } catch (Exception exception) {
+            Log.e(TAG, "Update download or verification failed", exception);
+            if (downloadId == activeDownloadId) {
+                discardActiveDownload();
+            }
+            postToScreen(ui.generation, () -> {
+                ui.status.setText("Обновление отклонено: загрузка или проверка APK не пройдена.");
+                resetUpdateButton(ui);
+            });
+        }
+    }
+
+    private DownloadSnapshot queryDownload(long downloadId) throws IOException {
+        DownloadManager.Query query = new DownloadManager.Query().setFilterById(downloadId);
+        try (Cursor cursor = downloadManager.query(query)) {
+            if (cursor == null || !cursor.moveToFirst()) {
+                throw new IOException("Download disappeared");
+            }
+            return new DownloadSnapshot(
+                    cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)),
+                    cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON)),
+                    cursor.getLong(cursor.getColumnIndexOrThrow(
+                            DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR
+                    )),
+                    cursor.getLong(cursor.getColumnIndexOrThrow(
+                            DownloadManager.COLUMN_TOTAL_SIZE_BYTES
+                    ))
+            );
+        }
+    }
+
+    private void installUpdate(long downloadId, UpdateUi ui) {
+        store.grantMaintenanceWindow();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                && !getPackageManager().canRequestPackageInstalls()) {
+            ui.status.setText(
+                    "Разрешите TV Timer установку из этого источника, затем вернитесь и нажмите «Установить»."
+            );
+            try {
+                startActivity(new Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:" + getPackageName())
+                ));
+            } catch (RuntimeException exception) {
+                showError("Прошивка не открыла разрешение установки");
+            }
+            return;
+        }
+        Uri uri = downloadManager == null ? null : downloadManager.getUriForDownloadedFile(downloadId);
+        if (uri == null) {
+            ui.status.setText("Файл обновления больше недоступен. Проверьте обновление снова.");
+            resetUpdateButton(ui);
+            return;
+        }
+        try {
+            Intent install = new Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, APK_MIME_TYPE)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(install);
+        } catch (RuntimeException exception) {
+            Log.e(TAG, "Unable to open package installer", exception);
+            showError("Прошивка не открыла установщик APK");
+        }
+    }
+
+    private void resetUpdateButton(UpdateUi ui) {
+        ui.button.setEnabled(true);
+        ui.button.setText("Проверить обновление");
+        ui.button.setOnClickListener(view -> checkForUpdate(ui));
+    }
+
+    private synchronized void discardActiveDownload() {
+        long downloadId = activeDownloadId;
+        activeDownloadId = -1L;
+        updateReady = false;
+        if (downloadManager != null && downloadId >= 0L) {
+            downloadManager.remove(downloadId);
+        }
+        File target = activeDownloadFile;
+        activeDownloadFile = null;
+        if (target != null && target.exists() && !target.delete()) {
+            Log.w(TAG, "Unable to delete an obsolete update file");
         }
     }
 
@@ -528,6 +833,8 @@ public final class MainActivity extends Activity {
         content.setGravity(Gravity.TOP);
         content.setPadding(dp(40), dp(28), dp(40), dp(40));
         serviceStatus = null;
+        deviceAdminStatus = null;
+        deviceAdminButton = null;
         scrollView.scrollTo(0, 0);
         int generation = screenGeneration;
         scrollView.post(() -> {
@@ -570,6 +877,44 @@ public final class MainActivity extends Activity {
         params.topMargin = dp(10);
         params.bottomMargin = dp(8);
         content.addView(notice, params);
+    }
+
+    private MinuteLimitControl addMinuteLimitControl(long initialMinutes) {
+        addSubheading("Дневной лимит");
+        MinuteLimitControl control = new MinuteLimitControl(initialMinutes);
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(dp(12), dp(8), dp(12), dp(10));
+        container.setBackgroundColor(0xff263238);
+
+        control.valueView.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams valueParams = matchWrapParams();
+        valueParams.bottomMargin = dp(6);
+        container.addView(control.valueView, valueParams);
+
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        buttons.setGravity(Gravity.CENTER);
+        addLimitButton(buttons, "−15", () -> control.adjust(-15L));
+        addLimitButton(buttons, "−1", () -> control.adjust(-1L));
+        addLimitButton(buttons, "+1", () -> control.adjust(1L));
+        addLimitButton(buttons, "+15", () -> control.adjust(15L));
+        container.addView(buttons, matchWrapParams());
+        addSection(container);
+        return control;
+    }
+
+    private void addLimitButton(LinearLayout row, String text, Runnable action) {
+        Button button = new Button(this);
+        button.setText(text);
+        button.setTextSize(18f);
+        button.setAllCaps(false);
+        button.setMinHeight(dp(52));
+        applyTvButtonFocus(button);
+        button.setOnClickListener(view -> action.run());
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(56), 1f);
+        params.setMargins(dp(3), 0, dp(3), 0);
+        row.addView(button, params);
     }
 
     private EditText addInput(String hint, boolean password) {
@@ -711,6 +1056,57 @@ public final class MainActivity extends Activity {
         private AppLoadResult(List<InstalledApp> apps, boolean restricted) {
             this.apps = apps;
             this.restricted = restricted;
+        }
+    }
+
+    private static final class UpdateUi {
+        private final int generation;
+        private final TextView status;
+        private final Button button;
+
+        private UpdateUi(int generation, TextView status, Button button) {
+            this.generation = generation;
+            this.status = status;
+            this.button = button;
+        }
+    }
+
+    private static final class DownloadSnapshot {
+        private final int status;
+        private final int reason;
+        private final long downloadedBytes;
+        private final long totalBytes;
+
+        private DownloadSnapshot(int status, int reason, long downloadedBytes, long totalBytes) {
+            this.status = status;
+            this.reason = reason;
+            this.downloadedBytes = downloadedBytes;
+            this.totalBytes = totalBytes;
+        }
+    }
+
+    private final class MinuteLimitControl {
+        private final TextView valueView;
+        private long minutes;
+
+        private MinuteLimitControl(long initialMinutes) {
+            minutes = LimitMath.adjustDailyMinutes(initialMinutes, 0L);
+            valueView = textView("", 24f, Color.WHITE);
+            valueView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+            updateText();
+        }
+
+        private void adjust(long delta) {
+            minutes = LimitMath.adjustDailyMinutes(minutes, delta);
+            updateText();
+        }
+
+        private long getLimitMillis() {
+            return minutes * 60_000L;
+        }
+
+        private void updateText() {
+            valueView.setText(minutes + " мин");
         }
     }
 }
