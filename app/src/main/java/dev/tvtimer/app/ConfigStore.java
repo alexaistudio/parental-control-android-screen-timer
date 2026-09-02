@@ -60,6 +60,15 @@ public final class ConfigStore {
         return stored == null ? Collections.emptySet() : new HashSet<>(stored);
     }
 
+    public boolean updateSelectedPackages(Set<String> selectedPackages) {
+        Set<String> safeSelectedPackages = selectedPackages == null
+                ? Collections.emptySet()
+                : selectedPackages;
+        return preferences.edit()
+                .putStringSet(KEY_SELECTED_PACKAGES, new HashSet<>(safeSelectedPackages))
+                .commit();
+    }
+
     public boolean configure(
             String pin,
             long dailyLimitMillis,
@@ -131,14 +140,6 @@ public final class ConfigStore {
         String generated = TotpAuthenticator.generateSecret();
         if (!preferences.edit().putString(KEY_AUTHENTICATOR_SECRET, generated).commit()) {
             throw new IllegalStateException("Unable to store authenticator secret");
-        }
-        return generated;
-    }
-
-    public String regenerateAuthenticatorSecret() {
-        String generated = TotpAuthenticator.generateSecret();
-        if (!preferences.edit().putString(KEY_AUTHENTICATOR_SECRET, generated).commit()) {
-            throw new IllegalStateException("Unable to replace authenticator secret");
         }
         return generated;
     }

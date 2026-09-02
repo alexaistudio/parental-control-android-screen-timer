@@ -3,6 +3,7 @@ package dev.tvtimer.app;
 import org.junit.Test;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -39,5 +40,14 @@ public final class TotpAuthenticatorTest {
         assertTrue(TotpAuthenticator.isValidSecret(first));
         assertTrue(TotpAuthenticator.provisioningUri(first).startsWith("otpauth://totp/"));
         assertNotEquals(first, second);
+    }
+
+    @Test
+    public void sameSecretAlwaysCreatesSameQrPayload() {
+        assertEquals(
+                "otpauth://totp/TV%20Timer%3AAndroid%20TV?secret=" + RFC_SECRET
+                        + "&issuer=TV%20Timer&algorithm=SHA1&digits=6&period=30",
+                TotpAuthenticator.provisioningUri(RFC_SECRET)
+        );
     }
 }

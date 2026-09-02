@@ -8,7 +8,6 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.database.Cursor;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -35,12 +34,6 @@ import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.concurrent.ExecutorService;
@@ -70,6 +63,9 @@ public final class MainActivity extends Activity {
     private boolean showingAuthenticatorQr;
     private boolean qrReturnsToSettings;
     private boolean setupQrAcknowledged;
+    private boolean appSelectionOpen;
+    private Set<String> selectedPackagesDraft;
+    private TextView appSelectionSummary;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,6 +73,7 @@ public final class MainActivity extends Activity {
         store = new ConfigStore(this);
         downloadManager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
         devicePolicyManager = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
+        selectedPackagesDraft = store.getSelectedPackages();
         if (store.isConfigured()) {
             DeviceOwnerProtection.ensureUninstallBlocked(this);
             LauncherProfileManager.apply(this, store.getLauncherProfile());
@@ -133,12 +130,18 @@ public final class MainActivity extends Activity {
         if (content == null) {
             return;
         }
+        if (appSelectionOpen) {
+            appSelectionOpen = false;
+            selectedPackagesDraft = store.getSelectedPackages();
+            updateAppSelectionSummary();
+            return;
+        }
         if (!store.isConfigured()) {
             adminUnlocked = false;
             if (setupQrAcknowledged) {
                 renderSetup();
             } else if (!showingAuthenticatorQr) {
-                renderAuthenticatorQr(false);
+                renderAuthenticatorQr();
             }
         } else if (serviceStatus != null) {
             updateServiceStatus();
@@ -149,7 +152,7 @@ public final class MainActivity extends Activity {
 
     private void renderCurrentScreen() {
         if (!store.isConfigured()) {
-            renderAuthenticatorQr(false);
+            renderAuthenticatorQr();
         } else if (adminUnlocked) {
             renderSettings();
         } else {
@@ -157,19 +160,18 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void renderAuthenticatorQr(boolean regenerated) {
+    private void renderAuthenticatorQr() {
         clearScreen();
         showingAuthenticatorQr = true;
         qrReturnsToSettings = store.isConfigured();
-        addTitle(regenerated ? "Новый код с телефона" : "Привязка телефона");
+        addTitle(qrReturnsToSettings ? "Действующий QR-код" : "Привязка телефона");
         addParagraph(
                 "Откройте на телефоне Google Authenticator, Microsoft Authenticator, Aegis "
-                        + "или другое TOTP-приложение и отсканируйте QR-код. QR уникален для "
-                        + "этой установки и никуда не отправляется."
+                        + "или другое TOTP-приложение и отсканируйте QR-код. Один и тот же "
+                        + "действующий QR можно добавить на несколько телефонов родителей. "
+                        + "Он уникален для этой установки и никуда не отправляется."
         );
-        String secret = regenerated
-                ? store.regenerateAuthenticatorSecret()
-                : store.getOrCreateAuthenticatorSecret();
+        String secret = store.getOrCreateAuthenticatorSecret();
         ImageView qr = new ImageView(this);
         int qrSize = Math.min(dp(360), getResources().getDisplayMetrics().heightPixels / 2);
         qr.setImageBitmap(QrCodeRenderer.render(TotpAuthenticator.provisioningUri(secret), qrSize));
@@ -203,6 +205,7 @@ public final class MainActivity extends Activity {
     private void renderSetup() {
         clearScreen();
         showingAuthenticatorQr = false;
+        selectedPackagesDraft = store.getSelectedPackages();
         addTitle("TV Timer — первоначальная настройка");
         if (store.hasUsbRecoveryNotice()) {
             addNotice("USB-восстановление выполнено: прежний PIN и настройки удалены, защита выключена.", 0xffffcc80);
@@ -222,18 +225,17 @@ public final class MainActivity extends Activity {
         allApps.setChecked(true);
         addSection(scopeGroup);
 
-        TextView appHeading = addSubheading("Приложения");
-        LinearLayout appList = new LinearLayout(this);
-        appList.setOrientation(LinearLayout.VERTICAL);
-        AppCheckState appChecks = populateAppChecksAsync(appList, Collections.emptySet());
-        addSection(appList);
-        appHeading.setVisibility(View.GONE);
-        appList.setVisibility(View.GONE);
+        Button chooseApps = addButton("Выбрать приложения");
+        chooseApps.setOnClickListener(view -> openAppSelection());
+        appSelectionSummary = addParagraph("");
+        updateAppSelectionSummary();
+        chooseApps.setVisibility(View.GONE);
+        appSelectionSummary.setVisibility(View.GONE);
 
         scopeGroup.setOnCheckedChangeListener((group, checkedId) -> {
             boolean visible = checkedId == selectedApps.getId();
-            appHeading.setVisibility(visible ? View.VISIBLE : View.GONE);
-            appList.setVisibility(visible ? View.VISIBLE : View.GONE);
+            chooseApps.setVisibility(visible ? View.VISIBLE : View.GONE);
+            appSelectionSummary.setVisibility(visible ? View.VISIBLE : View.GONE);
         });
 
         addNotice(
@@ -266,11 +268,7 @@ public final class MainActivity extends Activity {
             }
             long dailyLimit = limitControl.getLimitMillis();
             String scope = selectedApps.isChecked() ? AppScope.SELECTED : AppScope.ALL;
-            if (AppScope.SELECTED.equals(scope) && !appChecks.loaded) {
-                showError("Подождите, пока загрузится список приложений");
-                return;
-            }
-            Set<String> selected = checkedPackages(appChecks.checks);
+            Set<String> selected = new HashSet<>(selectedPackagesDraft);
             if (AppScope.SELECTED.equals(scope) && selected.isEmpty()) {
                 showError("Выберите хотя бы одно приложение");
                 return;
@@ -351,6 +349,7 @@ public final class MainActivity extends Activity {
 
     private void renderSettings() {
         clearScreen();
+        selectedPackagesDraft = store.getSelectedPackages();
         addTitle("Настройки TV Timer");
         serviceStatus = addParagraph("");
         updateServiceStatus();
@@ -373,8 +372,8 @@ public final class MainActivity extends Activity {
 
         addSubheading("Код с телефона");
         addParagraph("TOTP-код меняется каждые 30 секунд и принимается в течение 5 минут. Старые коды не накапливаются в памяти.");
-        Button replaceQr = addButton("Создать новый QR-код");
-        replaceQr.setOnClickListener(view -> renderAuthenticatorQr(true));
+        Button showQr = addButton("Показать действующий QR-код");
+        showQr.setOnClickListener(view -> renderAuthenticatorQr());
 
         String day = DayKey.localDay(System.currentTimeMillis());
         ConfigStore.DayState dayState = store.getDayState(day);
@@ -437,18 +436,17 @@ public final class MainActivity extends Activity {
         }
         addSection(scopeGroup);
 
-        TextView appHeading = addSubheading("Приложения");
-        LinearLayout appList = new LinearLayout(this);
-        appList.setOrientation(LinearLayout.VERTICAL);
-        AppCheckState appChecks = populateAppChecksAsync(appList, store.getSelectedPackages());
-        addSection(appList);
+        Button chooseApps = addButton("Выбрать приложения");
+        chooseApps.setOnClickListener(view -> openAppSelection());
+        appSelectionSummary = addParagraph("");
+        updateAppSelectionSummary();
         boolean appsVisible = selectedApps.isChecked();
-        appHeading.setVisibility(appsVisible ? View.VISIBLE : View.GONE);
-        appList.setVisibility(appsVisible ? View.VISIBLE : View.GONE);
+        chooseApps.setVisibility(appsVisible ? View.VISIBLE : View.GONE);
+        appSelectionSummary.setVisibility(appsVisible ? View.VISIBLE : View.GONE);
         scopeGroup.setOnCheckedChangeListener((group, checkedId) -> {
             boolean visible = checkedId == selectedApps.getId();
-            appHeading.setVisibility(visible ? View.VISIBLE : View.GONE);
-            appList.setVisibility(visible ? View.VISIBLE : View.GONE);
+            chooseApps.setVisibility(visible ? View.VISIBLE : View.GONE);
+            appSelectionSummary.setVisibility(visible ? View.VISIBLE : View.GONE);
         });
 
         addSubheading("Смена PIN (необязательно)");
@@ -459,11 +457,7 @@ public final class MainActivity extends Activity {
         save.setOnClickListener(view -> {
             long dailyLimit = limitControl.getLimitMillis();
             String scope = selectedApps.isChecked() ? AppScope.SELECTED : AppScope.ALL;
-            if (AppScope.SELECTED.equals(scope) && !appChecks.loaded) {
-                showError("Подождите, пока загрузится список приложений");
-                return;
-            }
-            Set<String> selected = checkedPackages(appChecks.checks);
+            Set<String> selected = new HashSet<>(selectedPackagesDraft);
             if (AppScope.SELECTED.equals(scope) && selected.isEmpty()) {
                 showError("Выберите хотя бы одно приложение");
                 return;
@@ -549,94 +543,19 @@ public final class MainActivity extends Activity {
         );
     }
 
-    private AppCheckState populateAppChecksAsync(LinearLayout container, Set<String> selected) {
-        AppCheckState state = new AppCheckState();
-        TextView loading = textView("Загрузка списка приложений…", 16f, 0xffb0bec5);
-        container.addView(loading, matchWrapParams());
-        Set<String> safeSelected = selected == null
-                ? Collections.emptySet()
-                : new HashSet<>(selected);
-        int generation = screenGeneration;
-        backgroundExecutor.execute(() -> {
-            AppLoadResult result = loadLaunchableApps(safeSelected);
-            postToScreen(generation, () -> {
-                container.removeAllViews();
-                for (InstalledApp app : result.apps) {
-                    CheckBox checkBox = new CheckBox(this);
-                    checkBox.setText(getString(R.string.app_entry_format, app.label, app.packageName));
-                    checkBox.setTextColor(Color.WHITE);
-                    checkBox.setTextSize(17f);
-                    checkBox.setPadding(dp(8), dp(5), dp(8), dp(5));
-                    checkBox.setChecked(safeSelected.contains(app.packageName));
-                    applyRowFocus(checkBox);
-                    container.addView(checkBox, matchWrapParams());
-                    state.checks.put(app.packageName, checkBox);
-                }
-                if (state.checks.isEmpty()) {
-                    TextView empty = textView("Запускаемые приложения не найдены", 16f, 0xffffcc80);
-                    container.addView(empty, matchWrapParams());
-                }
-                state.loaded = true;
-                if (result.restricted) {
-                    Toast.makeText(
-                            this,
-                            "Прошивка ограничила чтение списка приложений",
-                            Toast.LENGTH_LONG
-                    ).show();
-                }
-            });
-        });
-        return state;
+    private void openAppSelection() {
+        appSelectionOpen = true;
+        startActivity(new Intent(this, AppSelectionActivity.class));
     }
 
-    private AppLoadResult loadLaunchableApps(Set<String> previouslySelected) {
-        Map<String, InstalledApp> apps = new LinkedHashMap<>();
-        boolean restricted = !queryApps(Intent.CATEGORY_LEANBACK_LAUNCHER, apps);
-        restricted |= !queryApps(Intent.CATEGORY_LAUNCHER, apps);
-        for (String packageName : previouslySelected) {
-            if (!apps.containsKey(packageName)) {
-                apps.put(packageName, new InstalledApp(packageName, packageName + " (сейчас не найдено)"));
-            }
+    private void updateAppSelectionSummary() {
+        if (appSelectionSummary == null) {
+            return;
         }
-        List<InstalledApp> result = new ArrayList<>(apps.values());
-        Collections.sort(result, (first, second) -> first.label
-                .toLowerCase(Locale.ROOT)
-                .compareTo(second.label.toLowerCase(Locale.ROOT)));
-        return new AppLoadResult(result, restricted);
-    }
-
-    @SuppressWarnings("deprecation")
-    private boolean queryApps(String category, Map<String, InstalledApp> destination) {
-        Intent intent = new Intent(Intent.ACTION_MAIN);
-        intent.addCategory(category);
-        PackageManager packageManager = getPackageManager();
-        try {
-            for (ResolveInfo resolveInfo : packageManager.queryIntentActivities(intent, 0)) {
-                if (resolveInfo.activityInfo == null) {
-                    continue;
-                }
-                String packageName = resolveInfo.activityInfo.packageName;
-                if (getPackageName().equals(packageName)) {
-                    continue;
-                }
-                CharSequence loadedLabel = resolveInfo.loadLabel(packageManager);
-                String label = loadedLabel == null ? packageName : loadedLabel.toString();
-                destination.put(packageName, new InstalledApp(packageName, label));
-            }
-            return true;
-        } catch (SecurityException exception) {
-            return false;
-        }
-    }
-
-    private Set<String> checkedPackages(Map<String, CheckBox> checks) {
-        Set<String> selected = new HashSet<>();
-        for (Map.Entry<String, CheckBox> entry : checks.entrySet()) {
-            if (entry.getValue().isChecked()) {
-                selected.add(entry.getKey());
-            }
-        }
-        return selected;
+        int count = selectedPackagesDraft == null ? 0 : selectedPackagesDraft.size();
+        appSelectionSummary.setText(count == 0
+                ? "Приложения не выбраны"
+                : "Выбрано приложений: " + count);
     }
 
     private void updateServiceStatus() {
@@ -1208,31 +1127,6 @@ public final class MainActivity extends Activity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    private static final class InstalledApp {
-        private final String packageName;
-        private final String label;
-
-        private InstalledApp(String packageName, String label) {
-            this.packageName = packageName;
-            this.label = label;
-        }
-    }
-
-    private static final class AppCheckState {
-        private final Map<String, CheckBox> checks = new LinkedHashMap<>();
-        private boolean loaded;
-    }
-
-    private static final class AppLoadResult {
-        private final List<InstalledApp> apps;
-        private final boolean restricted;
-
-        private AppLoadResult(List<InstalledApp> apps, boolean restricted) {
-            this.apps = apps;
-            this.restricted = restricted;
-        }
     }
 
     private static final class UpdateUi {

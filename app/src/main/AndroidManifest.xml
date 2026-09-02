@@ -45,6 +45,10 @@
             android:name=".MainActivity"
             android:exported="true" />
 
+        <activity
+            android:name=".AppSelectionActivity"
+            android:exported="false" />
+
         <activity-alias
             android:name=".TimerLauncher"
             android:banner="@drawable/tv_banner"
