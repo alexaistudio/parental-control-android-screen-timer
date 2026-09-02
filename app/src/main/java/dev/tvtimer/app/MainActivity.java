@@ -25,6 +25,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -66,6 +67,9 @@ public final class MainActivity extends Activity {
     private volatile long activeDownloadId = -1L;
     private volatile File activeDownloadFile;
     private volatile boolean updateReady;
+    private boolean showingAuthenticatorQr;
+    private boolean qrReturnsToSettings;
+    private boolean setupQrAcknowledged;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,6 +77,10 @@ public final class MainActivity extends Activity {
         store = new ConfigStore(this);
         downloadManager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
         devicePolicyManager = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
+        if (store.isConfigured()) {
+            DeviceOwnerProtection.ensureUninstallBlocked(this);
+            LauncherProfileManager.apply(this, store.getLauncherProfile());
+        }
 
         scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
@@ -101,6 +109,16 @@ public final class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (showingAuthenticatorQr) {
+            showingAuthenticatorQr = false;
+            if (qrReturnsToSettings && store.isConfigured()) {
+                adminUnlocked = true;
+                renderSettings();
+            } else {
+                finish();
+            }
+            return;
+        }
         if (store != null && store.isConfigured() && adminUnlocked) {
             adminUnlocked = false;
             renderLockedHome();
@@ -117,7 +135,11 @@ public final class MainActivity extends Activity {
         }
         if (!store.isConfigured()) {
             adminUnlocked = false;
-            renderSetup();
+            if (setupQrAcknowledged) {
+                renderSetup();
+            } else if (!showingAuthenticatorQr) {
+                renderAuthenticatorQr(false);
+            }
         } else if (serviceStatus != null) {
             updateServiceStatus();
             updateDeviceAdminStatus();
@@ -127,7 +149,7 @@ public final class MainActivity extends Activity {
 
     private void renderCurrentScreen() {
         if (!store.isConfigured()) {
-            renderSetup();
+            renderAuthenticatorQr(false);
         } else if (adminUnlocked) {
             renderSettings();
         } else {
@@ -135,13 +157,57 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private void renderAuthenticatorQr(boolean regenerated) {
+        clearScreen();
+        showingAuthenticatorQr = true;
+        qrReturnsToSettings = store.isConfigured();
+        addTitle(regenerated ? "Новый код с телефона" : "Привязка телефона");
+        addParagraph(
+                "Откройте на телефоне Google Authenticator, Microsoft Authenticator, Aegis "
+                        + "или другое TOTP-приложение и отсканируйте QR-код. QR уникален для "
+                        + "этой установки и никуда не отправляется."
+        );
+        String secret = regenerated
+                ? store.regenerateAuthenticatorSecret()
+                : store.getOrCreateAuthenticatorSecret();
+        ImageView qr = new ImageView(this);
+        int qrSize = Math.min(dp(360), getResources().getDisplayMetrics().heightPixels / 2);
+        qr.setImageBitmap(QrCodeRenderer.render(TotpAuthenticator.provisioningUri(secret), qrSize));
+        qr.setContentDescription("QR-код для привязки приложения-аутентификатора");
+        LinearLayout.LayoutParams qrParams = new LinearLayout.LayoutParams(qrSize, qrSize);
+        qrParams.gravity = Gravity.CENTER_HORIZONTAL;
+        qrParams.topMargin = dp(8);
+        qrParams.bottomMargin = dp(12);
+        content.addView(qr, qrParams);
+        addNotice(
+                "Код в телефоне меняется каждые 30 секунд. Телевизор принимает текущий и "
+                        + "предыдущие коды в пределах 5 минут без сохранения списка кодов в памяти.",
+                0xffb2dfdb
+        );
+        Button done = addButton(qrReturnsToSettings
+                ? "QR отсканирован — вернуться в настройки"
+                : "QR отсканирован — продолжить настройку");
+        done.setOnClickListener(view -> {
+            showingAuthenticatorQr = false;
+            if (qrReturnsToSettings) {
+                adminUnlocked = true;
+                renderSettings();
+            } else {
+                setupQrAcknowledged = true;
+                renderSetup();
+            }
+        });
+        done.requestFocus();
+    }
+
     private void renderSetup() {
         clearScreen();
+        showingAuthenticatorQr = false;
         addTitle("TV Timer — первоначальная настройка");
         if (store.hasUsbRecoveryNotice()) {
             addNotice("USB-восстановление выполнено: прежний PIN и настройки удалены, защита выключена.", 0xffffcc80);
         }
-        addParagraph("Задайте PIN и дневное время. Лимит считается только пока экран активен и работает контролируемое приложение.");
+        addParagraph("Задайте резервный PIN и дневное время. Для родительского доступа можно использовать PIN или меняющийся код с телефона.");
 
         EditText pin = addInput("PIN: 4–8 цифр", true);
         EditText confirmation = addInput("Повторите PIN", true);
@@ -225,6 +291,7 @@ public final class MainActivity extends Activity {
                             showError("Не удалось сохранить настройки");
                             return;
                         }
+                        DeviceOwnerProtection.ensureUninstallBlocked(this);
                         adminUnlocked = true;
                         Toast.makeText(this, "Настройки сохранены", Toast.LENGTH_SHORT).show();
                         renderSettings();
@@ -244,7 +311,7 @@ public final class MainActivity extends Activity {
         clearScreen();
         content.setPadding(dp(18), dp(10), dp(18), dp(10));
         content.setGravity(Gravity.CENTER_HORIZONTAL);
-        TextView title = textView("TV Timer — PIN родителя", 26f, Color.WHITE);
+        TextView title = textView("TV Timer — код родителя", 26f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams titleParams = matchWrapParams();
         titleParams.bottomMargin = dp(4);
@@ -257,7 +324,7 @@ public final class MainActivity extends Activity {
             backgroundExecutor.execute(() -> {
                 boolean verified;
                 try {
-                    verified = store.verifyPin(enteredPin);
+                    verified = store.verifyParentCode(enteredPin, System.currentTimeMillis());
                 } catch (RuntimeException exception) {
                     verified = false;
                 }
@@ -267,7 +334,7 @@ public final class MainActivity extends Activity {
                         adminUnlocked = true;
                         renderSettings();
                     } else {
-                        holder[0].showError("Неверный PIN");
+                        holder[0].showError("Неверный PIN или код");
                     }
                 });
             });
@@ -296,6 +363,18 @@ public final class MainActivity extends Activity {
         deviceAdminButton = addButton("Включить усиленную защиту удаления");
         updateDeviceAdminStatus();
         configureDeviceAdminButton();
+        if (!DeviceOwnerProtection.isDeviceOwner(this)) {
+            addNotice(
+                    "Для гарантированного запрета удаления нужен режим Device Owner. Он включается "
+                            + "через ADB на чистом профиле; точная команда указана в README.",
+                    0xffffcc80
+            );
+        }
+
+        addSubheading("Код с телефона");
+        addParagraph("TOTP-код меняется каждые 30 секунд и принимается в течение 5 минут. Старые коды не накапливаются в памяти.");
+        Button replaceQr = addButton("Создать новый QR-код");
+        replaceQr.setOnClickListener(view -> renderAuthenticatorQr(true));
 
         String day = DayKey.localDay(System.currentTimeMillis());
         ConfigStore.DayState dayState = store.getDayState(day);
@@ -314,6 +393,37 @@ public final class MainActivity extends Activity {
 
         MinuteLimitControl limitControl = addMinuteLimitControl(
                 store.getDailyLimitMillis() / 60_000L
+        );
+
+        addSubheading("Продление после кода родителя");
+        RadioGroup extensionGroup = new RadioGroup(this);
+        extensionGroup.setOrientation(LinearLayout.VERTICAL);
+        addTaggedRadio(
+                extensionGroup,
+                "Спрашивать каждый раз: 10, 15, 20, 30, 40 минут или 1 час",
+                ExtensionDurationPolicy.ASK_EVERY_TIME,
+                store.getDefaultExtensionMinutes()
+        );
+        for (int minutes : ExtensionDurationPolicy.CHOICES_MINUTES) {
+            addTaggedRadio(
+                    extensionGroup,
+                    minutes == 60 ? "Сразу продолжать на 1 час" : "Сразу продолжать на " + minutes + " минут",
+                    minutes,
+                    store.getDefaultExtensionMinutes()
+            );
+        }
+        addSection(extensionGroup);
+
+        addSubheading("Название и иконка в меню телевизора");
+        RadioGroup launcherGroup = new RadioGroup(this);
+        launcherGroup.setOrientation(LinearLayout.VERTICAL);
+        addTaggedRadio(launcherGroup, "TV Timer", LauncherProfile.DEFAULT, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, "Калькулятор", LauncherProfile.CALCULATOR, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, "Медиа-служба", LauncherProfile.MEDIA, store.getLauncherProfile());
+        addSection(launcherGroup);
+        addNotice(
+                "Маскировка меняет плитку в launcher, но не скрывает приложение из системного списка. Защиту от удаления обеспечивает код и Device Owner.",
+                0xffb2dfdb
         );
 
         RadioGroup scopeGroup = new RadioGroup(this);
@@ -370,6 +480,14 @@ public final class MainActivity extends Activity {
                 }
             }
             boolean enforcementEnabled = enforcement.isChecked();
+            int defaultExtensionMinutes = checkedTaggedInt(
+                    extensionGroup,
+                    ConfigStore.DEFAULT_EXTENSION_MINUTES
+            );
+            String launcherProfile = checkedTaggedString(
+                    launcherGroup,
+                    LauncherProfile.DEFAULT
+            );
             int generation = screenGeneration;
             setButtonBusy(save, true, "Сохранение…");
             backgroundExecutor.execute(() -> {
@@ -378,7 +496,9 @@ public final class MainActivity extends Activity {
                             dailyLimit,
                             scope,
                             selected,
-                            enforcementEnabled
+                            enforcementEnabled,
+                            defaultExtensionMinutes,
+                            launcherProfile
                     );
                     boolean pinSaved = replacementPin.isEmpty() || store.changePin(replacementPin);
                     postToScreen(generation, () -> {
@@ -390,6 +510,13 @@ public final class MainActivity extends Activity {
                         if (!pinSaved) {
                             setButtonBusy(save, false, "Сохранить настройки");
                             showError("Настройки сохранены, но PIN изменить не удалось");
+                            return;
+                        }
+                        try {
+                            LauncherProfileManager.apply(this, launcherProfile);
+                        } catch (RuntimeException exception) {
+                            setButtonBusy(save, false, "Сохранить настройки");
+                            showError("Настройки сохранены, но launcher не применил новую иконку");
                             return;
                         }
                         Toast.makeText(this, "Настройки сохранены", Toast.LENGTH_SHORT).show();
@@ -525,6 +652,14 @@ public final class MainActivity extends Activity {
         if (deviceAdminStatus == null) {
             return;
         }
+        if (DeviceOwnerProtection.isDeviceOwner(this)) {
+            boolean blocked = DeviceOwnerProtection.ensureUninstallBlocked(this);
+            deviceAdminStatus.setText(blocked
+                    ? "Device Owner: удаление TV Timer системно запрещено"
+                    : "Device Owner активен, но запрет удаления не подтвердился");
+            deviceAdminStatus.setTextColor(blocked ? 0xffa5d6a7 : 0xffff8a80);
+            return;
+        }
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN)) {
             deviceAdminStatus.setText("Прошивка не поддерживает администраторов устройства.");
             deviceAdminStatus.setTextColor(0xffffcc80);
@@ -552,6 +687,11 @@ public final class MainActivity extends Activity {
                 && devicePolicyManager.isAdminActive(
                         new ComponentName(this, TimerDeviceAdminReceiver.class)
                 );
+        if (DeviceOwnerProtection.isDeviceOwner(this)) {
+            deviceAdminButton.setEnabled(false);
+            deviceAdminButton.setText("Device Owner уже защищает удаление");
+            return;
+        }
         if (!supported || active) {
             deviceAdminButton.setEnabled(false);
             deviceAdminButton.setText(active ? "Защита уже включена" : "Функция недоступна");
@@ -943,6 +1083,42 @@ public final class MainActivity extends Activity {
         applyRowFocus(button);
         group.addView(button, matchWrapParams());
         return button;
+    }
+
+    private void addTaggedRadio(
+            RadioGroup group,
+            String text,
+            int value,
+            int selectedValue
+    ) {
+        RadioButton button = addRadio(group, text);
+        button.setTag(value);
+        button.setChecked(value == selectedValue);
+    }
+
+    private void addTaggedRadio(
+            RadioGroup group,
+            String text,
+            String value,
+            String selectedValue
+    ) {
+        RadioButton button = addRadio(group, text);
+        button.setTag(value);
+        button.setChecked(value.equals(selectedValue));
+    }
+
+    private int checkedTaggedInt(RadioGroup group, int fallback) {
+        View checked = group.findViewById(group.getCheckedRadioButtonId());
+        return checked != null && checked.getTag() instanceof Integer
+                ? (Integer) checked.getTag()
+                : fallback;
+    }
+
+    private String checkedTaggedString(RadioGroup group, String fallback) {
+        View checked = group.findViewById(group.getCheckedRadioButtonId());
+        return checked != null && checked.getTag() instanceof String
+                ? (String) checked.getTag()
+                : fallback;
     }
 
     private Button addButton(String text) {

@@ -83,6 +83,9 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     protected void onServiceConnected() {
         super.onServiceConnected();
         store = new ConfigStore(this);
+        if (store.isConfigured()) {
+            DeviceOwnerProtection.ensureUninstallBlocked(this);
+        }
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         homePackages = loadHomePackages();
@@ -366,8 +369,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 ? "Время закончилось"
                 : "Защита настроек";
         String instructionText = reason == BlockReason.TIME_LIMIT
-                ? "Введите PIN родителя"
-                : "Для удаления или отключения TV Timer нужен PIN родителя";
+                ? "Введите PIN или 6-значный код с телефона"
+                : "Для системных настроек нужен PIN или код с телефона";
         TextView title = overlayText(titleText, 30f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
         panel.addView(title, wrapParams(dp(8)));
@@ -381,9 +384,10 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             backgroundExecutor.execute(() -> {
                 boolean verified;
                 try {
-                    verified = store != null && store.verifyPin(pin);
+                    verified = store != null
+                            && store.verifyParentCode(pin, System.currentTimeMillis());
                 } catch (RuntimeException exception) {
-                    Log.e(TAG, "Unable to verify parent PIN", exception);
+                    Log.e(TAG, "Unable to verify parent code", exception);
                     verified = false;
                 }
                 boolean result = verified;
@@ -396,7 +400,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                     if (result) {
                         renderParentActions(panel, reason);
                     } else {
-                        holder[0].showError("Неверный PIN");
+                        holder[0].showError("Неверный PIN или код");
                     }
                 });
             });
@@ -438,18 +442,22 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             return;
         }
 
-        Button addTime = overlayButton("Добавить 15 минут");
-        addTime.setOnClickListener(view -> {
-            flushPendingUsage();
-            String day = DayKey.localDay(System.currentTimeMillis());
-            if (store.addBonus(day, ConfigStore.EXTRA_TIME_MILLIS)) {
-                removeBlocker();
-                countedDuringPreviousInterval = false;
-                lastTickElapsed = SystemClock.elapsedRealtime();
-                evaluateNow();
+        int defaultMinutes = store.getDefaultExtensionMinutes();
+        if (defaultMinutes != ExtensionDurationPolicy.ASK_EVERY_TIME) {
+            grantExtension(defaultMinutes);
+            return;
+        }
+
+        title.setText("На сколько продолжить?");
+        Button firstChoice = null;
+        for (int minutes : ExtensionDurationPolicy.CHOICES_MINUTES) {
+            Button choice = overlayButton(extensionLabel(minutes));
+            choice.setOnClickListener(view -> grantExtension(minutes));
+            panel.addView(choice, buttonParams());
+            if (firstChoice == null) {
+                firstChoice = choice;
             }
-        });
-        panel.addView(addTime, buttonParams());
+        }
 
         Button disable = overlayButton("Отключить полностью");
         disable.setOnClickListener(view -> {
@@ -464,7 +472,24 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         Button back = overlayButton("Назад");
         back.setOnClickListener(view -> renderPinPrompt(panel, reason));
         panel.addView(back, buttonParams());
-        addTime.post(addTime::requestFocus);
+        if (firstChoice != null) {
+            firstChoice.post(firstChoice::requestFocus);
+        }
+    }
+
+    private void grantExtension(int minutes) {
+        flushPendingUsage();
+        String day = DayKey.localDay(System.currentTimeMillis());
+        if (store.addBonus(day, ExtensionDurationPolicy.toMillis(minutes))) {
+            removeBlocker();
+            countedDuringPreviousInterval = false;
+            lastTickElapsed = SystemClock.elapsedRealtime();
+            evaluateNow();
+        }
+    }
+
+    private static String extensionLabel(int minutes) {
+        return minutes == 60 ? "1 час" : minutes + " минут";
     }
 
     private void registerReceivers() {

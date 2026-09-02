@@ -24,6 +24,14 @@ public final class RemovalProtectionPolicyTest {
                 "android",
                 "com.android.settings.DeviceAdminAdd"
         ));
+        assertTrue(RemovalProtectionPolicy.isSensitiveScreen(
+                "com.android.tv.settings",
+                "com.android.tv.settings.MainSettings"
+        ));
+        assertTrue(RemovalProtectionPolicy.isSensitiveScreen(
+                "com.xiaomi.mitv.settings",
+                null
+        ));
     }
 
     @Test

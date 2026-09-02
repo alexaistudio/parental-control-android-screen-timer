@@ -9,6 +9,9 @@ final class RemovalProtectionPolicy {
     static boolean isSensitiveScreen(String packageName, String className) {
         String packageValue = lower(packageName);
         String classValue = lower(className);
+        if (isSettingsPackage(packageValue) || isInstallerPackage(packageValue)) {
+            return true;
+        }
         if (classValue.isEmpty()) {
             return false;
         }
@@ -36,8 +39,16 @@ final class RemovalProtectionPolicy {
     static boolean isProtectionPackage(String packageName) {
         String value = lower(packageName);
         return value.equals("android")
-                || value.contains("settings")
+                || isSettingsPackage(value)
                 || isInstallerPackage(value);
+    }
+
+    private static boolean isSettingsPackage(String value) {
+        return value.contains("settings")
+                || value.contains("securitycenter")
+                || value.contains("security")
+                || value.contains("systemmanager")
+                || value.contains("packagecontrol");
     }
 
     private static boolean isInstallerPackage(String value) {

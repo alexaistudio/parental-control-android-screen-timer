@@ -24,10 +24,13 @@ public final class ConfigStore {
     private static final String KEY_BONUS_MILLIS = "bonus_ms";
     private static final String KEY_USB_RECOVERY = "usb_recovery";
     private static final String KEY_MAINTENANCE_UNTIL = "maintenance_until_ms";
+    private static final String KEY_AUTHENTICATOR_SECRET = "authenticator_secret";
+    private static final String KEY_DEFAULT_EXTENSION_MINUTES = "default_extension_minutes";
+    private static final String KEY_LAUNCHER_PROFILE = "launcher_profile";
 
     public static final long DEFAULT_LIMIT_MILLIS = 60L * 60L * 1_000L;
-    public static final long EXTRA_TIME_MILLIS = 15L * 60L * 1_000L;
     public static final long MAINTENANCE_WINDOW_MILLIS = 2L * 60L * 1_000L;
+    public static final int DEFAULT_EXTENSION_MINUTES = 15;
 
     private final SharedPreferences preferences;
 
@@ -78,6 +81,8 @@ public final class ConfigStore {
                 .putString(KEY_SCOPE, scope)
                 .putStringSet(KEY_SELECTED_PACKAGES, new HashSet<>(safeSelectedPackages))
                 .putBoolean(KEY_USB_RECOVERY, false)
+                .putInt(KEY_DEFAULT_EXTENSION_MINUTES, DEFAULT_EXTENSION_MINUTES)
+                .putString(KEY_LAUNCHER_PROFILE, LauncherProfile.DEFAULT)
                 .commit();
     }
 
@@ -85,9 +90,13 @@ public final class ConfigStore {
             long dailyLimitMillis,
             String scope,
             Set<String> selectedPackages,
-            boolean enforcementEnabled
+            boolean enforcementEnabled,
+            int defaultExtensionMinutes,
+            String launcherProfile
     ) {
         validateSettings(dailyLimitMillis, scope, selectedPackages);
+        ExtensionDurationPolicy.requireSupported(defaultExtensionMinutes);
+        LauncherProfile.requireSupported(launcherProfile);
         Set<String> safeSelectedPackages = selectedPackages == null
                 ? Collections.emptySet()
                 : selectedPackages;
@@ -96,7 +105,50 @@ public final class ConfigStore {
                 .putString(KEY_SCOPE, scope)
                 .putStringSet(KEY_SELECTED_PACKAGES, new HashSet<>(safeSelectedPackages))
                 .putBoolean(KEY_ENFORCEMENT_ENABLED, enforcementEnabled)
+                .putInt(KEY_DEFAULT_EXTENSION_MINUTES, defaultExtensionMinutes)
+                .putString(KEY_LAUNCHER_PROFILE, launcherProfile)
                 .commit();
+    }
+
+    public int getDefaultExtensionMinutes() {
+        int value = preferences.getInt(
+                KEY_DEFAULT_EXTENSION_MINUTES,
+                DEFAULT_EXTENSION_MINUTES
+        );
+        return ExtensionDurationPolicy.isSupported(value) ? value : DEFAULT_EXTENSION_MINUTES;
+    }
+
+    public String getLauncherProfile() {
+        String value = preferences.getString(KEY_LAUNCHER_PROFILE, LauncherProfile.DEFAULT);
+        return LauncherProfile.isSupported(value) ? value : LauncherProfile.DEFAULT;
+    }
+
+    public String getOrCreateAuthenticatorSecret() {
+        String existing = preferences.getString(KEY_AUTHENTICATOR_SECRET, null);
+        if (TotpAuthenticator.isValidSecret(existing)) {
+            return existing;
+        }
+        String generated = TotpAuthenticator.generateSecret();
+        if (!preferences.edit().putString(KEY_AUTHENTICATOR_SECRET, generated).commit()) {
+            throw new IllegalStateException("Unable to store authenticator secret");
+        }
+        return generated;
+    }
+
+    public String regenerateAuthenticatorSecret() {
+        String generated = TotpAuthenticator.generateSecret();
+        if (!preferences.edit().putString(KEY_AUTHENTICATOR_SECRET, generated).commit()) {
+            throw new IllegalStateException("Unable to replace authenticator secret");
+        }
+        return generated;
+    }
+
+    public boolean verifyParentCode(String code, long nowMillis) {
+        if (verifyPin(code)) {
+            return true;
+        }
+        String secret = preferences.getString(KEY_AUTHENTICATOR_SECRET, null);
+        return TotpAuthenticator.verify(code, secret, nowMillis);
     }
 
     public boolean changePin(String newPin) {
@@ -202,7 +254,9 @@ public final class ConfigStore {
                 || KEY_DAILY_LIMIT.equals(key)
                 || KEY_SCOPE.equals(key)
                 || KEY_SELECTED_PACKAGES.equals(key)
-                || KEY_MAINTENANCE_UNTIL.equals(key);
+                || KEY_MAINTENANCE_UNTIL.equals(key)
+                || KEY_DEFAULT_EXTENSION_MINUTES.equals(key)
+                || KEY_AUTHENTICATOR_SECRET.equals(key);
     }
 
     private void ensureDay(String dayKey) {

@@ -14,6 +14,9 @@ public final class BootReceiver extends BroadcastReceiver {
             return;
         }
         ConfigStore store = new ConfigStore(context);
+        if (store.isConfigured()) {
+            DeviceOwnerProtection.ensureUninstallBlocked(context);
+        }
         if (store.isEnforcementEnabled()) {
             store.getDayState(DayKey.localDay(System.currentTimeMillis()));
             Log.i(TAG, "Boot completed; the system accessibility service will resume enforcement");

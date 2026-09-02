@@ -51,6 +51,7 @@ public final class UsbRecoveryReceiver extends BroadcastReceiver {
             return;
         }
         if (store.resetForUsbRecovery()) {
+            DeviceOwnerProtection.releaseForUsbRecovery(context);
             removeDeviceAdmin(context);
             Log.i(TAG, "USB recovery cleared the local PIN and disabled enforcement");
         } else {

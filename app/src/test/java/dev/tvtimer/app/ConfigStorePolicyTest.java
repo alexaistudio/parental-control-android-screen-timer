@@ -14,6 +14,8 @@ public final class ConfigStorePolicyTest {
         assertTrue(ConfigStore.affectsRuntimeConfiguration("scope"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("selected_packages"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("maintenance_until_ms"));
+        assertTrue(ConfigStore.affectsRuntimeConfiguration("default_extension_minutes"));
+        assertTrue(ConfigStore.affectsRuntimeConfiguration("authenticator_secret"));
 
         assertFalse(ConfigStore.affectsRuntimeConfiguration("usage_ms"));
         assertFalse(ConfigStore.affectsRuntimeConfiguration("bonus_ms"));
