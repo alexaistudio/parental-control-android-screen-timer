@@ -27,6 +27,9 @@ public final class ConfigStore {
     private static final String KEY_AUTHENTICATOR_SECRET = "authenticator_secret";
     private static final String KEY_DEFAULT_EXTENSION_MINUTES = "default_extension_minutes";
     private static final String KEY_LAUNCHER_PROFILE = "launcher_profile";
+    private static final String KEY_USAGE_WARNING_INTERVAL_MINUTES = "usage_warning_interval_minutes";
+    private static final String KEY_USAGE_WARNING_DAY = "usage_warning_day";
+    private static final String KEY_LAST_USAGE_WARNING_MINUTES = "last_usage_warning_minutes";
 
     public static final long DEFAULT_LIMIT_MILLIS = 60L * 60L * 1_000L;
     public static final long MAINTENANCE_WINDOW_MILLIS = 2L * 60L * 1_000L;
@@ -91,6 +94,7 @@ public final class ConfigStore {
                 .putStringSet(KEY_SELECTED_PACKAGES, new HashSet<>(safeSelectedPackages))
                 .putBoolean(KEY_USB_RECOVERY, false)
                 .putInt(KEY_DEFAULT_EXTENSION_MINUTES, DEFAULT_EXTENSION_MINUTES)
+                .putInt(KEY_USAGE_WARNING_INTERVAL_MINUTES, UsageWarningPolicy.DISABLED)
                 .putString(KEY_LAUNCHER_PROFILE, LauncherProfile.DEFAULT)
                 .commit();
     }
@@ -101,10 +105,12 @@ public final class ConfigStore {
             Set<String> selectedPackages,
             boolean enforcementEnabled,
             int defaultExtensionMinutes,
+            int usageWarningIntervalMinutes,
             String launcherProfile
     ) {
         validateSettings(dailyLimitMillis, scope, selectedPackages);
         ExtensionDurationPolicy.requireSupported(defaultExtensionMinutes);
+        UsageWarningPolicy.requireSupported(usageWarningIntervalMinutes);
         LauncherProfile.requireSupported(launcherProfile);
         Set<String> safeSelectedPackages = selectedPackages == null
                 ? Collections.emptySet()
@@ -115,6 +121,7 @@ public final class ConfigStore {
                 .putStringSet(KEY_SELECTED_PACKAGES, new HashSet<>(safeSelectedPackages))
                 .putBoolean(KEY_ENFORCEMENT_ENABLED, enforcementEnabled)
                 .putInt(KEY_DEFAULT_EXTENSION_MINUTES, defaultExtensionMinutes)
+                .putInt(KEY_USAGE_WARNING_INTERVAL_MINUTES, usageWarningIntervalMinutes)
                 .putString(KEY_LAUNCHER_PROFILE, launcherProfile)
                 .commit();
     }
@@ -125,6 +132,37 @@ public final class ConfigStore {
                 DEFAULT_EXTENSION_MINUTES
         );
         return ExtensionDurationPolicy.isSupported(value) ? value : DEFAULT_EXTENSION_MINUTES;
+    }
+
+    public int getUsageWarningIntervalMinutes() {
+        int value = preferences.getInt(
+                KEY_USAGE_WARNING_INTERVAL_MINUTES,
+                UsageWarningPolicy.DISABLED
+        );
+        return UsageWarningPolicy.isSupported(value) ? value : UsageWarningPolicy.DISABLED;
+    }
+
+    public long getDueUsageWarningMinutes(String dayKey, long usedMillis) {
+        int intervalMinutes = getUsageWarningIntervalMinutes();
+        String warningDay = preferences.getString(KEY_USAGE_WARNING_DAY, null);
+        long lastAcknowledged = dayKey.equals(warningDay)
+                ? preferences.getLong(KEY_LAST_USAGE_WARNING_MINUTES, 0L)
+                : 0L;
+        return UsageWarningPolicy.dueThresholdMinutes(
+                intervalMinutes,
+                lastAcknowledged,
+                usedMillis
+        );
+    }
+
+    public boolean acknowledgeUsageWarning(String dayKey, long thresholdMinutes) {
+        if (dayKey == null || thresholdMinutes <= 0L) {
+            return false;
+        }
+        return preferences.edit()
+                .putString(KEY_USAGE_WARNING_DAY, dayKey)
+                .putLong(KEY_LAST_USAGE_WARNING_MINUTES, thresholdMinutes)
+                .commit();
     }
 
     public String getLauncherProfile() {
@@ -257,6 +295,7 @@ public final class ConfigStore {
                 || KEY_SELECTED_PACKAGES.equals(key)
                 || KEY_MAINTENANCE_UNTIL.equals(key)
                 || KEY_DEFAULT_EXTENSION_MINUTES.equals(key)
+                || KEY_USAGE_WARNING_INTERVAL_MINUTES.equals(key)
                 || KEY_AUTHENTICATOR_SECRET.equals(key);
     }
 

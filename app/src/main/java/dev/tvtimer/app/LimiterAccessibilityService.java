@@ -78,6 +78,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private BroadcastReceiver usbReceiver;
     private SharedPreferences.OnSharedPreferenceChangeListener preferenceListener;
     private int pinPromptGeneration;
+    private long pendingWarningMinutes;
+    private String pendingWarningDay;
 
     @Override
     protected void onServiceConnected() {
@@ -263,8 +265,14 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             countedDuringPreviousInterval = false;
             showBlocker(BlockReason.TIME_LIMIT);
         } else {
-            countedDuringPreviousInterval = true;
-            showTimer(remaining);
+            long warningMinutes = store.getDueUsageWarningMinutes(day, used);
+            if (warningMinutes > 0L) {
+                countedDuringPreviousInterval = false;
+                showUsageWarning(warningMinutes, day);
+            } else {
+                countedDuringPreviousInterval = true;
+                showTimer(remaining);
+            }
         }
     }
 
@@ -312,6 +320,15 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
     }
 
+    private void showUsageWarning(long warningMinutes, String day) {
+        if (blockerView != null && blockerReason != BlockReason.USAGE_WARNING) {
+            removeBlocker();
+        }
+        pendingWarningMinutes = warningMinutes;
+        pendingWarningDay = day;
+        showBlocker(BlockReason.USAGE_WARNING);
+    }
+
     private void showBlocker(BlockReason reason) {
         removeTimer();
         if (blockerView != null && blockerReason == reason) {
@@ -333,7 +350,9 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setGravity(Gravity.CENTER_HORIZONTAL);
         panel.setPadding(dp(24), dp(20), dp(24), dp(20));
-        PinPadView initialPinPad = renderPinPrompt(panel, reason);
+        View initialFocus = reason == BlockReason.USAGE_WARNING
+                ? renderUsageWarning(panel)
+                : renderPinPrompt(panel, reason);
 
         FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
                 Math.min(dp(620), getResources().getDisplayMetrics().widthPixels - dp(40)),
@@ -355,7 +374,12 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             windowManager.addView(root, params);
             blockerView = root;
             blockerReason = reason;
-            initialPinPad.post(initialPinPad::requestInitialFocus);
+            if (initialFocus instanceof PinPadView) {
+                PinPadView pinPad = (PinPadView) initialFocus;
+                pinPad.post(pinPad::requestInitialFocus);
+            } else {
+                initialFocus.post(initialFocus::requestFocus);
+            }
             recordOverlaySuccess();
         } catch (RuntimeException exception) {
             recordOverlayFailure("blocker", exception);
@@ -408,6 +432,48 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         panel.addView(holder[0], wrapParams(0));
         holder[0].post(holder[0]::requestInitialFocus);
         return holder[0];
+    }
+
+    private View renderUsageWarning(LinearLayout panel) {
+        pinPromptGeneration++;
+        panel.removeAllViews();
+        TextView title = overlayText("Небольшая пауза", 30f, Color.WHITE);
+        title.setGravity(Gravity.CENTER);
+        panel.addView(title, wrapParams(dp(10)));
+
+        TextView message = overlayText(
+                "Ты уже смотришь " + pendingWarningMinutes + " минут. Продолжить?",
+                23f,
+                0xffeeeeee
+        );
+        message.setGravity(Gravity.CENTER);
+        panel.addView(message, wrapParams(dp(20)));
+
+        Button continueButton = overlayButton("Да, продолжить");
+        continueButton.setOnClickListener(view -> acknowledgeUsageWarning(false));
+        panel.addView(continueButton, buttonParams());
+
+        Button finishButton = overlayButton("Нет, закончить");
+        finishButton.setOnClickListener(view -> acknowledgeUsageWarning(true));
+        panel.addView(finishButton, buttonParams());
+        return continueButton;
+    }
+
+    private void acknowledgeUsageWarning(boolean finishWatching) {
+        if (pendingWarningDay == null
+                || !store.acknowledgeUsageWarning(pendingWarningDay, pendingWarningMinutes)) {
+            return;
+        }
+        removeBlocker();
+        countedDuringPreviousInterval = false;
+        lastTickElapsed = SystemClock.elapsedRealtime();
+        if (finishWatching) {
+            if (!performGlobalAction(GLOBAL_ACTION_HOME)) {
+                performGlobalAction(GLOBAL_ACTION_BACK);
+            }
+        } else {
+            evaluateNow();
+        }
     }
 
     private void renderParentActions(LinearLayout panel, BlockReason reason) {
@@ -656,12 +722,15 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             removeViewSafely(blockerView);
             blockerView = null;
             blockerReason = null;
+            pendingWarningMinutes = 0L;
+            pendingWarningDay = null;
         }
     }
 
     private enum BlockReason {
         TIME_LIMIT,
-        REMOVAL_PROTECTION
+        REMOVAL_PROTECTION,
+        USAGE_WARNING
     }
 
     private void removeViewSafely(View view) {

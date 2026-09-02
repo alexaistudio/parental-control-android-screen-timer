@@ -394,6 +394,39 @@ public final class MainActivity extends Activity {
                 store.getDailyLimitMillis() / 60_000L
         );
 
+        addSubheading("Напоминание ребёнку");
+        int storedWarningInterval = store.getUsageWarningIntervalMinutes();
+        CheckBox usageWarning = new CheckBox(this);
+        usageWarning.setText("Показывать, сколько времени уже прошло");
+        usageWarning.setTextColor(Color.WHITE);
+        usageWarning.setTextSize(18f);
+        usageWarning.setChecked(storedWarningInterval != UsageWarningPolicy.DISABLED);
+        applyRowFocus(usageWarning);
+        addSection(usageWarning);
+
+        RadioGroup warningIntervalGroup = new RadioGroup(this);
+        warningIntervalGroup.setOrientation(LinearLayout.VERTICAL);
+        int selectedWarningInterval = storedWarningInterval == UsageWarningPolicy.DISABLED
+                ? 10
+                : storedWarningInterval;
+        for (int minutes : UsageWarningPolicy.CHOICES_MINUTES) {
+            addTaggedRadio(
+                    warningIntervalGroup,
+                    "Каждые " + minutes + " минут",
+                    minutes,
+                    selectedWarningInterval
+            );
+        }
+        warningIntervalGroup.setVisibility(usageWarning.isChecked() ? View.VISIBLE : View.GONE);
+        addSection(warningIntervalGroup);
+        usageWarning.setOnCheckedChangeListener((button, checked) -> warningIntervalGroup.setVisibility(
+                checked ? View.VISIBLE : View.GONE
+        ));
+        addNotice(
+                "Ребёнок увидит: «Ты уже смотришь 20 минут. Продолжить?» — «Да, продолжить» или «Нет, закончить».",
+                0xffb2dfdb
+        );
+
         addSubheading("Продление после кода родителя");
         RadioGroup extensionGroup = new RadioGroup(this);
         extensionGroup.setOrientation(LinearLayout.VERTICAL);
@@ -478,6 +511,9 @@ public final class MainActivity extends Activity {
                     extensionGroup,
                     ConfigStore.DEFAULT_EXTENSION_MINUTES
             );
+            int usageWarningIntervalMinutes = usageWarning.isChecked()
+                    ? checkedTaggedInt(warningIntervalGroup, 10)
+                    : UsageWarningPolicy.DISABLED;
             String launcherProfile = checkedTaggedString(
                     launcherGroup,
                     LauncherProfile.DEFAULT
@@ -492,6 +528,7 @@ public final class MainActivity extends Activity {
                             selected,
                             enforcementEnabled,
                             defaultExtensionMinutes,
+                            usageWarningIntervalMinutes,
                             launcherProfile
                     );
                     boolean pinSaved = replacementPin.isEmpty() || store.changePin(replacementPin);
