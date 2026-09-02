@@ -82,6 +82,11 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private String pendingWarningDay;
 
     @Override
+    protected void attachBaseContext(Context newBase) {
+        super.attachBaseContext(AppLanguage.wrap(newBase));
+    }
+
+    @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         store = new ConfigStore(this);
@@ -100,6 +105,10 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         preferenceListener = (preferences, key) -> {
             if (ConfigStore.affectsRuntimeConfiguration(key)) {
                 handler.post(() -> {
+                    if (ConfigStore.isLanguagePreference(key)) {
+                        AppLanguage.apply(this);
+                        rebuildLocalizedOverlays();
+                    }
                     refreshRuntimeConfiguration();
                     evaluateNow();
                 });
@@ -291,7 +300,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             background.setColor(0xcc000000);
             background.setCornerRadius(dp(8));
             view.setBackground(background);
-            view.setContentDescription("Оставшееся экранное время");
+            view.setContentDescription(getString(R.string.timer_remaining_description));
 
             WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                     WindowManager.LayoutParams.WRAP_CONTENT,
@@ -346,6 +355,16 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         root.setFocusable(false);
         root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
 
+        LanguageSwitcherView languageSwitcher = new LanguageSwitcherView(this, () -> {
+        });
+        FrameLayout.LayoutParams languageParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP | Gravity.END
+        );
+        languageParams.setMargins(0, dp(16), dp(18), 0);
+        root.addView(languageSwitcher, languageParams);
+
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -390,11 +409,11 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         int generation = ++pinPromptGeneration;
         panel.removeAllViews();
         String titleText = reason == BlockReason.TIME_LIMIT
-                ? "Время закончилось"
-                : "Защита настроек";
+                ? getString(R.string.time_finished_title)
+                : getString(R.string.settings_protection_title);
         String instructionText = reason == BlockReason.TIME_LIMIT
-                ? "Введите PIN или 6-значный код с телефона"
-                : "Для системных настроек нужен PIN или код с телефона";
+                ? getString(R.string.time_finished_instruction)
+                : getString(R.string.settings_protection_instruction);
         TextView title = overlayText(titleText, 30f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
         panel.addView(title, wrapParams(dp(8)));
@@ -424,7 +443,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                     if (result) {
                         renderParentActions(panel, reason);
                     } else {
-                        holder[0].showError("Неверный PIN или код");
+                        holder[0].showError(getString(R.string.parent_code_invalid));
                     }
                 });
             });
@@ -437,23 +456,27 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private View renderUsageWarning(LinearLayout panel) {
         pinPromptGeneration++;
         panel.removeAllViews();
-        TextView title = overlayText("Небольшая пауза", 30f, Color.WHITE);
+        TextView title = overlayText(getString(R.string.usage_pause_title), 30f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
         panel.addView(title, wrapParams(dp(10)));
 
         TextView message = overlayText(
-                "Ты уже смотришь " + pendingWarningMinutes + " минут. Продолжить?",
+                getResources().getQuantityString(
+                        R.plurals.usage_warning_message,
+                        (int) pendingWarningMinutes,
+                        pendingWarningMinutes
+                ),
                 23f,
                 0xffeeeeee
         );
         message.setGravity(Gravity.CENTER);
         panel.addView(message, wrapParams(dp(20)));
 
-        Button continueButton = overlayButton("Да, продолжить");
+        Button continueButton = overlayButton(getString(R.string.continue_yes));
         continueButton.setOnClickListener(view -> acknowledgeUsageWarning(false));
         panel.addView(continueButton, buttonParams());
 
-        Button finishButton = overlayButton("Нет, закончить");
+        Button finishButton = overlayButton(getString(R.string.finish_no));
         finishButton.setOnClickListener(view -> acknowledgeUsageWarning(true));
         panel.addView(finishButton, buttonParams());
         return continueButton;
@@ -479,12 +502,12 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private void renderParentActions(LinearLayout panel, BlockReason reason) {
         pinPromptGeneration++;
         panel.removeAllViews();
-        TextView title = overlayText("Что сделать?", 28f, Color.WHITE);
+        TextView title = overlayText(getString(R.string.parent_actions_title), 28f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
         panel.addView(title, wrapParams(dp(18)));
 
         if (reason == BlockReason.REMOVAL_PROTECTION) {
-            Button allow = overlayButton("Разрешить изменения на 2 минуты");
+            Button allow = overlayButton(getString(R.string.allow_changes_two_minutes));
             allow.setOnClickListener(view -> {
                 if (store.grantMaintenanceWindow()) {
                     removeBlocker();
@@ -493,7 +516,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             });
             panel.addView(allow, buttonParams());
 
-            Button home = overlayButton("Вернуться на главный экран");
+            Button home = overlayButton(getString(R.string.return_home));
             home.setOnClickListener(view -> {
                 protectedScreenActive = false;
                 removeBlocker();
@@ -501,7 +524,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             });
             panel.addView(home, buttonParams());
 
-            Button back = overlayButton("Назад");
+            Button back = overlayButton(getString(R.string.back));
             back.setOnClickListener(view -> renderPinPrompt(panel, reason));
             panel.addView(back, buttonParams());
             allow.post(allow::requestFocus);
@@ -514,7 +537,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             return;
         }
 
-        title.setText("На сколько продолжить?");
+        title.setText(R.string.extension_prompt);
         Button firstChoice = null;
         for (int minutes : ExtensionDurationPolicy.CHOICES_MINUTES) {
             Button choice = overlayButton(extensionLabel(minutes));
@@ -525,7 +548,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             }
         }
 
-        Button disable = overlayButton("Отключить полностью");
+        Button disable = overlayButton(getString(R.string.disable_completely));
         disable.setOnClickListener(view -> {
             flushPendingUsage();
             if (store.setEnforcementEnabled(false)) {
@@ -535,7 +558,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         });
         panel.addView(disable, buttonParams());
 
-        Button back = overlayButton("Назад");
+        Button back = overlayButton(getString(R.string.back));
         back.setOnClickListener(view -> renderPinPrompt(panel, reason));
         panel.addView(back, buttonParams());
         if (firstChoice != null) {
@@ -554,8 +577,30 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
     }
 
-    private static String extensionLabel(int minutes) {
-        return minutes == 60 ? "1 час" : minutes + " минут";
+    private String extensionLabel(int minutes) {
+        return minutes == 60
+                ? getString(R.string.one_hour)
+                : getResources().getQuantityString(
+                        R.plurals.minutes_label,
+                        minutes,
+                        minutes
+                );
+    }
+
+    private void rebuildLocalizedOverlays() {
+        if (timerView != null) {
+            timerView.setContentDescription(getString(R.string.timer_remaining_description));
+        }
+        BlockReason reason = blockerReason;
+        if (reason == null) {
+            return;
+        }
+        long warningMinutes = pendingWarningMinutes;
+        String warningDay = pendingWarningDay;
+        removeBlocker();
+        pendingWarningMinutes = warningMinutes;
+        pendingWarningDay = warningDay;
+        showBlocker(reason);
     }
 
     private void registerReceivers() {

@@ -1,9 +1,79 @@
-# TV Timer
+<div align="center">
+
+# 📺 TV Timer
+
+### Меньше споров с ребёнком. Больше контроля над телевизором.
+
+**Бесплатный для семьи ограничитель времени на Android TV и Google TV**<br>
+с кодом родителя, напоминаниями, выбором приложений, маскировкой и защитой от удаления.
+
+[![CI](https://github.com/alexaistudio/tvtimer/actions/workflows/ci.yml/badge.svg)](https://github.com/alexaistudio/tvtimer/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/alexaistudio/tvtimer?sort=semver&display_name=tag&label=версия)](https://github.com/alexaistudio/tvtimer/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/alexaistudio/tvtimer/total?label=скачиваний)](https://github.com/alexaistudio/tvtimer/releases)
+[![License](https://img.shields.io/badge/лицензия-PolyForm_Strict_1.0.0-2563eb)](LICENSE.md)
+
+![Android TV](https://img.shields.io/badge/Android_TV-6.0%2B-3DDC84?logo=android&logoColor=white)
+![Google TV](https://img.shields.io/badge/Google_TV-поддерживается-4285F4?logo=google&logoColor=white)
+![Remote](https://img.shields.io/badge/управление-TV_пульт-f59e0b)
+![Languages](https://img.shields.io/badge/языки-RU_%7C_EN-7c3aed)
+![Offline](https://img.shields.io/badge/работает-локально-059669)
+![No ads](https://img.shields.io/badge/реклама-нет-16a34a)
+![No tracking](https://img.shields.io/badge/слежка-нет-16a34a)
+![Java](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
+![Target SDK](https://img.shields.io/badge/target_SDK-35-3DDC84)
+
+[**⬇️ Скачать готовый APK**](https://github.com/alexaistudio/tvtimer/releases/latest) ·
+[Как включить максимальную защиту](#максимальная-защита-от-удаления-device-owner) ·
+[🇬🇧 Full English README](README.en.md)
+
+</div>
+
+---
+
+## Один раз настроили — дальше TV Timer следит за временем сам
+
+Ребёнок включил мультики и потерял счёт времени? TV Timer считает только настоящий просмотр, показывает остаток и блокирует весь телевизор или выбранные приложения, когда дневной лимит закончился.
+
+- ⏱️ **Задайте дневной лимит** — хоть на весь телевизор, хоть только на YouTube, игры и другие выбранные приложения.
+- 🔐 **Код родителя с телефона действует до 5 минут** — его спокойно можно ввести с пульта, а потом он уже не подходит. Резервный PIN хранится отдельно.
+- 👨‍👩‍👧‍👦 **Добавьте несколько родителей** — один QR-код подключает второй и следующие телефоны.
+- ➕ **Продлите просмотр одним кодом** — сразу на 10, 15, 20, 30, 40 или 60 минут либо выбирайте время каждый раз.
+- 🔔 **TV Timer напомнит, если ребёнок засмотрелся** — через 10, 20 или 30 минут появится простой вопрос: продолжить или закончить.
+- 🥷 **Сделайте приложение менее заметным** — плитка может выглядеть как «Калькулятор» или «Медиа-служба».
+- 🛡️ **Ребёнок не сможет просто зайти в настройки и удалить ограничитель** — системные настройки и установщик закрыты кодом родителя; Device Owner включает системный запрет удаления.
+- 🔌 **Родитель не останется заперт** — USB-флешка служит аварийным ключом и сбрасывает локальную защиту.
+- 📴 **Никаких аккаунтов и слежки** — без рекламы, аналитики, телеметрии и облака.
+- 🌍 **Русский и English** — язык можно переключить с первого запуска, в настройках и прямо на экране кода.
+
+> Максимальная защита от удаления работает в режиме Device Owner. Без него Android не разрешает обычному приложению гарантированно запретить собственное удаление; маскировка меняет плитку, но не системный список приложений.
+
+## English
+
+### Free family screen-time control for Android TV and Google TV
+
+Set the rule once. TV Timer tracks real viewing time, shows what remains, reminds your child to take a break, and blocks the whole TV or selected apps when the daily limit is over.
+
+- **A phone code works for up to 5 minutes**, so it is easy to enter with a TV remote, and then it expires.
+- Set a daily limit for the whole TV or selected apps.
+- Connect the same private QR setup to several parents’ phones.
+- Add 10, 15, 20, 30, 40, or 60 minutes without opening settings.
+- Show a clear “keep watching or finish” reminder every 10, 20, or 30 minutes.
+- Use discreet Calculator or Media Service launcher profiles.
+- Protect Android settings and the package installer with the parent code; Device Owner can block uninstalling at the Android system level.
+- No ads, accounts, analytics, telemetry, or cloud storage.
+- Switch between Russian and English from the first screen, settings, and every parent-code panel.
+
+[**Download the latest APK**](https://github.com/alexaistudio/tvtimer/releases/latest)
+
+[Read the complete installation, protection, privacy, and build guide in English](README.en.md).
+
+---
 
 TV Timer — локальное приложение для Android TV и Google TV, которое считает активное экранное время, показывает остаток в правом верхнем углу и закрывает контролируемые приложения чёрным экраном после исчерпания дневного лимита.
 
 ## Возможности
 
+- Полный интерфейс на русском и английском; компактный переключатель языка доступен с первого экрана, в настройках, выборе приложений и полноэкранных окнах кода/блокировки.
 - Уникальная для каждой установки QR-привязка к Google Authenticator, Microsoft Authenticator, Aegis или другому TOTP-приложению; секрет остаётся только на телевизоре и телефоне.
 - Действующий QR можно повторно открыть в настройках и отсканировать на нескольких телефонах родителей; подключённые ранее телефоны продолжают работать.
 - Каждый шестизначный код меняется через 30 секунд, но принимается телевизором до пяти минут. Список старых кодов не хранится: проверяются только десять ограниченных временных окон.
@@ -96,7 +166,7 @@ chmod +x gradlew
 
 ## Данные и разрешения
 
-Настройки, TOTP-секрет, хеш PIN и дневной счётчик находятся только в приватном `SharedPreferences` приложения и исключены из backup/переноса. TOTP-коды и QR не отправляются в сеть. Приложение запрашивает:
+Настройки, выбранный язык, TOTP-секрет, хеш PIN и дневной счётчик находятся только в приватном `SharedPreferences` приложения и исключены из backup/переноса. TOTP-коды и QR не отправляются в сеть. Приложение запрашивает:
 
 - `RECEIVE_BOOT_COMPLETED` — подготовить дневное состояние после загрузки без запуска окон или циклов;
 - `INTERNET` — только ручная проверка и загрузка релиза из `github.com`/GitHub API;

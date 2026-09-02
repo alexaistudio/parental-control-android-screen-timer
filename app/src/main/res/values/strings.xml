@@ -6,6 +6,172 @@
     <string name="accessibility_service_label">Контроль времени TV Timer</string>
     <string name="accessibility_service_description">Отслеживает только имя активного приложения, считает разрешённое время и показывает таймер или экран блокировки. Содержимое окон не читается и никуда не отправляется.</string>
     <string name="device_admin_description">Усложняет удаление TV Timer: сначала потребуется отключить системную административную защиту.</string>
-    <string name="default_minutes">60</string>
-    <string name="app_entry_format">%1$s\n%2$s</string>
+    <string name="default_minutes" translatable="false">60</string>
+    <string name="app_entry_format" translatable="false">%1$s\n%2$s</string>
+
+    <string name="language_label">Язык / Language</string>
+    <string name="language_russian">Русский язык</string>
+    <string name="language_english">Английский язык</string>
+    <string name="language_save_failed">Не удалось сохранить язык</string>
+
+    <string name="qr_current_title">Действующий QR-код</string>
+    <string name="qr_pair_title">Привязка телефона</string>
+    <string name="qr_instructions">Откройте на телефоне Google Authenticator, Microsoft Authenticator, Aegis или другое приложение-аутентификатор и отсканируйте QR-код. Один действующий QR можно добавить на телефоны нескольких родителей. Он уникален для этой установки и никуда не отправляется.</string>
+    <string name="qr_content_description">QR-код для привязки приложения-аутентификатора</string>
+    <string name="qr_code_notice">Код с телефона действует до 5 минут — его удобно вводить с пульта. Новый код появляется каждые 30 секунд, а список старых кодов в памяти не хранится.</string>
+    <string name="qr_done_settings">QR отсканирован — вернуться в настройки</string>
+    <string name="qr_done_setup">QR отсканирован — продолжить настройку</string>
+
+    <string name="setup_title">TV Timer — первоначальная настройка</string>
+    <string name="usb_recovery_completed">USB-восстановление выполнено: прежний PIN и настройки удалены, защита выключена.</string>
+    <string name="setup_intro">Задайте резервный PIN и дневное время. Для родительского доступа можно использовать PIN или меняющийся код с телефона.</string>
+    <string name="pin_hint">PIN: 4–8 цифр</string>
+    <string name="repeat_pin_hint">Повторите PIN</string>
+    <string name="scope_all">Весь телевизор и все приложения</string>
+    <string name="scope_selected">Только выбранные приложения</string>
+    <string name="choose_apps">Выбрать приложения</string>
+    <string name="accessibility_notice">Для работы нужно вручную включить службу специальных возможностей. Она получает только имя активного приложения, не читает текст окон, не использует сеть и показывает таймер поверх изображения.</string>
+    <string name="accessibility_consent">Я понимаю назначение службы и разрешаю определять активное приложение для применения лимита</string>
+    <string name="usb_recovery_setup_notice">Аварийный сброс: подключение USB-флешки очищает PIN и выключает защиту. На некоторых прошивках события от USB-клавиатур и приёмников приложению не передаются.</string>
+    <string name="save_and_open_service">Сохранить и открыть включение службы</string>
+    <string name="pin_format_error">PIN должен содержать от 4 до 8 цифр</string>
+    <string name="pin_mismatch">PIN-коды не совпадают</string>
+    <string name="select_app_error">Выберите хотя бы одно приложение</string>
+    <string name="accessibility_consent_error">Подтвердите использование службы специальных возможностей</string>
+    <string name="saving">Сохранение…</string>
+    <string name="settings_save_failed">Не удалось сохранить настройки</string>
+    <string name="settings_saved">Настройки сохранены</string>
+    <string name="settings_invalid">Проверьте введённые настройки</string>
+
+    <string name="locked_title">TV Timer — код родителя</string>
+    <string name="parent_code_invalid">Неверный PIN или код</string>
+    <string name="pin_entered_description">Введённый PIN</string>
+    <string name="pin_checking">Проверка…</string>
+    <string name="pin_enter_digits">Введите от 4 до 8 цифр</string>
+
+    <string name="settings_title">Настройки TV Timer</string>
+    <string name="open_accessibility_settings">Открыть системную настройку службы</string>
+    <string name="removal_protection_title">Защита удаления</string>
+    <string name="enable_removal_protection">Включить усиленную защиту удаления</string>
+    <string name="device_owner_notice">Чтобы Android системно запретил удаление, включите режим Device Owner через ADB на чистом профиле. Точная команда указана в README.</string>
+    <string name="phone_code_title">Код с телефона</string>
+    <string name="phone_code_info">Код действует до 5 минут — его удобно вводить с пульта. Он автоматически меняется каждые 30 секунд, а старые коды не накапливаются в памяти.</string>
+    <string name="show_current_qr">Показать действующий QR-код</string>
+    <string name="used_today">Использовано сегодня: %1$s</string>
+    <string name="added_today">Добавлено сегодня: %1$s</string>
+    <string name="enable_limit">Применять ограничение</string>
+    <string name="usage_warning_title">Напоминание ребёнку</string>
+    <string name="usage_warning_enable">Показывать, сколько времени уже прошло</string>
+    <plurals name="usage_warning_interval">
+        <item quantity="one">Каждую %d минуту</item>
+        <item quantity="few">Каждые %d минуты</item>
+        <item quantity="many">Каждые %d минут</item>
+        <item quantity="other">Каждые %d минуты</item>
+    </plurals>
+    <string name="usage_warning_example">Ребёнок увидит: «Ты уже смотришь 20 минут. Продолжить?» — «Да, продолжить» или «Нет, закончить».</string>
+    <string name="extension_title">Продление после кода родителя</string>
+    <string name="extension_ask_every_time">Спрашивать каждый раз: 10, 15, 20, 30, 40 минут или 1 час</string>
+    <string name="extension_auto_hour">Сразу продолжать на 1 час</string>
+    <plurals name="extension_auto_minutes">
+        <item quantity="one">Сразу продолжать на %d минуту</item>
+        <item quantity="few">Сразу продолжать на %d минуты</item>
+        <item quantity="many">Сразу продолжать на %d минут</item>
+        <item quantity="other">Сразу продолжать на %d минуты</item>
+    </plurals>
+    <string name="launcher_title">Название и иконка в меню телевизора</string>
+    <string name="launcher_timer">TV Timer</string>
+    <string name="launcher_calculator">Калькулятор</string>
+    <string name="launcher_media">Медиа-служба</string>
+    <string name="launcher_notice">Маскировка делает плитку менее заметной, но не скрывает приложение из системного списка. Защиту от удаления обеспечивает код родителя и, при включении, Device Owner.</string>
+    <string name="change_pin_title">Смена PIN (необязательно)</string>
+    <string name="new_pin_hint">Новый PIN</string>
+    <string name="repeat_new_pin_hint">Повторите новый PIN</string>
+    <string name="save_settings">Сохранить настройки</string>
+    <string name="new_pin_format_error">Новый PIN должен содержать от 4 до 8 цифр</string>
+    <string name="new_pin_mismatch">Новые PIN-коды не совпадают</string>
+    <string name="settings_saved_pin_failed">Настройки сохранены, но PIN изменить не удалось</string>
+    <string name="settings_saved_launcher_failed">Настройки сохранены, но меню телевизора не применило новую иконку</string>
+    <string name="updates_title">Обновления</string>
+    <string name="installed_version">Установлена версия %1$s</string>
+    <string name="check_update">Проверить обновление</string>
+    <string name="lock_settings">Заблокировать настройки</string>
+    <string name="usb_recovery_settings_notice">USB-флешка — аварийный ключ: при подключении локальные PIN и настройки удаляются, а блокировка снимается.</string>
+    <string name="apps_not_selected">Приложения не выбраны</string>
+    <plurals name="apps_selected">
+        <item quantity="one">Выбрано приложение: %d</item>
+        <item quantity="few">Выбрано приложения: %d</item>
+        <item quantity="many">Выбрано приложений: %d</item>
+        <item quantity="other">Выбрано приложений: %d</item>
+    </plurals>
+    <string name="service_enabled">Служба контроля: включена</string>
+    <string name="service_disabled">Служба контроля: выключена — лимит пока не применяется</string>
+    <string name="device_owner_blocked">Device Owner: удаление TV Timer системно запрещено</string>
+    <string name="device_owner_unconfirmed">Device Owner активен, но запрет удаления не подтвердился</string>
+    <string name="device_admin_unsupported">Прошивка не поддерживает администраторов устройства.</string>
+    <string name="device_admin_enabled">Усиленная защита удаления: включена</string>
+    <string name="device_admin_disabled">Усиленная защита удаления: выключена</string>
+    <string name="device_owner_protects">Device Owner уже защищает удаление</string>
+    <string name="protection_enabled">Защита уже включена</string>
+    <string name="feature_unavailable">Функция недоступна</string>
+    <string name="device_admin_open_failed">Прошивка не открыла включение защиты удаления</string>
+    <string name="accessibility_settings_open_failed">Прошивка не открыла настройки специальных возможностей</string>
+
+    <string name="checking">Проверяю…</string>
+    <string name="checking_latest_release">Проверяю последний стабильный релиз…</string>
+    <string name="latest_version_installed">Установлена актуальная версия %1$s</string>
+    <string name="update_check_failed">Не удалось проверить обновление. Проверьте интернет и повторите.</string>
+    <string name="download_service_unavailable">Системная служба загрузок недоступна на этой прошивке.</string>
+    <string name="update_storage_unavailable">Хранилище для обновления недоступно.</string>
+    <string name="update_file_prepare_failed">Не удалось подготовить файл обновления.</string>
+    <string name="update_notification_description">Безопасное обновление TV Timer</string>
+    <string name="update_downloading">Обновление найдено: %1$s\nСкачиваю…\n%2$s</string>
+    <string name="download_start_failed">Системная служба не смогла начать загрузку.</string>
+    <string name="update_downloaded">Обновление %1$s скачано\n%2$s\nSHA-256 и подпись проверены.</string>
+    <string name="install_update">Установить обновление</string>
+    <string name="update_rejected">Обновление отклонено: загрузка или проверка APK не пройдена.</string>
+    <string name="allow_unknown_source">Разрешите TV Timer установку из этого источника, затем вернитесь и нажмите «Установить».</string>
+    <string name="unknown_source_open_failed">Прошивка не открыла разрешение установки</string>
+    <string name="update_file_missing">Файл обновления больше недоступен. Проверьте обновление снова.</string>
+    <string name="installer_open_failed">Прошивка не открыла установщик APK</string>
+
+    <string name="daily_limit_title">Дневной лимит</string>
+    <string name="minutes_short">%1$d мин</string>
+
+    <string name="app_selection_title">Выбор приложений</string>
+    <string name="app_selection_instructions">Отметьте нужные приложения. Нажатие Back на пульте сразу сохраняет выбор.</string>
+    <string name="app_selection_done">Назад — сохранить выбор</string>
+    <string name="apps_loading">Загрузка списка приложений…</string>
+    <string name="apps_not_found">Запускаемые приложения не найдены</string>
+    <string name="apps_query_restricted">Прошивка ограничила чтение списка приложений</string>
+    <string name="app_missing_suffix">%1$s (сейчас не найдено)</string>
+    <string name="app_selection_save_failed">Не удалось сохранить выбор</string>
+    <string name="app_selection_saved">Выбор приложений сохранён</string>
+
+    <string name="timer_remaining_description">Оставшееся экранное время</string>
+    <string name="time_finished_title">Время закончилось</string>
+    <string name="settings_protection_title">Защита настроек</string>
+    <string name="time_finished_instruction">Введите PIN или 6-значный код с телефона</string>
+    <string name="settings_protection_instruction">Для системных настроек нужен PIN или код с телефона</string>
+    <string name="usage_pause_title">Небольшая пауза</string>
+    <plurals name="usage_warning_message">
+        <item quantity="one">Ты уже смотришь %d минуту. Продолжить?</item>
+        <item quantity="few">Ты уже смотришь %d минуты. Продолжить?</item>
+        <item quantity="many">Ты уже смотришь %d минут. Продолжить?</item>
+        <item quantity="other">Ты уже смотришь %d минуты. Продолжить?</item>
+    </plurals>
+    <string name="continue_yes">Да, продолжить</string>
+    <string name="finish_no">Нет, закончить</string>
+    <string name="parent_actions_title">Что сделать?</string>
+    <string name="allow_changes_two_minutes">Разрешить изменения на 2 минуты</string>
+    <string name="return_home">Вернуться на главный экран</string>
+    <string name="back">Назад</string>
+    <string name="extension_prompt">На сколько продолжить?</string>
+    <string name="disable_completely">Отключить полностью</string>
+    <string name="one_hour">1 час</string>
+    <plurals name="minutes_label">
+        <item quantity="one">%d минута</item>
+        <item quantity="few">%d минуты</item>
+        <item quantity="many">%d минут</item>
+        <item quantity="other">%d минуты</item>
+    </plurals>
 </resources>

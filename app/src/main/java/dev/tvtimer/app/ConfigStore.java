@@ -30,6 +30,7 @@ public final class ConfigStore {
     private static final String KEY_USAGE_WARNING_INTERVAL_MINUTES = "usage_warning_interval_minutes";
     private static final String KEY_USAGE_WARNING_DAY = "usage_warning_day";
     private static final String KEY_LAST_USAGE_WARNING_MINUTES = "last_usage_warning_minutes";
+    private static final String KEY_LANGUAGE = "language";
 
     public static final long DEFAULT_LIMIT_MILLIS = 60L * 60L * 1_000L;
     public static final long MAINTENANCE_WINDOW_MILLIS = 2L * 60L * 1_000L;
@@ -38,8 +39,9 @@ public final class ConfigStore {
     private final SharedPreferences preferences;
 
     public ConfigStore(Context context) {
-        preferences = context.getApplicationContext()
-                .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
+        Context application = context.getApplicationContext();
+        Context storageContext = application == null ? context : application;
+        preferences = storageContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
     }
 
     public boolean isConfigured() {
@@ -140,6 +142,19 @@ public final class ConfigStore {
                 UsageWarningPolicy.DISABLED
         );
         return UsageWarningPolicy.isSupported(value) ? value : UsageWarningPolicy.DISABLED;
+    }
+
+    public String getLanguage() {
+        return AppLanguage.normalize(preferences.getString(
+                KEY_LANGUAGE,
+                AppLanguage.DEFAULT_LANGUAGE
+        ));
+    }
+
+    public boolean setLanguage(String language) {
+        return preferences.edit()
+                .putString(KEY_LANGUAGE, AppLanguage.normalize(language))
+                .commit();
     }
 
     public long getDueUsageWarningMinutes(String dayKey, long usedMillis) {
@@ -296,7 +311,12 @@ public final class ConfigStore {
                 || KEY_MAINTENANCE_UNTIL.equals(key)
                 || KEY_DEFAULT_EXTENSION_MINUTES.equals(key)
                 || KEY_USAGE_WARNING_INTERVAL_MINUTES.equals(key)
-                || KEY_AUTHENTICATOR_SECRET.equals(key);
+                || KEY_AUTHENTICATOR_SECRET.equals(key)
+                || KEY_LANGUAGE.equals(key);
+    }
+
+    static boolean isLanguagePreference(String key) {
+        return KEY_LANGUAGE.equals(key);
     }
 
     private void ensureDay(String dayKey) {

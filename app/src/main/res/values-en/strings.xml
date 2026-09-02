@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TV Timer</string>
+    <string name="calculator_name">Calculator</string>
+    <string name="media_name">Media Service</string>
+    <string name="accessibility_service_label">TV Timer screen-time control</string>
+    <string name="accessibility_service_description">Tracks only the active app name, counts allowed viewing time, and displays the timer or blocking screen. Window contents are never read or sent anywhere.</string>
+    <string name="device_admin_description">Makes TV Timer harder to remove by requiring the system administration protection to be disabled first.</string>
+
+    <string name="language_label">Language / Язык</string>
+    <string name="language_russian">Russian language</string>
+    <string name="language_english">English language</string>
+    <string name="language_save_failed">Could not save the language</string>
+
+    <string name="qr_current_title">Active QR code</string>
+    <string name="qr_pair_title">Connect a phone</string>
+    <string name="qr_instructions">Open Google Authenticator, Microsoft Authenticator, Aegis, or another authenticator app on your phone and scan the QR code. The same active QR can be added to several parents’ phones. It is unique to this installation and never leaves your devices.</string>
+    <string name="qr_content_description">QR code for connecting an authenticator app</string>
+    <string name="qr_code_notice">A phone code works for up to 5 minutes, so it is easy to enter with a remote. A new code appears every 30 seconds, and old codes are never stored in a list.</string>
+    <string name="qr_done_settings">QR scanned — return to settings</string>
+    <string name="qr_done_setup">QR scanned — continue setup</string>
+
+    <string name="setup_title">TV Timer — first-time setup</string>
+    <string name="usb_recovery_completed">USB recovery completed: the previous PIN and settings were removed, and protection was disabled.</string>
+    <string name="setup_intro">Set a backup PIN and daily viewing time. Parents can use either the PIN or a changing code from a phone.</string>
+    <string name="pin_hint">PIN: 4–8 digits</string>
+    <string name="repeat_pin_hint">Repeat PIN</string>
+    <string name="scope_all">The whole TV and all apps</string>
+    <string name="scope_selected">Selected apps only</string>
+    <string name="choose_apps">Choose apps</string>
+    <string name="accessibility_notice">The accessibility service must be enabled manually. It receives only the active app name, never reads window text, does not use the network, and displays the timer over the picture.</string>
+    <string name="accessibility_consent">I understand the purpose of the service and allow it to identify the active app in order to apply the time limit</string>
+    <string name="usb_recovery_setup_notice">Emergency reset: connecting a USB flash drive clears the PIN and disables protection. Some TV firmware does not forward events from USB keyboards or receivers to the app.</string>
+    <string name="save_and_open_service">Save and open service settings</string>
+    <string name="pin_format_error">The PIN must contain 4 to 8 digits</string>
+    <string name="pin_mismatch">The PINs do not match</string>
+    <string name="select_app_error">Choose at least one app</string>
+    <string name="accessibility_consent_error">Confirm use of the accessibility service</string>
+    <string name="saving">Saving…</string>
+    <string name="settings_save_failed">Could not save settings</string>
+    <string name="settings_saved">Settings saved</string>
+    <string name="settings_invalid">Check the entered settings</string>
+
+    <string name="locked_title">TV Timer — parent code</string>
+    <string name="parent_code_invalid">Incorrect PIN or code</string>
+    <string name="pin_entered_description">Entered PIN</string>
+    <string name="pin_checking">Checking…</string>
+    <string name="pin_enter_digits">Enter 4 to 8 digits</string>
+
+    <string name="settings_title">TV Timer settings</string>
+    <string name="open_accessibility_settings">Open system service settings</string>
+    <string name="removal_protection_title">Uninstall protection</string>
+    <string name="enable_removal_protection">Enable stronger uninstall protection</string>
+    <string name="device_owner_notice">To let Android block uninstalling at the system level, enable Device Owner mode through ADB on a clean profile. The exact command is in the README.</string>
+    <string name="phone_code_title">Code from phone</string>
+    <string name="phone_code_info">A code works for up to 5 minutes, so it is easy to enter with a remote. It changes automatically every 30 seconds, and old codes never accumulate in memory.</string>
+    <string name="show_current_qr">Show active QR code</string>
+    <string name="used_today">Used today: %1$s</string>
+    <string name="added_today">Added today: %1$s</string>
+    <string name="enable_limit">Apply time limit</string>
+    <string name="usage_warning_title">Viewing reminder</string>
+    <string name="usage_warning_enable">Show how much viewing time has passed</string>
+    <plurals name="usage_warning_interval">
+        <item quantity="one">Every %d minute</item>
+        <item quantity="other">Every %d minutes</item>
+    </plurals>
+    <string name="usage_warning_example">Your child will see: “You have been watching for 20 minutes. Keep watching?” — “Yes, continue” or “No, finish”.</string>
+    <string name="extension_title">Extra time after parent code</string>
+    <string name="extension_ask_every_time">Ask every time: 10, 15, 20, 30, 40 minutes, or 1 hour</string>
+    <string name="extension_auto_hour">Automatically continue for 1 hour</string>
+    <plurals name="extension_auto_minutes">
+        <item quantity="one">Automatically continue for %d minute</item>
+        <item quantity="other">Automatically continue for %d minutes</item>
+    </plurals>
+    <string name="launcher_title">Name and icon in the TV menu</string>
+    <string name="launcher_timer">TV Timer</string>
+    <string name="launcher_calculator">Calculator</string>
+    <string name="launcher_media">Media Service</string>
+    <string name="launcher_notice">Disguise makes the launcher tile less noticeable but does not hide the app from the system app list. The parent code and, when enabled, Device Owner provide uninstall protection.</string>
+    <string name="change_pin_title">Change PIN (optional)</string>
+    <string name="new_pin_hint">New PIN</string>
+    <string name="repeat_new_pin_hint">Repeat new PIN</string>
+    <string name="save_settings">Save settings</string>
+    <string name="new_pin_format_error">The new PIN must contain 4 to 8 digits</string>
+    <string name="new_pin_mismatch">The new PINs do not match</string>
+    <string name="settings_saved_pin_failed">Settings were saved, but the PIN could not be changed</string>
+    <string name="settings_saved_launcher_failed">Settings were saved, but the TV menu did not apply the new icon</string>
+    <string name="updates_title">Updates</string>
+    <string name="installed_version">Installed version %1$s</string>
+    <string name="check_update">Check for updates</string>
+    <string name="lock_settings">Lock settings</string>
+    <string name="usb_recovery_settings_notice">A USB flash drive is the emergency key: connecting one removes local PIN and settings and dismisses the blocker.</string>
+    <string name="apps_not_selected">No apps selected</string>
+    <plurals name="apps_selected">
+        <item quantity="one">%d app selected</item>
+        <item quantity="other">%d apps selected</item>
+    </plurals>
+    <string name="service_enabled">Control service: enabled</string>
+    <string name="service_disabled">Control service: disabled — the limit is not active yet</string>
+    <string name="device_owner_blocked">Device Owner: Android is blocking TV Timer uninstall</string>
+    <string name="device_owner_unconfirmed">Device Owner is active, but uninstall blocking was not confirmed</string>
+    <string name="device_admin_unsupported">This firmware does not support device administrators.</string>
+    <string name="device_admin_enabled">Stronger uninstall protection: enabled</string>
+    <string name="device_admin_disabled">Stronger uninstall protection: disabled</string>
+    <string name="device_owner_protects">Device Owner already protects against uninstall</string>
+    <string name="protection_enabled">Protection is already enabled</string>
+    <string name="feature_unavailable">Feature unavailable</string>
+    <string name="device_admin_open_failed">The firmware did not open uninstall protection setup</string>
+    <string name="accessibility_settings_open_failed">The firmware did not open accessibility settings</string>
+
+    <string name="checking">Checking…</string>
+    <string name="checking_latest_release">Checking the latest stable release…</string>
+    <string name="latest_version_installed">The latest version %1$s is installed</string>
+    <string name="update_check_failed">Could not check for updates. Check the internet connection and try again.</string>
+    <string name="download_service_unavailable">The system download service is unavailable on this firmware.</string>
+    <string name="update_storage_unavailable">Update storage is unavailable.</string>
+    <string name="update_file_prepare_failed">Could not prepare the update file.</string>
+    <string name="update_notification_description">Secure TV Timer update</string>
+    <string name="update_downloading">Update found: %1$s\nDownloading…\n%2$s</string>
+    <string name="download_start_failed">The system service could not start the download.</string>
+    <string name="update_downloaded">Update %1$s downloaded\n%2$s\nSHA-256 and signature verified.</string>
+    <string name="install_update">Install update</string>
+    <string name="update_rejected">Update rejected: APK download or verification failed.</string>
+    <string name="allow_unknown_source">Allow TV Timer to install from this source, then return and select “Install”.</string>
+    <string name="unknown_source_open_failed">The firmware did not open the install permission</string>
+    <string name="update_file_missing">The update file is no longer available. Check for updates again.</string>
+    <string name="installer_open_failed">The firmware did not open the APK installer</string>
+
+    <string name="daily_limit_title">Daily limit</string>
+    <string name="minutes_short">%1$d min</string>
+
+    <string name="app_selection_title">Choose apps</string>
+    <string name="app_selection_instructions">Select the apps to control. Pressing Back on the remote saves the selection immediately.</string>
+    <string name="app_selection_done">Back — save selection</string>
+    <string name="apps_loading">Loading apps…</string>
+    <string name="apps_not_found">No launchable apps found</string>
+    <string name="apps_query_restricted">The firmware restricted access to the app list</string>
+    <string name="app_missing_suffix">%1$s (not currently found)</string>
+    <string name="app_selection_save_failed">Could not save the selection</string>
+    <string name="app_selection_saved">App selection saved</string>
+
+    <string name="timer_remaining_description">Remaining screen time</string>
+    <string name="time_finished_title">Time is up</string>
+    <string name="settings_protection_title">Settings protection</string>
+    <string name="time_finished_instruction">Enter the PIN or 6-digit code from a phone</string>
+    <string name="settings_protection_instruction">System settings require the PIN or a code from a phone</string>
+    <string name="usage_pause_title">A quick pause</string>
+    <plurals name="usage_warning_message">
+        <item quantity="one">You have been watching for %d minute. Keep watching?</item>
+        <item quantity="other">You have been watching for %d minutes. Keep watching?</item>
+    </plurals>
+    <string name="continue_yes">Yes, continue</string>
+    <string name="finish_no">No, finish</string>
+    <string name="parent_actions_title">What would you like to do?</string>
+    <string name="allow_changes_two_minutes">Allow changes for 2 minutes</string>
+    <string name="return_home">Return to the home screen</string>
+    <string name="back">Back</string>
+    <string name="extension_prompt">How much extra time?</string>
+    <string name="disable_completely">Disable the limit completely</string>
+    <string name="one_hour">1 hour</string>
+    <plurals name="minutes_label">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
+</resources>

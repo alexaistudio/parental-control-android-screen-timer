@@ -1,6 +1,5 @@
 package dev.tvtimer.app;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -28,7 +27,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public final class AppSelectionActivity extends Activity {
+public final class AppSelectionActivity extends LocalizedActivity {
     private final ExecutorService loader = Executors.newSingleThreadExecutor();
     private final Map<String, CheckBox> checks = new LinkedHashMap<>();
     private ConfigStore store;
@@ -54,22 +53,34 @@ public final class AppSelectionActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT
         ));
 
-        TextView title = text("Выбор приложений", 30f, Color.WHITE);
+        LanguageSwitcherView languageSwitcher = new LanguageSwitcherView(this, () -> {
+            persistCurrentSelection();
+            recreate();
+        });
+        LinearLayout.LayoutParams languageParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        languageParams.gravity = Gravity.END;
+        languageParams.bottomMargin = dp(8);
+        content.addView(languageSwitcher, languageParams);
+
+        TextView title = text(getString(R.string.app_selection_title), 30f, Color.WHITE);
         title.setGravity(Gravity.CENTER_HORIZONTAL);
         content.addView(title, matchWrap(dp(10)));
         content.addView(text(
-                "Отметьте нужные приложения. Нажатие Back на пульте сразу сохраняет выбор.",
+                getString(R.string.app_selection_instructions),
                 18f,
                 0xffeeeeee
         ), matchWrap(dp(12)));
 
-        Button done = button("Назад — сохранить выбор");
+        Button done = button(getString(R.string.app_selection_done));
         done.setOnClickListener(view -> saveAndFinish());
         content.addView(done, matchWrap(dp(18)));
 
         appList = new LinearLayout(this);
         appList.setOrientation(LinearLayout.VERTICAL);
-        appList.addView(text("Загрузка списка приложений…", 17f, 0xffb0bec5), matchWrap(0));
+        appList.addView(text(getString(R.string.apps_loading), 17f, 0xffb0bec5), matchWrap(0));
         content.addView(appList, matchWrap(0));
         setContentView(scroll);
         done.requestFocus();
@@ -115,7 +126,7 @@ public final class AppSelectionActivity extends Activity {
                 }
                 if (checks.isEmpty()) {
                     appList.addView(
-                            text("Запускаемые приложения не найдены", 17f, 0xffffcc80),
+                            text(getString(R.string.apps_not_found), 17f, 0xffffcc80),
                             matchWrap(0)
                     );
                 }
@@ -123,7 +134,7 @@ public final class AppSelectionActivity extends Activity {
                 if (result.restricted) {
                     Toast.makeText(
                             this,
-                            "Прошивка ограничила чтение списка приложений",
+                            getString(R.string.apps_query_restricted),
                             Toast.LENGTH_LONG
                     ).show();
                 }
@@ -139,7 +150,10 @@ public final class AppSelectionActivity extends Activity {
             if (!apps.containsKey(packageName)) {
                 apps.put(
                         packageName,
-                        new InstalledApp(packageName, packageName + " (сейчас не найдено)")
+                        new InstalledApp(
+                                packageName,
+                                getString(R.string.app_missing_suffix, packageName)
+                        )
                 );
             }
         }
@@ -174,6 +188,15 @@ public final class AppSelectionActivity extends Activity {
     }
 
     private void saveAndFinish() {
+        if (!persistCurrentSelection()) {
+            Toast.makeText(this, R.string.app_selection_save_failed, Toast.LENGTH_LONG).show();
+            return;
+        }
+        Toast.makeText(this, R.string.app_selection_saved, Toast.LENGTH_SHORT).show();
+        finish();
+    }
+
+    private boolean persistCurrentSelection() {
         Set<String> selected = new HashSet<>(previouslySelected);
         if (loaded) {
             selected.clear();
@@ -183,12 +206,7 @@ public final class AppSelectionActivity extends Activity {
                 }
             }
         }
-        if (!store.updateSelectedPackages(selected)) {
-            Toast.makeText(this, "Не удалось сохранить выбор", Toast.LENGTH_LONG).show();
-            return;
-        }
-        Toast.makeText(this, "Выбор приложений сохранён", Toast.LENGTH_SHORT).show();
-        finish();
+        return store.updateSelectedPackages(selected);
     }
 
     private TextView text(String value, float size, int color) {

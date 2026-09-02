@@ -1,6 +1,5 @@
 package dev.tvtimer.app;
 
-import android.app.Activity;
 import android.app.DownloadManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
@@ -39,7 +38,7 @@ import java.util.HashSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public final class MainActivity extends Activity {
+public final class MainActivity extends LocalizedActivity {
     private static final String TAG = "TVTimerActivity";
     private static final String APK_MIME_TYPE = "application/vnd.android.package-archive";
     private static final long UPDATE_TIMEOUT_MILLIS = 15L * 60L * 1_000L;
@@ -164,31 +163,24 @@ public final class MainActivity extends Activity {
         clearScreen();
         showingAuthenticatorQr = true;
         qrReturnsToSettings = store.isConfigured();
-        addTitle(qrReturnsToSettings ? "Действующий QR-код" : "Привязка телефона");
-        addParagraph(
-                "Откройте на телефоне Google Authenticator, Microsoft Authenticator, Aegis "
-                        + "или другое TOTP-приложение и отсканируйте QR-код. Один и тот же "
-                        + "действующий QR можно добавить на несколько телефонов родителей. "
-                        + "Он уникален для этой установки и никуда не отправляется."
-        );
+        addTitle(getString(qrReturnsToSettings
+                ? R.string.qr_current_title
+                : R.string.qr_pair_title));
+        addParagraph(getString(R.string.qr_instructions));
         String secret = store.getOrCreateAuthenticatorSecret();
         ImageView qr = new ImageView(this);
         int qrSize = Math.min(dp(360), getResources().getDisplayMetrics().heightPixels / 2);
         qr.setImageBitmap(QrCodeRenderer.render(TotpAuthenticator.provisioningUri(secret), qrSize));
-        qr.setContentDescription("QR-код для привязки приложения-аутентификатора");
+        qr.setContentDescription(getString(R.string.qr_content_description));
         LinearLayout.LayoutParams qrParams = new LinearLayout.LayoutParams(qrSize, qrSize);
         qrParams.gravity = Gravity.CENTER_HORIZONTAL;
         qrParams.topMargin = dp(8);
         qrParams.bottomMargin = dp(12);
         content.addView(qr, qrParams);
-        addNotice(
-                "Код в телефоне меняется каждые 30 секунд. Телевизор принимает текущий и "
-                        + "предыдущие коды в пределах 5 минут без сохранения списка кодов в памяти.",
-                0xffb2dfdb
-        );
+        addNotice(getString(R.string.qr_code_notice), 0xffb2dfdb);
         Button done = addButton(qrReturnsToSettings
-                ? "QR отсканирован — вернуться в настройки"
-                : "QR отсканирован — продолжить настройку");
+                ? getString(R.string.qr_done_settings)
+                : getString(R.string.qr_done_setup));
         done.setOnClickListener(view -> {
             showingAuthenticatorQr = false;
             if (qrReturnsToSettings) {
@@ -206,26 +198,26 @@ public final class MainActivity extends Activity {
         clearScreen();
         showingAuthenticatorQr = false;
         selectedPackagesDraft = store.getSelectedPackages();
-        addTitle("TV Timer — первоначальная настройка");
+        addTitle(getString(R.string.setup_title));
         if (store.hasUsbRecoveryNotice()) {
-            addNotice("USB-восстановление выполнено: прежний PIN и настройки удалены, защита выключена.", 0xffffcc80);
+            addNotice(getString(R.string.usb_recovery_completed), 0xffffcc80);
         }
-        addParagraph("Задайте резервный PIN и дневное время. Для родительского доступа можно использовать PIN или меняющийся код с телефона.");
+        addParagraph(getString(R.string.setup_intro));
 
-        EditText pin = addInput("PIN: 4–8 цифр", true);
-        EditText confirmation = addInput("Повторите PIN", true);
+        EditText pin = addInput(getString(R.string.pin_hint), true);
+        EditText confirmation = addInput(getString(R.string.repeat_pin_hint), true);
         MinuteLimitControl limitControl = addMinuteLimitControl(
                 Long.parseLong(getString(R.string.default_minutes))
         );
 
         RadioGroup scopeGroup = new RadioGroup(this);
         scopeGroup.setOrientation(LinearLayout.VERTICAL);
-        RadioButton allApps = addRadio(scopeGroup, "Весь телевизор и все приложения");
-        RadioButton selectedApps = addRadio(scopeGroup, "Только выбранные приложения");
+        RadioButton allApps = addRadio(scopeGroup, getString(R.string.scope_all));
+        RadioButton selectedApps = addRadio(scopeGroup, getString(R.string.scope_selected));
         allApps.setChecked(true);
         addSection(scopeGroup);
 
-        Button chooseApps = addButton("Выбрать приложения");
+        Button chooseApps = addButton(getString(R.string.choose_apps));
         chooseApps.setOnClickListener(view -> openAppSelection());
         appSelectionSummary = addParagraph("");
         updateAppSelectionSummary();
@@ -238,31 +230,25 @@ public final class MainActivity extends Activity {
             appSelectionSummary.setVisibility(visible ? View.VISIBLE : View.GONE);
         });
 
-        addNotice(
-                "Для работы нужно вручную включить службу специальных возможностей. Она получает только имя активного приложения, не читает текст окон, не использует сеть и показывает таймер поверх изображения.",
-                0xffb2dfdb
-        );
+        addNotice(getString(R.string.accessibility_notice), 0xffb2dfdb);
         CheckBox accessibilityConsent = new CheckBox(this);
-        accessibilityConsent.setText("Я понимаю назначение службы и разрешаю определять активное приложение для применения лимита");
+        accessibilityConsent.setText(R.string.accessibility_consent);
         accessibilityConsent.setTextColor(Color.WHITE);
         accessibilityConsent.setTextSize(17f);
         applyRowFocus(accessibilityConsent);
         addSection(accessibilityConsent);
-        addNotice(
-                "Аварийный сброс: подключение USB-флешки очищает PIN и выключает защиту. На некоторых прошивках события от USB-клавиатур и приёмников приложению не передаются.",
-                0xffffcc80
-        );
+        addNotice(getString(R.string.usb_recovery_setup_notice), 0xffffcc80);
 
-        Button save = addButton("Сохранить и открыть включение службы");
+        Button save = addButton(getString(R.string.save_and_open_service));
         save.setOnClickListener(view -> {
             String value = pin.getText().toString();
             if (!PinHasher.isValidFormat(value)) {
-                showError("PIN должен содержать от 4 до 8 цифр");
+                showError(getString(R.string.pin_format_error));
                 pin.requestFocus();
                 return;
             }
             if (!value.equals(confirmation.getText().toString())) {
-                showError("PIN-коды не совпадают");
+                showError(getString(R.string.pin_mismatch));
                 confirmation.requestFocus();
                 return;
             }
@@ -270,35 +256,35 @@ public final class MainActivity extends Activity {
             String scope = selectedApps.isChecked() ? AppScope.SELECTED : AppScope.ALL;
             Set<String> selected = new HashSet<>(selectedPackagesDraft);
             if (AppScope.SELECTED.equals(scope) && selected.isEmpty()) {
-                showError("Выберите хотя бы одно приложение");
+                showError(getString(R.string.select_app_error));
                 return;
             }
             if (!accessibilityConsent.isChecked()) {
-                showError("Подтвердите использование службы специальных возможностей");
+                showError(getString(R.string.accessibility_consent_error));
                 accessibilityConsent.requestFocus();
                 return;
             }
             int generation = screenGeneration;
-            setButtonBusy(save, true, "Сохранение…");
+            setButtonBusy(save, true, getString(R.string.saving));
             backgroundExecutor.execute(() -> {
                 try {
                     boolean saved = store.configure(value, dailyLimit, scope, selected);
                     postToScreen(generation, () -> {
                         if (!saved) {
-                            setButtonBusy(save, false, "Сохранить и открыть включение службы");
-                            showError("Не удалось сохранить настройки");
+                            setButtonBusy(save, false, getString(R.string.save_and_open_service));
+                            showError(getString(R.string.settings_save_failed));
                             return;
                         }
                         DeviceOwnerProtection.ensureUninstallBlocked(this);
                         adminUnlocked = true;
-                        Toast.makeText(this, "Настройки сохранены", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show();
                         renderSettings();
                         openAccessibilitySettings();
                     });
                 } catch (RuntimeException exception) {
                     postToScreen(generation, () -> {
-                        setButtonBusy(save, false, "Сохранить и открыть включение службы");
-                        showError("Проверьте введённые настройки");
+                        setButtonBusy(save, false, getString(R.string.save_and_open_service));
+                        showError(getString(R.string.settings_invalid));
                     });
                 }
             });
@@ -309,7 +295,7 @@ public final class MainActivity extends Activity {
         clearScreen();
         content.setPadding(dp(18), dp(10), dp(18), dp(10));
         content.setGravity(Gravity.CENTER_HORIZONTAL);
-        TextView title = textView("TV Timer — код родителя", 26f, Color.WHITE);
+        TextView title = textView(getString(R.string.locked_title), 26f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams titleParams = matchWrapParams();
         titleParams.bottomMargin = dp(4);
@@ -332,7 +318,7 @@ public final class MainActivity extends Activity {
                         adminUnlocked = true;
                         renderSettings();
                     } else {
-                        holder[0].showError("Неверный PIN или код");
+                        holder[0].showError(getString(R.string.parent_code_invalid));
                     }
                 });
             });
@@ -350,40 +336,42 @@ public final class MainActivity extends Activity {
     private void renderSettings() {
         clearScreen();
         selectedPackagesDraft = store.getSelectedPackages();
-        addTitle("Настройки TV Timer");
+        addTitle(getString(R.string.settings_title));
         serviceStatus = addParagraph("");
         updateServiceStatus();
 
-        Button accessibility = addButton("Открыть системную настройку службы");
+        Button accessibility = addButton(getString(R.string.open_accessibility_settings));
         accessibility.setOnClickListener(view -> openAccessibilitySettings());
 
-        addSubheading("Защита удаления");
+        addSubheading(getString(R.string.removal_protection_title));
         deviceAdminStatus = addParagraph("");
-        deviceAdminButton = addButton("Включить усиленную защиту удаления");
+        deviceAdminButton = addButton(getString(R.string.enable_removal_protection));
         updateDeviceAdminStatus();
         configureDeviceAdminButton();
         if (!DeviceOwnerProtection.isDeviceOwner(this)) {
-            addNotice(
-                    "Для гарантированного запрета удаления нужен режим Device Owner. Он включается "
-                            + "через ADB на чистом профиле; точная команда указана в README.",
-                    0xffffcc80
-            );
+            addNotice(getString(R.string.device_owner_notice), 0xffffcc80);
         }
 
-        addSubheading("Код с телефона");
-        addParagraph("TOTP-код меняется каждые 30 секунд и принимается в течение 5 минут. Старые коды не накапливаются в памяти.");
-        Button showQr = addButton("Показать действующий QR-код");
+        addSubheading(getString(R.string.phone_code_title));
+        addParagraph(getString(R.string.phone_code_info));
+        Button showQr = addButton(getString(R.string.show_current_qr));
         showQr.setOnClickListener(view -> renderAuthenticatorQr());
 
         String day = DayKey.localDay(System.currentTimeMillis());
         ConfigStore.DayState dayState = store.getDayState(day);
-        addParagraph("Использовано сегодня: " + LimitMath.formatCountdown(dayState.getUsedMillis()));
+        addParagraph(getString(
+                R.string.used_today,
+                LimitMath.formatCountdown(dayState.getUsedMillis())
+        ));
         if (dayState.getBonusMillis() > 0L) {
-            addParagraph("Добавлено сегодня: " + LimitMath.formatCountdown(dayState.getBonusMillis()));
+            addParagraph(getString(
+                    R.string.added_today,
+                    LimitMath.formatCountdown(dayState.getBonusMillis())
+            ));
         }
 
         CheckBox enforcement = new CheckBox(this);
-        enforcement.setText("Применять ограничение");
+        enforcement.setText(R.string.enable_limit);
         enforcement.setTextColor(Color.WHITE);
         enforcement.setTextSize(18f);
         enforcement.setChecked(store.isEnforcementEnabled());
@@ -394,10 +382,10 @@ public final class MainActivity extends Activity {
                 store.getDailyLimitMillis() / 60_000L
         );
 
-        addSubheading("Напоминание ребёнку");
+        addSubheading(getString(R.string.usage_warning_title));
         int storedWarningInterval = store.getUsageWarningIntervalMinutes();
         CheckBox usageWarning = new CheckBox(this);
-        usageWarning.setText("Показывать, сколько времени уже прошло");
+        usageWarning.setText(R.string.usage_warning_enable);
         usageWarning.setTextColor(Color.WHITE);
         usageWarning.setTextSize(18f);
         usageWarning.setChecked(storedWarningInterval != UsageWarningPolicy.DISABLED);
@@ -412,7 +400,11 @@ public final class MainActivity extends Activity {
         for (int minutes : UsageWarningPolicy.CHOICES_MINUTES) {
             addTaggedRadio(
                     warningIntervalGroup,
-                    "Каждые " + minutes + " минут",
+                    getResources().getQuantityString(
+                            R.plurals.usage_warning_interval,
+                            minutes,
+                            minutes
+                    ),
                     minutes,
                     selectedWarningInterval
             );
@@ -422,46 +414,46 @@ public final class MainActivity extends Activity {
         usageWarning.setOnCheckedChangeListener((button, checked) -> warningIntervalGroup.setVisibility(
                 checked ? View.VISIBLE : View.GONE
         ));
-        addNotice(
-                "Ребёнок увидит: «Ты уже смотришь 20 минут. Продолжить?» — «Да, продолжить» или «Нет, закончить».",
-                0xffb2dfdb
-        );
+        addNotice(getString(R.string.usage_warning_example), 0xffb2dfdb);
 
-        addSubheading("Продление после кода родителя");
+        addSubheading(getString(R.string.extension_title));
         RadioGroup extensionGroup = new RadioGroup(this);
         extensionGroup.setOrientation(LinearLayout.VERTICAL);
         addTaggedRadio(
                 extensionGroup,
-                "Спрашивать каждый раз: 10, 15, 20, 30, 40 минут или 1 час",
+                getString(R.string.extension_ask_every_time),
                 ExtensionDurationPolicy.ASK_EVERY_TIME,
                 store.getDefaultExtensionMinutes()
         );
         for (int minutes : ExtensionDurationPolicy.CHOICES_MINUTES) {
             addTaggedRadio(
                     extensionGroup,
-                    minutes == 60 ? "Сразу продолжать на 1 час" : "Сразу продолжать на " + minutes + " минут",
+                    minutes == 60
+                            ? getString(R.string.extension_auto_hour)
+                            : getResources().getQuantityString(
+                                    R.plurals.extension_auto_minutes,
+                                    minutes,
+                                    minutes
+                            ),
                     minutes,
                     store.getDefaultExtensionMinutes()
             );
         }
         addSection(extensionGroup);
 
-        addSubheading("Название и иконка в меню телевизора");
+        addSubheading(getString(R.string.launcher_title));
         RadioGroup launcherGroup = new RadioGroup(this);
         launcherGroup.setOrientation(LinearLayout.VERTICAL);
-        addTaggedRadio(launcherGroup, "TV Timer", LauncherProfile.DEFAULT, store.getLauncherProfile());
-        addTaggedRadio(launcherGroup, "Калькулятор", LauncherProfile.CALCULATOR, store.getLauncherProfile());
-        addTaggedRadio(launcherGroup, "Медиа-служба", LauncherProfile.MEDIA, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, getString(R.string.launcher_timer), LauncherProfile.DEFAULT, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, getString(R.string.launcher_calculator), LauncherProfile.CALCULATOR, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, getString(R.string.launcher_media), LauncherProfile.MEDIA, store.getLauncherProfile());
         addSection(launcherGroup);
-        addNotice(
-                "Маскировка меняет плитку в launcher, но не скрывает приложение из системного списка. Защиту от удаления обеспечивает код и Device Owner.",
-                0xffb2dfdb
-        );
+        addNotice(getString(R.string.launcher_notice), 0xffb2dfdb);
 
         RadioGroup scopeGroup = new RadioGroup(this);
         scopeGroup.setOrientation(LinearLayout.VERTICAL);
-        RadioButton allApps = addRadio(scopeGroup, "Весь телевизор и все приложения");
-        RadioButton selectedApps = addRadio(scopeGroup, "Только выбранные приложения");
+        RadioButton allApps = addRadio(scopeGroup, getString(R.string.scope_all));
+        RadioButton selectedApps = addRadio(scopeGroup, getString(R.string.scope_selected));
         if (AppScope.SELECTED.equals(store.getScope())) {
             selectedApps.setChecked(true);
         } else {
@@ -469,7 +461,7 @@ public final class MainActivity extends Activity {
         }
         addSection(scopeGroup);
 
-        Button chooseApps = addButton("Выбрать приложения");
+        Button chooseApps = addButton(getString(R.string.choose_apps));
         chooseApps.setOnClickListener(view -> openAppSelection());
         appSelectionSummary = addParagraph("");
         updateAppSelectionSummary();
@@ -482,27 +474,27 @@ public final class MainActivity extends Activity {
             appSelectionSummary.setVisibility(visible ? View.VISIBLE : View.GONE);
         });
 
-        addSubheading("Смена PIN (необязательно)");
-        EditText newPin = addInput("Новый PIN", true);
-        EditText newPinConfirmation = addInput("Повторите новый PIN", true);
+        addSubheading(getString(R.string.change_pin_title));
+        EditText newPin = addInput(getString(R.string.new_pin_hint), true);
+        EditText newPinConfirmation = addInput(getString(R.string.repeat_new_pin_hint), true);
 
-        Button save = addButton("Сохранить настройки");
+        Button save = addButton(getString(R.string.save_settings));
         save.setOnClickListener(view -> {
             long dailyLimit = limitControl.getLimitMillis();
             String scope = selectedApps.isChecked() ? AppScope.SELECTED : AppScope.ALL;
             Set<String> selected = new HashSet<>(selectedPackagesDraft);
             if (AppScope.SELECTED.equals(scope) && selected.isEmpty()) {
-                showError("Выберите хотя бы одно приложение");
+                showError(getString(R.string.select_app_error));
                 return;
             }
             String replacementPin = newPin.getText().toString();
             if (!replacementPin.isEmpty()) {
                 if (!PinHasher.isValidFormat(replacementPin)) {
-                    showError("Новый PIN должен содержать от 4 до 8 цифр");
+                    showError(getString(R.string.new_pin_format_error));
                     return;
                 }
                 if (!replacementPin.equals(newPinConfirmation.getText().toString())) {
-                    showError("Новые PIN-коды не совпадают");
+                    showError(getString(R.string.new_pin_mismatch));
                     return;
                 }
             }
@@ -519,7 +511,7 @@ public final class MainActivity extends Activity {
                     LauncherProfile.DEFAULT
             );
             int generation = screenGeneration;
-            setButtonBusy(save, true, "Сохранение…");
+            setButtonBusy(save, true, getString(R.string.saving));
             backgroundExecutor.execute(() -> {
                 try {
                     boolean settingsSaved = store.updateSettings(
@@ -534,50 +526,50 @@ public final class MainActivity extends Activity {
                     boolean pinSaved = replacementPin.isEmpty() || store.changePin(replacementPin);
                     postToScreen(generation, () -> {
                         if (!settingsSaved) {
-                            setButtonBusy(save, false, "Сохранить настройки");
-                            showError("Не удалось сохранить настройки");
+                            setButtonBusy(save, false, getString(R.string.save_settings));
+                            showError(getString(R.string.settings_save_failed));
                             return;
                         }
                         if (!pinSaved) {
-                            setButtonBusy(save, false, "Сохранить настройки");
-                            showError("Настройки сохранены, но PIN изменить не удалось");
+                            setButtonBusy(save, false, getString(R.string.save_settings));
+                            showError(getString(R.string.settings_saved_pin_failed));
                             return;
                         }
                         try {
                             LauncherProfileManager.apply(this, launcherProfile);
                         } catch (RuntimeException exception) {
-                            setButtonBusy(save, false, "Сохранить настройки");
-                            showError("Настройки сохранены, но launcher не применил новую иконку");
+                            setButtonBusy(save, false, getString(R.string.save_settings));
+                            showError(getString(R.string.settings_saved_launcher_failed));
                             return;
                         }
-                        Toast.makeText(this, "Настройки сохранены", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show();
                         renderSettings();
                     });
                 } catch (RuntimeException exception) {
                     postToScreen(generation, () -> {
-                        setButtonBusy(save, false, "Сохранить настройки");
-                        showError("Проверьте введённые настройки");
+                        setButtonBusy(save, false, getString(R.string.save_settings));
+                        showError(getString(R.string.settings_invalid));
                     });
                 }
             });
         });
 
-        addSubheading("Обновления");
-        TextView updateStatus = addParagraph("Установлена версия " + BuildConfig.VERSION_NAME);
+        addSubheading(getString(R.string.updates_title));
+        TextView updateStatus = addParagraph(getString(
+                R.string.installed_version,
+                BuildConfig.VERSION_NAME
+        ));
         updateStatus.setTypeface(Typeface.MONOSPACE);
-        Button updateButton = addButton("Проверить обновление");
+        Button updateButton = addButton(getString(R.string.check_update));
         UpdateUi updateUi = new UpdateUi(screenGeneration, updateStatus, updateButton);
         updateButton.setOnClickListener(view -> checkForUpdate(updateUi));
 
-        Button lock = addButton("Заблокировать настройки");
+        Button lock = addButton(getString(R.string.lock_settings));
         lock.setOnClickListener(view -> {
             adminUnlocked = false;
             renderLockedHome();
         });
-        addNotice(
-                "USB-флешка — аварийный ключ: при подключении локальные PIN и настройки удаляются, а оверлей снимается.",
-                0xffffcc80
-        );
+        addNotice(getString(R.string.usb_recovery_settings_notice), 0xffffcc80);
     }
 
     private void openAppSelection() {
@@ -591,15 +583,15 @@ public final class MainActivity extends Activity {
         }
         int count = selectedPackagesDraft == null ? 0 : selectedPackagesDraft.size();
         appSelectionSummary.setText(count == 0
-                ? "Приложения не выбраны"
-                : "Выбрано приложений: " + count);
+                ? getString(R.string.apps_not_selected)
+                : getResources().getQuantityString(R.plurals.apps_selected, count, count));
     }
 
     private void updateServiceStatus() {
         if (serviceStatus != null) {
             serviceStatus.setText(isAccessibilityServiceEnabled()
-                    ? "Служба контроля: включена"
-                    : "Служба контроля: выключена — лимит пока не применяется");
+                    ? R.string.service_enabled
+                    : R.string.service_disabled);
             serviceStatus.setTextColor(isAccessibilityServiceEnabled() ? 0xffa5d6a7 : 0xffffcc80);
         }
     }
@@ -611,13 +603,13 @@ public final class MainActivity extends Activity {
         if (DeviceOwnerProtection.isDeviceOwner(this)) {
             boolean blocked = DeviceOwnerProtection.ensureUninstallBlocked(this);
             deviceAdminStatus.setText(blocked
-                    ? "Device Owner: удаление TV Timer системно запрещено"
-                    : "Device Owner активен, но запрет удаления не подтвердился");
+                    ? R.string.device_owner_blocked
+                    : R.string.device_owner_unconfirmed);
             deviceAdminStatus.setTextColor(blocked ? 0xffa5d6a7 : 0xffff8a80);
             return;
         }
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN)) {
-            deviceAdminStatus.setText("Прошивка не поддерживает администраторов устройства.");
+            deviceAdminStatus.setText(R.string.device_admin_unsupported);
             deviceAdminStatus.setTextColor(0xffffcc80);
             return;
         }
@@ -625,8 +617,8 @@ public final class MainActivity extends Activity {
                 new ComponentName(this, TimerDeviceAdminReceiver.class)
         );
         deviceAdminStatus.setText(active
-                ? "Усиленная защита удаления: включена"
-                : "Усиленная защита удаления: выключена");
+                ? R.string.device_admin_enabled
+                : R.string.device_admin_disabled);
         deviceAdminStatus.setTextColor(active ? 0xffa5d6a7 : 0xffffcc80);
     }
 
@@ -635,7 +627,7 @@ public final class MainActivity extends Activity {
             return;
         }
         deviceAdminButton.setEnabled(true);
-        deviceAdminButton.setText("Включить усиленную защиту удаления");
+        deviceAdminButton.setText(R.string.enable_removal_protection);
         deviceAdminButton.setOnClickListener(null);
         boolean supported = getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN);
         boolean active = supported
@@ -645,12 +637,14 @@ public final class MainActivity extends Activity {
                 );
         if (DeviceOwnerProtection.isDeviceOwner(this)) {
             deviceAdminButton.setEnabled(false);
-            deviceAdminButton.setText("Device Owner уже защищает удаление");
+            deviceAdminButton.setText(R.string.device_owner_protects);
             return;
         }
         if (!supported || active) {
             deviceAdminButton.setEnabled(false);
-            deviceAdminButton.setText(active ? "Защита уже включена" : "Функция недоступна");
+            deviceAdminButton.setText(active
+                    ? R.string.protection_enabled
+                    : R.string.feature_unavailable);
             return;
         }
         deviceAdminButton.setOnClickListener(view -> {
@@ -667,7 +661,7 @@ public final class MainActivity extends Activity {
             try {
                 startActivity(intent);
             } catch (RuntimeException exception) {
-                showError("Прошивка не открыла включение защиты удаления");
+                showError(getString(R.string.device_admin_open_failed));
             }
         });
     }
@@ -695,7 +689,7 @@ public final class MainActivity extends Activity {
             store.grantMaintenanceWindow();
             startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
         } catch (RuntimeException exception) {
-            showError("Прошивка не открыла настройки специальных возможностей");
+            showError(getString(R.string.accessibility_settings_open_failed));
         }
     }
 
@@ -703,14 +697,17 @@ public final class MainActivity extends Activity {
         if (activeDownloadId >= 0L) {
             discardActiveDownload();
         }
-        setButtonBusy(ui.button, true, "Проверяю…");
-        ui.status.setText("Проверяю последний стабильный релиз…");
+        setButtonBusy(ui.button, true, getString(R.string.checking));
+        ui.status.setText(R.string.checking_latest_release);
         updateExecutor.execute(() -> {
             try {
                 GithubUpdateClient.ReleaseInfo release = new GithubUpdateClient().fetchLatest();
                 if (!VersionComparator.isNewer(release.version, BuildConfig.VERSION_NAME)) {
                     postToScreen(ui.generation, () -> {
-                        ui.status.setText("Установлена актуальная версия " + BuildConfig.VERSION_NAME);
+                        ui.status.setText(getString(
+                                R.string.latest_version_installed,
+                                BuildConfig.VERSION_NAME
+                        ));
                         resetUpdateButton(ui);
                     });
                     return;
@@ -719,7 +716,7 @@ public final class MainActivity extends Activity {
             } catch (Exception exception) {
                 Log.e(TAG, "Unable to check GitHub release", exception);
                 postToScreen(ui.generation, () -> {
-                    ui.status.setText("Не удалось проверить обновление. Проверьте интернет и повторите.");
+                    ui.status.setText(R.string.update_check_failed);
                     resetUpdateButton(ui);
                 });
             }
@@ -728,13 +725,13 @@ public final class MainActivity extends Activity {
 
     private void startUpdateDownload(GithubUpdateClient.ReleaseInfo release, UpdateUi ui) {
         if (downloadManager == null) {
-            ui.status.setText("Системная служба загрузок недоступна на этой прошивке.");
+            ui.status.setText(R.string.download_service_unavailable);
             resetUpdateButton(ui);
             return;
         }
         File downloads = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
         if (downloads == null) {
-            ui.status.setText("Хранилище для обновления недоступно.");
+            ui.status.setText(R.string.update_storage_unavailable);
             resetUpdateButton(ui);
             return;
         }
@@ -743,14 +740,14 @@ public final class MainActivity extends Activity {
         File parent = target.getParentFile();
         if ((parent != null && !parent.exists() && !parent.mkdirs())
                 || (target.exists() && !target.delete())) {
-            ui.status.setText("Не удалось подготовить файл обновления.");
+            ui.status.setText(R.string.update_file_prepare_failed);
             resetUpdateButton(ui);
             return;
         }
         try {
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(release.downloadUrl))
                     .setTitle("TV Timer " + release.version)
-                    .setDescription("Безопасное обновление TV Timer")
+                    .setDescription(getString(R.string.update_notification_description))
                     .setMimeType(APK_MIME_TYPE)
                     .setAllowedOverMetered(true)
                     .setAllowedOverRoaming(true)
@@ -764,15 +761,15 @@ public final class MainActivity extends Activity {
             activeDownloadId = downloadId;
             activeDownloadFile = target;
             updateReady = false;
-            ui.status.setText(
-                    "Обновление найдено: " + release.tag
-                            + "\nСкачиваю…\n"
-                            + UpdateProgress.render(0L, 0L)
-            );
+            ui.status.setText(getString(
+                    R.string.update_downloading,
+                    release.tag,
+                    UpdateProgress.render(0L, 0L)
+            ));
             updateExecutor.execute(() -> monitorDownload(downloadId, target, release, ui));
         } catch (RuntimeException exception) {
             Log.e(TAG, "Unable to enqueue update", exception);
-            ui.status.setText("Системная служба не смогла начать загрузку.");
+            ui.status.setText(R.string.download_start_failed);
             resetUpdateButton(ui);
         }
     }
@@ -807,10 +804,11 @@ public final class MainActivity extends Activity {
                             snapshot.downloadedBytes,
                             snapshot.totalBytes
                     );
-                    postToScreen(ui.generation, () -> ui.status.setText(
-                            "Обновление найдено: " + release.tag
-                                    + "\nСкачиваю…\n" + progress
-                    ));
+                    postToScreen(ui.generation, () -> ui.status.setText(getString(
+                            R.string.update_downloading,
+                            release.tag,
+                            progress
+                    )));
                 }
                 if (!complete) {
                     Thread.sleep(400L);
@@ -826,13 +824,13 @@ public final class MainActivity extends Activity {
             }
             updateReady = true;
             postToScreen(ui.generation, () -> {
-                ui.status.setText(
-                        "Обновление " + release.tag + " скачано\n"
-                                + UpdateProgress.render(1L, 1L)
-                                + "\nSHA-256 и подпись проверены."
-                );
+                ui.status.setText(getString(
+                        R.string.update_downloaded,
+                        release.tag,
+                        UpdateProgress.render(1L, 1L)
+                ));
                 ui.button.setEnabled(true);
-                ui.button.setText("Установить обновление");
+                ui.button.setText(R.string.install_update);
                 ui.button.setOnClickListener(view -> installUpdate(downloadId, ui));
             });
         } catch (InterruptedException exception) {
@@ -843,7 +841,7 @@ public final class MainActivity extends Activity {
                 discardActiveDownload();
             }
             postToScreen(ui.generation, () -> {
-                ui.status.setText("Обновление отклонено: загрузка или проверка APK не пройдена.");
+                ui.status.setText(R.string.update_rejected);
                 resetUpdateButton(ui);
             });
         }
@@ -872,22 +870,20 @@ public final class MainActivity extends Activity {
         store.grantMaintenanceWindow();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 && !getPackageManager().canRequestPackageInstalls()) {
-            ui.status.setText(
-                    "Разрешите TV Timer установку из этого источника, затем вернитесь и нажмите «Установить»."
-            );
+            ui.status.setText(R.string.allow_unknown_source);
             try {
                 startActivity(new Intent(
                         Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                         Uri.parse("package:" + getPackageName())
                 ));
             } catch (RuntimeException exception) {
-                showError("Прошивка не открыла разрешение установки");
+                showError(getString(R.string.unknown_source_open_failed));
             }
             return;
         }
         Uri uri = downloadManager == null ? null : downloadManager.getUriForDownloadedFile(downloadId);
         if (uri == null) {
-            ui.status.setText("Файл обновления больше недоступен. Проверьте обновление снова.");
+            ui.status.setText(R.string.update_file_missing);
             resetUpdateButton(ui);
             return;
         }
@@ -898,13 +894,13 @@ public final class MainActivity extends Activity {
             startActivity(install);
         } catch (RuntimeException exception) {
             Log.e(TAG, "Unable to open package installer", exception);
-            showError("Прошивка не открыла установщик APK");
+            showError(getString(R.string.installer_open_failed));
         }
     }
 
     private void resetUpdateButton(UpdateUi ui) {
         ui.button.setEnabled(true);
-        ui.button.setText("Проверить обновление");
+        ui.button.setText(R.string.check_update);
         ui.button.setOnClickListener(view -> checkForUpdate(ui));
     }
 
@@ -931,6 +927,14 @@ public final class MainActivity extends Activity {
         serviceStatus = null;
         deviceAdminStatus = null;
         deviceAdminButton = null;
+        LanguageSwitcherView languageSwitcher = new LanguageSwitcherView(this, this::recreate);
+        LinearLayout.LayoutParams languageParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        languageParams.gravity = Gravity.END;
+        languageParams.bottomMargin = dp(8);
+        content.addView(languageSwitcher, languageParams);
         scrollView.scrollTo(0, 0);
         int generation = screenGeneration;
         scrollView.post(() -> {
@@ -976,7 +980,7 @@ public final class MainActivity extends Activity {
     }
 
     private MinuteLimitControl addMinuteLimitControl(long initialMinutes) {
-        addSubheading("Дневной лимит");
+        addSubheading(getString(R.string.daily_limit_title));
         MinuteLimitControl control = new MinuteLimitControl(initialMinutes);
         LinearLayout container = new LinearLayout(this);
         container.setOrientation(LinearLayout.VERTICAL);
@@ -1213,7 +1217,7 @@ public final class MainActivity extends Activity {
         }
 
         private void updateText() {
-            valueView.setText(minutes + " мин");
+            valueView.setText(getString(R.string.minutes_short, minutes));
         }
     }
 }

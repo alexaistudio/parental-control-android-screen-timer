@@ -17,9 +17,12 @@ public final class ConfigStorePolicyTest {
         assertTrue(ConfigStore.affectsRuntimeConfiguration("default_extension_minutes"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("authenticator_secret"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("usage_warning_interval_minutes"));
+        assertTrue(ConfigStore.affectsRuntimeConfiguration("language"));
+        assertTrue(ConfigStore.isLanguagePreference("language"));
 
         assertFalse(ConfigStore.affectsRuntimeConfiguration("usage_ms"));
         assertFalse(ConfigStore.affectsRuntimeConfiguration("bonus_ms"));
         assertFalse(ConfigStore.affectsRuntimeConfiguration("pin_hash"));
+        assertFalse(ConfigStore.isLanguagePreference("daily_limit_ms"));
     }
 }

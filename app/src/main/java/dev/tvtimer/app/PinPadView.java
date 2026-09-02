@@ -43,7 +43,7 @@ public final class PinPadView extends LinearLayout {
         display.setMinWidth(dp(240));
         display.setMinHeight(dp(40));
         display.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
-        display.setContentDescription("Введённый PIN");
+        display.setContentDescription(context.getString(R.string.pin_entered_description));
         addView(display, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
 
         message = new TextView(context);
@@ -87,7 +87,7 @@ public final class PinPadView extends LinearLayout {
             keys.getChildAt(index).setEnabled(!busy);
         }
         if (busy) {
-            message.setText("Проверка…");
+            message.setText(R.string.pin_checking);
         }
     }
 
@@ -165,7 +165,7 @@ public final class PinPadView extends LinearLayout {
             return;
         }
         if (!PinHasher.isValidFormat(pin.toString())) {
-            showError("Введите от 4 до 8 цифр");
+            showError(getResources().getString(R.string.pin_enter_digits));
             return;
         }
         listener.onPinSubmitted(pin.toString());

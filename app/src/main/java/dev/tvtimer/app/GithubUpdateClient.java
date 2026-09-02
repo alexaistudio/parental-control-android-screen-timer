@@ -12,6 +12,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 final class GithubUpdateClient {
     private static final String LATEST_RELEASE_URL =
@@ -65,7 +66,7 @@ final class GithubUpdateClient {
                     normalizedVersion,
                     selected.optString("name"),
                     downloadUrl,
-                    digest.toLowerCase()
+                    digest.toLowerCase(Locale.ROOT)
             );
         } finally {
             connection.disconnect();
