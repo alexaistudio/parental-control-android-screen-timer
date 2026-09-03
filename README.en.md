@@ -52,6 +52,7 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - 🔌 **USB emergency recovery** gives a parent a physical way to clear local protection and settings on devices with USB host support.
 - 📴 **No account and no tracking** — no ads, analytics, telemetry, cloud storage, or remote TOTP processing.
 - 📲 **Install from a phone without Bugjaeger** — the separate Parent Installer finds the target on the local network, pairs with Android's system code, installs its embedded blocker APK, and verifies screen control.
+- 🧾 **A failed operation never loses the device response** — Parent Installer persistently records commands, complete responses, and stack traces; copy everything, save a TXT file, or transfer numbered QR pages.
 - 🌍 **Russian and English UI**, switchable from the first screen, settings, app picker, and every full-screen parent-code panel.
 
 > Maximum uninstall protection requires Device Owner mode. A regular Android app cannot guarantee that it will block its own uninstall without this managed-device role. Launcher disguise changes the home-screen tile but does not hide the package from Android's system app list.
@@ -66,6 +67,7 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - A separate app-selection screen; pressing Back on the device or remote saves the checked apps immediately.
 - Centered safe-width settings and parent-code menus, smaller controls and a compact PIN pad keep focus inside the screen edge.
 - If Accessibility refuses to stay enabled, the app opens its own service details, explains Android 13+ Restricted Settings, and keeps a local diagnostic log. The complete log can be transferred as numbered QR pages without PINs, TOTP secrets, or viewing history.
+- Parent Installer continuously records discovery stages, network probes, ADB commands, complete device responses, and stack traces in a private 512 KiB rotating log. Open it from the main screen, copy everything, save it as `.txt`, or transfer numbered QR pages. Pairing codes, the private ADB key, and APK binary data are excluded.
 - The app picker shows every installed app's real icon next to its name and package ID.
 - Touchscreen or remote limit adjustment with `−15`, `−1`, `+1`, and `+15` buttons.
 - A small remaining-time counter over the active controlled app.
@@ -90,12 +92,12 @@ On devices with USB host support, the guaranteed emergency path is a USB flash d
 
 Every release contains two signed files:
 
-- `AndroidScreenTimer-1.4.1.apk` — the blocker for a TV, tablet, or phone;
-- `AndroidScreenTimer-Parent-1.4.1.apk` — the Parent Installer for an Android phone; it already embeds the first APK.
+- `AndroidScreenTimer-1.4.2.apk` — the blocker for a TV, tablet, or phone;
+- `AndroidScreenTimer-Parent-1.4.2.apk` — the Parent Installer for an Android phone; it already embeds the first APK.
 
 ### Option 1 — install from a phone
 
-1. Install `AndroidScreenTimer-Parent-1.4.1.apk` on the parent's phone. Bugjaeger, a computer, and root are not required.
+1. Install `AndroidScreenTimer-Parent-1.4.2.apk` on the parent's phone. Bugjaeger, a computer, and root are not required.
 2. Put the phone and target device on the same normal Wi‑Fi network without client isolation.
 3. On a target **TV / Google TV**, open `Settings → System` or `Device preferences → About`, then press `Build`, `Build number`, or `Android TV OS build` seven times. Go back to `Developer options`.
 4. On a target **phone / tablet**, open `Settings → About phone/tablet → Build number`, press it seven times, then open `System → Developer options`.
@@ -113,11 +115,11 @@ If the router blocks automatic discovery, enter the IP, pairing port, and connec
 
 ### Option 2 — install the APK directly
 
-1. Download `AndroidScreenTimer-1.4.1.apk` from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
+1. Download `AndroidScreenTimer-1.4.2.apk` from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
 2. Install it from a USB drive, browser, or through ADB:
 
    ```powershell
-   adb install -r AndroidScreenTimer-1.4.1.apk
+   adb install -r AndroidScreenTimer-1.4.2.apk
    ```
 
 3. Open Android Screen Timer, select `EN`, and scan the first QR code with an authenticator app on a parent's phone.
@@ -173,6 +175,8 @@ Release signing is read from the ignored `signing/release.properties` file or th
 ## Data and permissions
 
 Settings, the TOTP secret, PIN hash, selected language, and daily counter stay in private app storage with backup and device transfer disabled. TOTP codes and QR data are never sent over the network.
+
+Parent Installer keeps a separate private diagnostic file of up to 512 KiB on the parent's phone. It includes local IP addresses, device details, ADB commands, and responses, but excludes the pairing code, private ADB key, and APK binary data. Nothing is uploaded automatically; copying or saving happens only after the parent explicitly requests it.
 
 - `RECEIVE_BOOT_COMPLETED` restores the daily state after boot without opening an Activity.
 - `INTERNET` is used only for a parent-triggered GitHub release check and download.

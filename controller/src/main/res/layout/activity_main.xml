@@ -55,6 +55,14 @@
             android:textColor="@color/controller_muted"
             android:textSize="15sp" />
 
+        <Button
+            android:id="@+id/buttonDiagnostics"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="10dp"
+            android:text="@string/open_diagnostics"
+            android:textAllCaps="false" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -302,6 +310,7 @@
                 android:textColor="@color/controller_muted"
                 android:textIsSelectable="true"
                 android:textSize="14sp" />
+
         </LinearLayout>
     </LinearLayout>
 </ScrollView>

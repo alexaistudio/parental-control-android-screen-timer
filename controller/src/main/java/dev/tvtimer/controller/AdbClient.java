@@ -53,6 +53,7 @@ final class AdbClient {
     AdbClient(Context context) {
         this.context = context.getApplicationContext();
         manager = AdbConnectionManager.get(context);
+        ControllerLog.info("ADB/Client", "Client initialized");
     }
 
     synchronized boolean isConnectedTo(String host, int port) {
@@ -63,42 +64,61 @@ final class AdbClient {
         if (!pairingCode.matches("\\d{6}")) {
             throw new IllegalArgumentException("Pairing code must contain six digits");
         }
-        disconnect();
-        ExecutorService pairingWorker = Executors.newSingleThreadExecutor(runnable -> {
-            Thread thread = new Thread(runnable, "adb-pairing");
-            thread.setDaemon(true);
-            return thread;
-        });
-        Future<Boolean> result = pairingWorker.submit(() -> manager.pair(host, port, pairingCode));
+        long requestId = ControllerLog.request("ADB/Pair",
+                "host=" + host + " port=" + port + " pairingCode=<redacted>");
         try {
-            if (!result.get(25, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("The target device rejected the pairing code");
+            disconnect();
+            ExecutorService pairingWorker = Executors.newSingleThreadExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "adb-pairing");
+                thread.setDaemon(true);
+                return thread;
+            });
+            Future<Boolean> result = pairingWorker.submit(
+                    () -> manager.pair(host, port, pairingCode));
+            try {
+                if (!result.get(25, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("The target device rejected the pairing code");
+                }
+            } catch (TimeoutException exception) {
+                result.cancel(true);
+                throw new IllegalStateException(
+                        "Pairing timed out. Open a new code on the target device.", exception);
+            } finally {
+                pairingWorker.shutdownNow();
             }
-        } catch (TimeoutException exception) {
-            result.cancel(true);
-            throw new IllegalStateException("Pairing timed out. Open a new code on the target device.", exception);
-        } finally {
-            pairingWorker.shutdownNow();
+            ControllerLog.response("ADB/Pair", requestId, "paired=true");
+        } catch (Exception exception) {
+            ControllerLog.failure("ADB/Pair", requestId, "Pairing failed", exception);
+            throw exception;
         }
     }
 
     synchronized String connect(String host, int port) throws Exception {
-        disconnect();
-        manager.setThrowOnUnauthorised(false);
-        boolean connected = manager.connect(host, port);
-        if (!connected && !manager.isConnected()) {
-            throw new IllegalStateException("ADB did not accept the connection");
+        long requestId = ControllerLog.request("ADB/Connect", "host=" + host + " port=" + port);
+        try {
+            disconnect();
+            manager.setThrowOnUnauthorised(false);
+            boolean connected = manager.connect(host, port);
+            if (!connected && !manager.isConnected()) {
+                throw new IllegalStateException("ADB did not accept the connection");
+            }
+            connectedHost = host;
+            connectedPort = port;
+            String manufacturer = cleanProperty(runShell("getprop ro.product.manufacturer"));
+            String model = cleanProperty(runShell("getprop ro.product.model"));
+            String android = cleanProperty(runShell("getprop ro.build.version.release"));
+            String label = (manufacturer + " " + model).trim();
+            if (label.isBlank()) {
+                label = host;
+            }
+            String result = android.isBlank() ? label : label + " · Android " + android;
+            ControllerLog.response("ADB/Connect", requestId,
+                    "connected=true device=" + result);
+            return result;
+        } catch (Exception exception) {
+            ControllerLog.failure("ADB/Connect", requestId, "Connection failed", exception);
+            throw exception;
         }
-        connectedHost = host;
-        connectedPort = port;
-        String manufacturer = cleanProperty(runShell("getprop ro.product.manufacturer"));
-        String model = cleanProperty(runShell("getprop ro.product.model"));
-        String android = cleanProperty(runShell("getprop ro.build.version.release"));
-        String label = (manufacturer + " " + model).trim();
-        if (label.isBlank()) {
-            label = host;
-        }
-        return android.isBlank() ? label : label + " · Android " + android;
     }
 
     synchronized InstallResult installAndConfigure(boolean configureAccessibility,
@@ -108,6 +128,10 @@ final class AdbClient {
         if (!manager.isConnected()) {
             throw new IllegalStateException("Connect to the target device first");
         }
+        long requestId = ControllerLog.request("ADB/Install",
+                "accessibility=" + configureAccessibility
+                        + " deviceOwner=" + requestDeviceOwner
+                        + " disableWirelessDebug=" + disableDebugging);
         File apk = materializeEmbeddedApk();
         try {
             installApk(apk, progress);
@@ -126,7 +150,9 @@ final class AdbClient {
         if (configureAccessibility) {
             try {
                 runShell("cmd appops set " + BLOCKER_PACKAGE + " ACCESS_RESTRICTED_SETTINGS allow");
-            } catch (Exception ignored) {
+            } catch (Exception unsupportedAppOp) {
+                ControllerLog.warning("ADB/Configure",
+                        "ACCESS_RESTRICTED_SETTINGS app-op unavailable", unsupportedAppOp);
                 // This app-op does not exist on older Android versions.
             }
             String current = runShell("settings get secure enabled_accessibility_services").trim();
@@ -157,20 +183,33 @@ final class AdbClient {
                     debugDisabled = !"1".equals(
                             runShell("settings get global adb_wifi_enabled").trim());
                 } catch (Exception expectedDisconnect) {
+                    ControllerLog.info("ADB/Configure",
+                            "Connection closed while disabling wireless debugging; treating as success");
                     // Losing the connection is the expected success signal here.
                     debugDisabled = true;
                 }
             }
         }
 
-        return new InstallResult(accessibilityEnabled, requestDeviceOwner, ownerEnabled,
-                debugDisabled, deviceLabel);
+        InstallResult result = new InstallResult(accessibilityEnabled, requestDeviceOwner,
+                ownerEnabled, debugDisabled, deviceLabel);
+        ControllerLog.response("ADB/Install", requestId,
+                "complete=true accessibility=" + accessibilityEnabled
+                        + " deviceOwner=" + ownerEnabled
+                        + " wirelessDebugDisabled=" + debugDisabled
+                        + " device=" + deviceLabel);
+        return result;
     }
 
     synchronized void disconnect() {
+        long requestId = ControllerLog.request("ADB/Disconnect",
+                "connectedHost=" + connectedHost + " connectedPort=" + connectedPort);
         try {
             manager.disconnect();
-        } catch (Exception ignored) {
+            ControllerLog.response("ADB/Disconnect", requestId, "disconnected=true");
+        } catch (Exception exception) {
+            ControllerLog.failure("ADB/Disconnect", requestId,
+                    "Socket already dead or disconnect failed", exception);
             // A dead socket is already disconnected for our purposes.
         }
         connectedHost = null;
@@ -190,17 +229,21 @@ final class AdbClient {
         if (output.length() <= 0) {
             throw new IllegalStateException("Embedded blocker APK is empty");
         }
+        ControllerLog.info("ADB/Install", "Embedded APK materialized size=" + output.length());
         return output;
     }
 
     private void installApk(File apk, ProgressListener progress) throws Exception {
         long size = apk.length();
+        long requestId = ControllerLog.request("ADB/PackageManager",
+                "exec:cmd package install -r -S " + size + " binary=<omitted>");
         try (AdbStream stream = manager.openStream("exec:cmd package install -r -S " + size);
              InputStream input = new java.io.FileInputStream(apk)) {
             OutputStream output = stream.openOutputStream();
             byte[] buffer = new byte[64 * 1024];
             long sent = 0;
             int lastPercent = -1;
+            int lastLoggedPercent = -10;
             int read;
             while ((read = input.read(buffer)) != -1) {
                 output.write(buffer, 0, read);
@@ -210,22 +253,39 @@ final class AdbClient {
                     lastPercent = percent;
                     progress.onProgress(percent);
                 }
+                if (percent >= lastLoggedPercent + 10 || percent == 100) {
+                    lastLoggedPercent = percent;
+                    ControllerLog.info("ADB/PackageManager",
+                            "#" + requestId + " uploadProgress=" + percent + "% bytes="
+                                    + sent + "/" + size);
+                }
             }
             output.flush();
             String response = readResponse(stream, 180, TimeUnit.SECONDS, null);
+            ControllerLog.response("ADB/PackageManager", requestId, response);
             if (!response.toLowerCase(java.util.Locale.ROOT).contains("success")) {
                 throw new IllegalStateException(response.isBlank()
                         ? "Package Manager returned no installation result"
                         : response.trim());
             }
+        } catch (Exception exception) {
+            ControllerLog.failure("ADB/PackageManager", requestId,
+                    "APK install request failed", exception);
+            throw exception;
         }
     }
 
     private String runShell(String command) throws Exception {
+        long requestId = ControllerLog.request("ADB/Shell", command);
         try (AdbStream stream = manager.openStream(
                 "shell:" + command + "; echo " + END_MARKER)) {
             String response = readResponse(stream, 20, TimeUnit.SECONDS, END_MARKER);
-            return response.replace(END_MARKER, "").trim();
+            String cleaned = response.replace(END_MARKER, "").trim();
+            ControllerLog.response("ADB/Shell", requestId, cleaned);
+            return cleaned;
+        } catch (Exception exception) {
+            ControllerLog.failure("ADB/Shell", requestId, "Command failed", exception);
+            throw exception;
         }
     }
 
@@ -257,7 +317,9 @@ final class AdbClient {
         } catch (TimeoutException exception) {
             try {
                 stream.close();
-            } catch (Exception ignored) {
+            } catch (Exception closeException) {
+                ControllerLog.warning("ADB/Response",
+                        "Unable to close timed-out ADB stream", closeException);
             }
             future.cancel(true);
             throw new IllegalStateException("ADB command timed out", exception);

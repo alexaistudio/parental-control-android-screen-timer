@@ -76,8 +76,12 @@ final class AdbConnectionManager extends AbsAdbConnectionManager {
                 CertificateFactory certificates = CertificateFactory.getInstance("X.509");
                 certificate = certificates.generateCertificate(
                         new java.io.ByteArrayInputStream(Base64.decode(encodedCertificate, Base64.NO_WRAP)));
+                ControllerLog.info("ADB/Identity", "Existing local ADB identity loaded");
                 return;
-            } catch (Exception ignored) {
+            } catch (Exception exception) {
+                ControllerLog.warning("ADB/Identity",
+                        "Stored identity was unreadable; replacing it without logging key material",
+                        exception);
                 preferences.edit().clear().commit();
             }
         }
@@ -124,7 +128,10 @@ final class AdbConnectionManager extends AbsAdbConnectionManager {
             if (!saved) {
                 throw new IllegalStateException("Could not persist ADB identity");
             }
+            ControllerLog.info("ADB/Identity",
+                    "New local ADB identity created and persisted; key material omitted");
         } catch (Exception exception) {
+            ControllerLog.error("ADB/Identity", "Unable to create local ADB identity", exception);
             throw new IllegalStateException("Could not create the local ADB identity", exception);
         }
     }

@@ -3,6 +3,7 @@ package dev.tvtimer.controller;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.View;
@@ -53,6 +54,7 @@ public final class MainActivity extends Activity {
         adbClient = new AdbClient(this);
         bindViews();
         bindActions();
+        ControllerLog.info("Main/UI", "Main screen created");
     }
 
     private void bindViews() {
@@ -79,6 +81,10 @@ public final class MainActivity extends Activity {
         findViewById(R.id.buttonRu).setOnClickListener(view -> switchLanguage("ru"));
         findViewById(R.id.buttonEn).setOnClickListener(view -> switchLanguage("en"));
         findViewById(R.id.buttonInstructions).setOnClickListener(view -> showInstructions());
+        findViewById(R.id.buttonDiagnostics).setOnClickListener(view -> {
+            ControllerLog.info("Main/UI", "Opening persistent diagnostics");
+            startActivity(new Intent(this, DiagnosticsActivity.class));
+        });
         scanButton.setOnClickListener(view -> startScan());
         pairButton.setOnClickListener(view -> pair());
         connectButton.setOnClickListener(view -> connect());
@@ -93,6 +99,7 @@ public final class MainActivity extends Activity {
     }
 
     private void showInstructions() {
+        ControllerLog.info("Main/UI", "Universal setup guide opened");
         new AlertDialog.Builder(this)
                 .setTitle(R.string.instructions_title)
                 .setMessage(R.string.instructions_body)
@@ -104,6 +111,7 @@ public final class MainActivity extends Activity {
         if (!beginOperation()) {
             return;
         }
+        ControllerLog.info("Discovery/UI", "Network discovery requested by user");
         adbClient.disconnect();
         installButton.setEnabled(false);
         devices.clear();
@@ -117,6 +125,10 @@ public final class MainActivity extends Activity {
         discovery = new AdbDiscovery(this, new AdbDiscovery.Listener() {
             @Override
             public void onEndpoint(DeviceEndpoint endpoint) {
+                ControllerLog.info("Discovery/UI", "Endpoint displayed host=" + endpoint.host
+                        + " pairingPort=" + endpoint.pairingPort
+                        + " connectionPort=" + endpoint.connectionPort
+                        + " name=" + endpoint.name);
                 devices.upsert(endpoint);
                 renderDevices();
             }
@@ -140,8 +152,10 @@ public final class MainActivity extends Activity {
         setControlsEnabled(true);
         List<DeviceEndpoint> snapshot = devices.snapshot();
         if (snapshot.isEmpty()) {
+            ControllerLog.info("Discovery/UI", "Scan finished; no endpoints found");
             setStatus(R.string.status_none);
         } else {
+            ControllerLog.info("Discovery/UI", "Scan finished; endpoints=" + snapshot.size());
             setStatus(getString(R.string.status_found, snapshot.size()));
         }
     }
@@ -171,6 +185,9 @@ public final class MainActivity extends Activity {
     }
 
     private void selectDevice(DeviceEndpoint endpoint) {
+        ControllerLog.info("Discovery/UI", "Endpoint selected host=" + endpoint.host
+                + " pairingPort=" + endpoint.pairingPort
+                + " connectionPort=" + endpoint.connectionPort);
         if (discovery != null) {
             discovery.stop();
         }
@@ -194,6 +211,8 @@ public final class MainActivity extends Activity {
         int port = parsePort(pairPortField, -1);
         String code = pairCodeField.getText().toString().trim();
         if (host.isBlank() || port <= 0 || !code.matches("\\d{6}")) {
+            ControllerLog.warning("Pair/UI", "Validation rejected host=" + host
+                    + " pairingPort=" + port + " pairingCode=<redacted>", null);
             setStatus(R.string.invalid_pair);
             return;
         }
@@ -220,10 +239,12 @@ public final class MainActivity extends Activity {
         String host = hostField.getText().toString().trim();
         int port = parsePort(connectPortField, 5555);
         if (host.isBlank()) {
+            ControllerLog.warning("Connect/UI", "Validation rejected an empty host", null);
             setStatus(R.string.invalid_host);
             return;
         }
         if (port <= 0) {
+            ControllerLog.warning("Connect/UI", "Validation rejected connectionPort=" + port, null);
             setStatus(R.string.invalid_port);
             return;
         }
@@ -280,6 +301,10 @@ public final class MainActivity extends Activity {
         boolean configureAccessibility = accessibilityCheck.isChecked();
         boolean requestOwner = deviceOwnerCheck.isChecked();
         boolean disableDebug = disableDebugCheck.isChecked();
+        ControllerLog.info("Install/UI", "Install requested host=" + host + " port=" + port
+                + " accessibility=" + configureAccessibility
+                + " deviceOwner=" + requestOwner
+                + " disableWirelessDebug=" + disableDebug);
         worker.execute(() -> {
             try {
                 AdbClient.InstallResult result = adbClient.installAndConfigure(
@@ -301,6 +326,11 @@ public final class MainActivity extends Activity {
     }
 
     private void showSuccess(AdbClient.InstallResult result, boolean disableDebugRequested) {
+        ControllerLog.info("Install/UI", "Install completed accessibility="
+                + result.accessibilityEnabled + " deviceOwnerRequested="
+                + result.deviceOwnerRequested + " deviceOwnerEnabled="
+                + result.deviceOwnerEnabled + " debuggingDisabled="
+                + result.debuggingDisabled + " device=" + result.deviceLabel);
         installProgress.setVisibility(View.GONE);
         endOperation();
         StringBuilder notes = new StringBuilder();
@@ -345,6 +375,7 @@ public final class MainActivity extends Activity {
     }
 
     private void showError(Exception exception) {
+        ControllerLog.error("Main/UI", "Operation failed", exception);
         scanProgress.setVisibility(View.GONE);
         installProgress.setVisibility(View.GONE);
         endOperation();
@@ -385,6 +416,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        ControllerLog.info("Main/UI", "Main screen destroyed");
         if (discovery != null) {
             discovery.stop();
         }

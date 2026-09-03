@@ -51,4 +51,19 @@
     <string name="debug_manual_note">\nВыключите сетевую/беспроводную отладку на целевом устройстве вручную.</string>
     <string name="cancel">Отмена</string>
     <string name="continue_action">Продолжить</string>
+    <string name="open_diagnostics">Полный журнал запросов и ответов</string>
+    <string name="diagnostics_title">Журнал установщика</string>
+    <string name="diagnostics_note">Журнал записывается всегда и переживает перезапуск. В нём есть этапы поиска, адреса и порты, ADB-команды, полные ответы, ошибки и stack trace. Код сопряжения, приватный ADB-ключ и содержимое APK скрыты. Старые записи автоматически вытесняются после 512 КиБ.</string>
+    <string name="copy_full_log">Скопировать всё</string>
+    <string name="save_log_file">Сохранить .txt</string>
+    <string name="refresh_log">Обновить журнал</string>
+    <string name="full_log_title">Полный текст</string>
+    <string name="diagnostics_page">QR-страница %1$d из %2$d</string>
+    <string name="diagnostics_qr_description">QR-страница полного журнала установщика</string>
+    <string name="previous_log_page">Назад</string>
+    <string name="next_log_page">Дальше</string>
+    <string name="log_copied">Весь журнал скопирован</string>
+    <string name="copy_log_failed">Не удалось открыть буфер обмена</string>
+    <string name="log_saved">Журнал сохранён</string>
+    <string name="save_log_failed">Не удалось сохранить журнал</string>
 </resources>

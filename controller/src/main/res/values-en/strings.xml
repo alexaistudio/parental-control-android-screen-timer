@@ -51,4 +51,19 @@
     <string name="debug_manual_note">\nTurn off network/wireless debugging on the target device manually.</string>
     <string name="cancel">Cancel</string>
     <string name="continue_action">Continue</string>
+    <string name="open_diagnostics">Full request and response log</string>
+    <string name="diagnostics_title">Installer diagnostics</string>
+    <string name="diagnostics_note">Logging is always on and survives restarts. It contains discovery stages, addresses and ports, ADB commands, complete responses, errors, and stack traces. Pairing codes, the private ADB key, and APK binary contents are hidden. Old entries rotate after 512 KiB.</string>
+    <string name="copy_full_log">Copy everything</string>
+    <string name="save_log_file">Save .txt</string>
+    <string name="refresh_log">Refresh log</string>
+    <string name="full_log_title">Complete text</string>
+    <string name="diagnostics_page">QR page %1$d of %2$d</string>
+    <string name="diagnostics_qr_description">QR page of the complete Parent Installer log</string>
+    <string name="previous_log_page">Previous</string>
+    <string name="next_log_page">Next</string>
+    <string name="log_copied">Complete log copied</string>
+    <string name="copy_log_failed">Clipboard is unavailable</string>
+    <string name="log_saved">Log saved</string>
+    <string name="save_log_failed">Could not save the log</string>
 </resources>
