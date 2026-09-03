@@ -5,12 +5,14 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -48,19 +50,29 @@ public final class AppSelectionActivity extends LocalizedActivity {
                 ? store.getSelectedPackages()
                 : new HashSet<>(restored);
 
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(0xff121212);
+        SystemBarInsets.apply(root);
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(0xff121212);
-        SystemBarInsets.apply(scroll);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         int horizontalPadding = getResources().getDisplayMetrics().widthPixels < dp(600)
-                ? dp(18)
-                : dp(36);
-        content.setPadding(horizontalPadding, dp(24), horizontalPadding, dp(40));
+                ? dp(12)
+                : dp(20);
+        content.setPadding(horizontalPadding, dp(16), horizontalPadding, dp(24));
         scroll.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        int outerSpace = screenWidth < dp(600) ? dp(24) : dp(80);
+        int menuWidth = Math.max(1, Math.min(dp(720), screenWidth - outerSpace));
+        root.addView(scroll, new FrameLayout.LayoutParams(
+                menuWidth,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER_HORIZONTAL
         ));
 
         LanguageSwitcherView languageSwitcher = new LanguageSwitcherView(this, () -> {
@@ -75,12 +87,12 @@ public final class AppSelectionActivity extends LocalizedActivity {
         languageParams.bottomMargin = dp(8);
         content.addView(languageSwitcher, languageParams);
 
-        TextView title = text(getString(R.string.app_selection_title), 30f, Color.WHITE);
+        TextView title = text(getString(R.string.app_selection_title), 24f, Color.WHITE);
         title.setGravity(Gravity.CENTER_HORIZONTAL);
         content.addView(title, matchWrap(dp(10)));
         content.addView(text(
                 getString(R.string.app_selection_instructions),
-                18f,
+                15f,
                 0xffeeeeee
         ), matchWrap(dp(12)));
 
@@ -90,9 +102,9 @@ public final class AppSelectionActivity extends LocalizedActivity {
 
         appList = new LinearLayout(this);
         appList.setOrientation(LinearLayout.VERTICAL);
-        appList.addView(text(getString(R.string.apps_loading), 17f, 0xffb0bec5), matchWrap(0));
+        appList.addView(text(getString(R.string.apps_loading), 15f, 0xffb0bec5), matchWrap(0));
         content.addView(appList, matchWrap(0));
-        setContentView(scroll);
+        setContentView(root);
         done.requestFocus();
         loadApps();
     }
@@ -136,9 +148,15 @@ public final class AppSelectionActivity extends LocalizedActivity {
                             app.packageName
                     ));
                     checkBox.setTextColor(Color.WHITE);
-                    checkBox.setTextSize(17f);
-                    checkBox.setMinHeight(dp(48));
-                    checkBox.setPadding(dp(10), dp(7), dp(10), dp(7));
+                    checkBox.setTextSize(15f);
+                    checkBox.setMinHeight(dp(44));
+                    checkBox.setPadding(dp(6), dp(4), dp(6), dp(4));
+                    Drawable icon = app.icon == null
+                            ? getPackageManager().getDefaultActivityIcon()
+                            : app.icon.mutate();
+                    icon.setBounds(0, 0, dp(34), dp(34));
+                    checkBox.setCompoundDrawablesRelative(icon, null, null, null);
+                    checkBox.setCompoundDrawablePadding(dp(10));
                     checkBox.setChecked(selectedSnapshot.contains(app.packageName));
                     applyTvFocus(checkBox);
                     appList.addView(checkBox, matchWrap(dp(2)));
@@ -146,7 +164,7 @@ public final class AppSelectionActivity extends LocalizedActivity {
                 }
                 if (checks.isEmpty()) {
                     appList.addView(
-                            text(getString(R.string.apps_not_found), 17f, 0xffffcc80),
+                            text(getString(R.string.apps_not_found), 15f, 0xffffcc80),
                             matchWrap(0)
                     );
                 }
@@ -172,7 +190,8 @@ public final class AppSelectionActivity extends LocalizedActivity {
                         packageName,
                         new InstalledApp(
                                 packageName,
-                                getString(R.string.app_missing_suffix, packageName)
+                                getString(R.string.app_missing_suffix, packageName),
+                                loadApplicationIcon(packageName)
                         )
                 );
             }
@@ -199,7 +218,13 @@ public final class AppSelectionActivity extends LocalizedActivity {
                 }
                 CharSequence loadedLabel = info.loadLabel(manager);
                 String label = loadedLabel == null ? packageName : loadedLabel.toString();
-                destination.put(packageName, new InstalledApp(packageName, label));
+                Drawable icon;
+                try {
+                    icon = info.loadIcon(manager);
+                } catch (RuntimeException exception) {
+                    icon = manager.getDefaultActivityIcon();
+                }
+                destination.put(packageName, new InstalledApp(packageName, label, icon));
             }
             return true;
         } catch (SecurityException exception) {
@@ -218,6 +243,15 @@ public final class AppSelectionActivity extends LocalizedActivity {
 
     private boolean persistCurrentSelection() {
         return store.updateSelectedPackages(currentSelection());
+    }
+
+    private Drawable loadApplicationIcon(String packageName) {
+        PackageManager manager = getPackageManager();
+        try {
+            return manager.getApplicationIcon(packageName);
+        } catch (PackageManager.NameNotFoundException | RuntimeException exception) {
+            return manager.getDefaultActivityIcon();
+        }
     }
 
     private Set<String> currentSelection() {
@@ -244,9 +278,9 @@ public final class AppSelectionActivity extends LocalizedActivity {
     private Button button(String label) {
         Button button = new Button(this);
         button.setText(label);
-        button.setTextSize(18f);
+        button.setTextSize(15f);
         button.setAllCaps(false);
-        button.setMinHeight(dp(60));
+        button.setMinHeight(dp(46));
         int[][] states = new int[][]{
                 new int[]{android.R.attr.state_focused},
                 new int[]{android.R.attr.state_pressed},
@@ -268,8 +302,7 @@ public final class AppSelectionActivity extends LocalizedActivity {
         view.setFocusable(true);
         view.setAlpha(0.88f);
         view.setOnFocusChangeListener((focusedView, hasFocus) -> {
-            float scale = hasFocus ? 1.035f : 1f;
-            focusedView.animate().scaleX(scale).scaleY(scale).setDuration(90L).start();
+            focusedView.animate().scaleX(1f).scaleY(1f).setDuration(0L).start();
             focusedView.setAlpha(hasFocus ? 1f : 0.88f);
             focusedView.setElevation(hasFocus ? dp(8) : 0f);
         });
@@ -291,10 +324,12 @@ public final class AppSelectionActivity extends LocalizedActivity {
     private static final class InstalledApp {
         private final String packageName;
         private final String label;
+        private final Drawable icon;
 
-        private InstalledApp(String packageName, String label) {
+        private InstalledApp(String packageName, String label, Drawable icon) {
             this.packageName = packageName;
             this.label = label;
+            this.icon = icon;
         }
     }
 

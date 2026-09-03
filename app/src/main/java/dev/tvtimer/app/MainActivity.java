@@ -25,6 +25,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
@@ -37,6 +38,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -66,6 +68,10 @@ public final class MainActivity extends LocalizedActivity {
     private boolean qrReturnsToSettings;
     private boolean setupQrAcknowledged;
     private boolean appSelectionOpen;
+    private boolean accessibilitySettingsOpen;
+    private boolean showingDiagnostics;
+    private int diagnosticPage;
+    private List<String> diagnosticPages;
     private Set<String> selectedPackagesDraft;
     private TextView appSelectionSummary;
 
@@ -81,19 +87,30 @@ public final class MainActivity extends LocalizedActivity {
             LauncherProfileManager.apply(this, store.getLauncherProfile());
         }
 
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(0xff121212);
+        SystemBarInsets.apply(root);
         scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
         scrollView.setBackgroundColor(0xff121212);
-        SystemBarInsets.apply(scrollView);
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         int horizontalPadding = contentHorizontalPadding();
-        content.setPadding(horizontalPadding, dp(28), horizontalPadding, dp(40));
+        content.setPadding(horizontalPadding, dp(16), horizontalPadding, dp(24));
         scrollView.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         ));
-        setContentView(scrollView);
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        int outerSpace = screenWidth < dp(600) ? dp(24) : dp(80);
+        int menuWidth = Math.max(1, Math.min(dp(720), screenWidth - outerSpace));
+        FrameLayout.LayoutParams scrollParams = new FrameLayout.LayoutParams(
+                menuWidth,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER_HORIZONTAL
+        );
+        root.addView(scrollView, scrollParams);
+        setContentView(root);
         renderCurrentScreen();
     }
 
@@ -110,6 +127,13 @@ public final class MainActivity extends LocalizedActivity {
 
     @Override
     public void onBackPressed() {
+        if (showingDiagnostics) {
+            showingDiagnostics = false;
+            diagnosticPages = null;
+            adminUnlocked = true;
+            renderSettings();
+            return;
+        }
         if (showingAuthenticatorQr) {
             showingAuthenticatorQr = false;
             if (qrReturnsToSettings && store.isConfigured()) {
@@ -139,6 +163,15 @@ public final class MainActivity extends LocalizedActivity {
             selectedPackagesDraft = store.getSelectedPackages();
             updateAppSelectionSummary();
             return;
+        }
+        if (accessibilitySettingsOpen) {
+            accessibilitySettingsOpen = false;
+            DiagnosticLog.info(
+                    this,
+                    TAG,
+                    "Returned from accessibility settings; enabled="
+                            + isAccessibilityServiceEnabled()
+            );
         }
         if (!store.isConfigured()) {
             adminUnlocked = false;
@@ -176,11 +209,12 @@ public final class MainActivity extends LocalizedActivity {
         ImageView qr = new ImageView(this);
         int availableWidth = getResources().getDisplayMetrics().widthPixels
                 - (2 * contentHorizontalPadding());
+        int qrMaxSize = qrReturnsToSettings ? dp(280) : dp(220);
         int qrSize = Math.max(
                 dp(120),
                 Math.min(
-                        dp(360),
-                        Math.min(availableWidth, getResources().getDisplayMetrics().heightPixels / 2)
+                        qrMaxSize,
+                        Math.min(availableWidth, getResources().getDisplayMetrics().heightPixels / 3)
                 )
         );
         qr.setImageBitmap(QrCodeRenderer.render(TotpAuthenticator.provisioningUri(secret), qrSize));
@@ -348,6 +382,7 @@ public final class MainActivity extends LocalizedActivity {
 
     private void renderSettings() {
         clearScreen();
+        showingDiagnostics = false;
         selectedPackagesDraft = store.getSelectedPackages();
         addTitle(getString(R.string.settings_title));
         serviceStatus = addParagraph("");
@@ -355,6 +390,11 @@ public final class MainActivity extends LocalizedActivity {
 
         Button accessibility = addButton(getString(R.string.open_accessibility_settings));
         accessibility.setOnClickListener(view -> openAccessibilitySettings());
+        addNotice(getString(R.string.accessibility_restricted_hint), 0xffffcc80);
+        Button appInfo = addButton(getString(R.string.open_app_info));
+        appInfo.setOnClickListener(view -> openAppInfo());
+        Button diagnostics = addButton(getString(R.string.show_diagnostic_log));
+        diagnostics.setOnClickListener(view -> renderDiagnostics());
 
         addSubheading(getString(R.string.removal_protection_title));
         deviceAdminStatus = addParagraph("");
@@ -733,11 +773,123 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     private void openAccessibilitySettings() {
+        store.grantMaintenanceWindow();
+        accessibilitySettingsOpen = true;
+        ComponentName component = new ComponentName(this, LimiterAccessibilityService.class);
+        DiagnosticLog.info(this, TAG, "Opening accessibility service settings");
         try {
-            store.grantMaintenanceWindow();
-            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            Intent details = new Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+                    .putExtra(Intent.EXTRA_COMPONENT_NAME, component);
+            startActivity(details);
+        } catch (RuntimeException directFailure) {
+            DiagnosticLog.warning(
+                    this,
+                    TAG,
+                    "Firmware rejected the service details screen; trying the service list",
+                    directFailure
+            );
+            try {
+                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            } catch (RuntimeException fallbackFailure) {
+                accessibilitySettingsOpen = false;
+                DiagnosticLog.error(
+                        this,
+                        TAG,
+                        "Firmware did not open accessibility settings",
+                        fallbackFailure
+                );
+                showError(getString(R.string.accessibility_settings_open_failed));
+            }
+        }
+    }
+
+    private void openAppInfo() {
+        store.grantMaintenanceWindow();
+        try {
+            Intent intent = new Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + getPackageName())
+            );
+            startActivity(intent);
+            DiagnosticLog.info(this, TAG, "Opened app info for restricted-settings permission");
         } catch (RuntimeException exception) {
-            showError(getString(R.string.accessibility_settings_open_failed));
+            DiagnosticLog.error(this, TAG, "Firmware did not open app info", exception);
+            showError(getString(R.string.app_info_open_failed));
+        }
+    }
+
+    private void renderDiagnostics() {
+        if (!showingDiagnostics || diagnosticPages == null) {
+            DiagnosticLog.info(
+                    this,
+                    TAG,
+                    "Diagnostic QR opened; accessibilityEnabled="
+                            + isAccessibilityServiceEnabled()
+            );
+            diagnosticPages = DiagnosticLog.qrPages(this);
+            diagnosticPage = 0;
+        }
+        showingDiagnostics = true;
+        clearScreen();
+        addTitle(getString(R.string.diagnostic_title));
+        addParagraph(getString(R.string.diagnostic_instructions));
+        int pageCount = diagnosticPages.size();
+        diagnosticPage = Math.max(0, Math.min(diagnosticPage, pageCount - 1));
+        addNotice(
+                getString(R.string.diagnostic_page, diagnosticPage + 1, pageCount),
+                0xffb2dfdb
+        );
+        String payload = "Android Screen Timer diagnostics "
+                + (diagnosticPage + 1) + "/" + pageCount + "\n"
+                + diagnosticPages.get(diagnosticPage);
+        ImageView qr = new ImageView(this);
+        int availableWidth = getResources().getDisplayMetrics().widthPixels
+                - (2 * contentHorizontalPadding()) - dp(32);
+        int qrSize = Math.max(
+                dp(160),
+                Math.min(dp(380), Math.min(availableWidth, getResources().getDisplayMetrics().heightPixels / 2))
+        );
+        qr.setImageBitmap(QrCodeRenderer.render(payload, qrSize));
+        qr.setContentDescription(getString(R.string.diagnostic_qr_description));
+        LinearLayout.LayoutParams qrParams = new LinearLayout.LayoutParams(qrSize, qrSize);
+        qrParams.gravity = Gravity.CENTER_HORIZONTAL;
+        qrParams.bottomMargin = dp(8);
+        content.addView(qr, qrParams);
+
+        if (diagnosticPage > 0) {
+            Button previous = addButton(getString(R.string.previous_log_page));
+            previous.setOnClickListener(view -> {
+                diagnosticPage--;
+                renderDiagnostics();
+            });
+        }
+        if (diagnosticPage + 1 < pageCount) {
+            Button next = addButton(getString(R.string.next_log_page));
+            next.setOnClickListener(view -> {
+                diagnosticPage++;
+                renderDiagnostics();
+            });
+            next.requestFocus();
+        }
+        Button copy = addButton(getString(R.string.copy_diagnostic_log));
+        copy.setOnClickListener(view -> {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(ClipData.newPlainText(
+                        "Android Screen Timer diagnostics",
+                        DiagnosticLog.snapshot(this)
+                ));
+                Toast.makeText(this, R.string.diagnostic_log_copied, Toast.LENGTH_SHORT).show();
+            }
+        });
+        Button back = addButton(getString(R.string.back_to_settings));
+        back.setOnClickListener(view -> {
+            showingDiagnostics = false;
+            diagnosticPages = null;
+            renderSettings();
+        });
+        if (pageCount == 1) {
+            back.requestFocus();
         }
     }
 
@@ -972,7 +1124,7 @@ public final class MainActivity extends LocalizedActivity {
         content.setMinimumHeight(0);
         content.setGravity(Gravity.TOP);
         int horizontalPadding = contentHorizontalPadding();
-        content.setPadding(horizontalPadding, dp(28), horizontalPadding, dp(40));
+        content.setPadding(horizontalPadding, dp(16), horizontalPadding, dp(24));
         serviceStatus = null;
         deviceAdminStatus = null;
         deviceAdminButton = null;
@@ -994,33 +1146,33 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     private void addTitle(String text) {
-        TextView title = textView(text, 28f, Color.WHITE);
+        TextView title = textView(text, 24f, Color.WHITE);
         title.setGravity(Gravity.START);
         LinearLayout.LayoutParams params = matchWrapParams();
-        params.bottomMargin = dp(14);
+        params.bottomMargin = dp(10);
         content.addView(title, params);
     }
 
     private TextView addSubheading(String text) {
-        TextView heading = textView(text, 20f, Color.WHITE);
+        TextView heading = textView(text, 18f, Color.WHITE);
         LinearLayout.LayoutParams params = matchWrapParams();
-        params.topMargin = dp(16);
-        params.bottomMargin = dp(6);
+        params.topMargin = dp(12);
+        params.bottomMargin = dp(4);
         content.addView(heading, params);
         return heading;
     }
 
     private TextView addParagraph(String text) {
-        TextView paragraph = textView(text, 18f, 0xffeeeeee);
+        TextView paragraph = textView(text, 15f, 0xffeeeeee);
         LinearLayout.LayoutParams params = matchWrapParams();
-        params.bottomMargin = dp(10);
+        params.bottomMargin = dp(7);
         content.addView(paragraph, params);
         return paragraph;
     }
 
     private void addNotice(String text, int color) {
-        TextView notice = textView(text, 16f, color);
-        notice.setPadding(dp(14), dp(10), dp(14), dp(10));
+        TextView notice = textView(text, 14f, color);
+        notice.setPadding(dp(10), dp(7), dp(10), dp(7));
         notice.setBackgroundColor(0xff263238);
         LinearLayout.LayoutParams params = matchWrapParams();
         params.topMargin = dp(10);
@@ -1056,12 +1208,12 @@ public final class MainActivity extends LocalizedActivity {
     private void addLimitButton(LinearLayout row, String text, Runnable action) {
         Button button = new Button(this);
         button.setText(text);
-        button.setTextSize(18f);
+        button.setTextSize(15f);
         button.setAllCaps(false);
-        button.setMinHeight(dp(52));
+        button.setMinHeight(dp(44));
         applyTvButtonFocus(button);
         button.setOnClickListener(view -> action.run());
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(56), 1f);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(48), 1f);
         params.setMargins(dp(3), 0, dp(3), 0);
         row.addView(button, params);
     }
@@ -1071,14 +1223,14 @@ public final class MainActivity extends LocalizedActivity {
         input.setHint(hint);
         input.setHintTextColor(0xff9e9e9e);
         input.setTextColor(Color.WHITE);
-        input.setTextSize(18f);
+        input.setTextSize(15f);
         input.setSingleLine(true);
         input.setInputType(InputType.TYPE_CLASS_NUMBER
                 | (password ? InputType.TYPE_NUMBER_VARIATION_PASSWORD : InputType.TYPE_NUMBER_VARIATION_NORMAL));
         input.setMaxWidth(dp(420));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(58)
+                dp(50)
         );
         params.gravity = Gravity.START;
         params.bottomMargin = dp(10);
@@ -1091,8 +1243,8 @@ public final class MainActivity extends LocalizedActivity {
         button.setId(View.generateViewId());
         button.setText(text);
         button.setTextColor(Color.WHITE);
-        button.setTextSize(18f);
-        button.setMinHeight(dp(50));
+        button.setTextSize(15f);
+        button.setMinHeight(dp(42));
         button.setPadding(dp(8), 0, dp(8), 0);
         applyRowFocus(button);
         group.addView(button, matchWrapParams());
@@ -1138,9 +1290,12 @@ public final class MainActivity extends LocalizedActivity {
     private Button addButton(String text) {
         Button button = new Button(this);
         button.setText(text);
-        button.setTextSize(17f);
-        button.setMinHeight(dp(56));
-        button.setMaxWidth(dp(560));
+        button.setTextSize(15f);
+        button.setMinHeight(dp(46));
+        button.setMaxWidth(dp(620));
+        button.setSingleLine(false);
+        button.setMaxLines(2);
+        button.setPadding(dp(12), dp(4), dp(12), dp(4));
         button.setAllCaps(false);
         applyTvButtonFocus(button);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -1183,8 +1338,7 @@ public final class MainActivity extends LocalizedActivity {
                 new int[]{Color.BLACK, Color.BLACK, Color.WHITE}
         ));
         button.setOnFocusChangeListener((view, hasFocus) -> {
-            float scale = hasFocus ? 1.06f : 1f;
-            view.animate().scaleX(scale).scaleY(scale).setDuration(90L).start();
+            view.animate().scaleX(1f).scaleY(1f).setDuration(0L).start();
             view.setElevation(hasFocus ? dp(10) : dp(2));
         });
     }
@@ -1192,8 +1346,7 @@ public final class MainActivity extends LocalizedActivity {
     private void applyRowFocus(View view) {
         view.setOnFocusChangeListener((focusedView, hasFocus) -> {
             focusedView.setBackgroundColor(hasFocus ? 0xff455a64 : Color.TRANSPARENT);
-            float scale = hasFocus ? 1.02f : 1f;
-            focusedView.animate().scaleX(scale).scaleY(scale).setDuration(90L).start();
+            focusedView.animate().scaleX(1f).scaleY(1f).setDuration(0L).start();
         });
     }
 
@@ -1226,7 +1379,7 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     private int contentHorizontalPadding() {
-        return getResources().getDisplayMetrics().widthPixels < dp(600) ? dp(20) : dp(40);
+        return getResources().getDisplayMetrics().widthPixels < dp(600) ? dp(12) : dp(20);
     }
 
     private static final class UpdateUi {

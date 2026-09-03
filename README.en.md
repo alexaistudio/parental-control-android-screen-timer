@@ -2,6 +2,8 @@
 
 # ⏱️ Parental Control — Android Screen Timer
 
+<img src="poster.jpg" alt="Parental Control — Android Screen Timer" width="100%">
+
 ### TV, tablet, or phone — family screen time under control.
 
 **Free family screen-time control for Android**<br>
@@ -44,6 +46,7 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - ➕ **Add extra time immediately** — 10, 15, 20, 30, 40, or 60 minutes, automatically or by choosing after every parent code.
 - 🔔 **Simple viewing reminders** every 10, 20, or 30 minutes ask the child whether to continue or finish.
 - 🥷 **Ten names and icons**: Android Screen Timer, Calculator, Media Service, Clock, Weather, Notes, Calendar, Files, Gallery, or Help.
+- 🖼️ **Recognize selected apps immediately** from their real installed icons.
 - 🛡️ **A child cannot simply open settings and remove the limiter** — Android settings and the package installer require a parent code; Device Owner enables Android-level uninstall blocking.
 - 🔌 **USB emergency recovery** gives a parent a physical way to clear local protection and settings on devices with USB host support.
 - 📴 **No account and no tracking** — no ads, analytics, telemetry, cloud storage, or remote TOTP processing.
@@ -59,6 +62,9 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - A 4–8 digit backup parent PIN stored only as a salted PBKDF2 hash.
 - Daily limits from 1 to 1,440 minutes.
 - A separate app-selection screen; pressing Back on the device or remote saves the checked apps immediately.
+- Centered safe-width settings and parent-code menus, smaller controls and a compact PIN pad keep focus inside the screen edge.
+- If Accessibility refuses to stay enabled, the app opens its own service details, explains Android 13+ Restricted Settings, and keeps a local diagnostic log. The complete log can be transferred as numbered QR pages without PINs, TOTP secrets, or viewing history.
+- The app picker shows every installed app's real icon next to its name and package ID.
 - Touchscreen or remote limit adjustment with `−15`, `−1`, `+1`, and `+15` buttons.
 - A small remaining-time counter over the active controlled app.
 - Optional automatic extra time or a choice of 10, 15, 20, 30, 40, or 60 minutes after successful parent verification.
@@ -84,15 +90,16 @@ On devices with USB host support, the guaranteed emergency path is a USB flash d
 2. Install it from a USB drive or through ADB:
 
    ```powershell
-   adb install -r AndroidScreenTimer-1.3.1.apk
+   adb install -r AndroidScreenTimer-1.3.2.apk
    ```
 
 3. Open Android Screen Timer, select `EN`, and scan the first QR code with an authenticator app on a parent's phone.
 4. Set the backup PIN, daily limit, and controlled app scope.
 5. Confirm the accessibility-service disclosure.
-6. On Android 13+, a GitHub-sideloaded APK may require `App info` → `⋮` → `Allow restricted settings` first.
+6. If the service switch immediately returns to Off, select `Open App info` in Android Screen Timer, then `⋮` → `Allow restricted settings`, and try again. Android applies this restriction to apps installed outside a store.
 7. Enable “Android Screen Timer control” in the Android system page that opens.
-8. Return to Android Screen Timer and confirm that the control service is enabled.
+8. If the service still turns off, open `Error log as QR codes` and scan every numbered page with a phone.
+9. Return to Android Screen Timer and confirm that the control service is enabled.
 
 ### Maximum uninstall protection (Device Owner)
 

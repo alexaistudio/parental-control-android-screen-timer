@@ -45,6 +45,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
+    private final Runnable connector = this::initializeRuntimeSafely;
     private final Runnable ticker = new Runnable() {
         @Override
         public void run() {
@@ -84,6 +85,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private int pinPromptGeneration;
     private long pendingWarningMinutes;
     private String pendingWarningDay;
+    private int connectionAttempts;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -93,36 +95,69 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
-        store = new ConfigStore(this);
-        if (store.isConfigured()) {
-            DeviceOwnerProtection.ensureUninstallBlocked(this);
+        connectionAttempts = 0;
+        handler.removeCallbacks(connector);
+        handler.post(connector);
+    }
+
+    private void initializeRuntimeSafely() {
+        if (connected) {
+            return;
         }
-        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-        keyguardManager = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
-        homePackages = loadHomePackages();
-        launchablePackages = loadLaunchablePackages();
-        interactive = powerManager != null && powerManager.isInteractive();
-        connected = true;
-        refreshRuntimeConfiguration();
-        lastTickElapsed = SystemClock.elapsedRealtime();
-        registerReceivers();
-        preferenceListener = (preferences, key) -> {
-            if (ConfigStore.affectsRuntimeConfiguration(key)) {
-                handler.post(() -> {
-                    if (ConfigStore.isLanguagePreference(key)) {
-                        AppLanguage.apply(this);
-                        rebuildLocalizedOverlays();
-                    }
-                    refreshRuntimeConfiguration();
-                    evaluateNow();
-                });
+        connectionAttempts++;
+        DiagnosticLog.info(
+                this,
+                TAG,
+                "Connection attempt " + connectionAttempts + " started"
+        );
+        try {
+            store = new ConfigStore(this);
+            if (store.isConfigured()) {
+                DeviceOwnerProtection.ensureUninstallBlocked(this);
             }
-        };
-        store.registerListener(preferenceListener);
-        handler.removeCallbacks(ticker);
-        handler.post(ticker);
-        Log.i(TAG, "Accessibility service connected");
+            windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+            powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+            keyguardManager = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+            homePackages = loadHomePackages();
+            launchablePackages = loadLaunchablePackages();
+            interactive = powerManager != null && powerManager.isInteractive();
+            refreshRuntimeConfiguration();
+            lastTickElapsed = SystemClock.elapsedRealtime();
+            registerReceivers();
+            preferenceListener = (preferences, key) -> {
+                if (ConfigStore.affectsRuntimeConfiguration(key)) {
+                    handler.post(() -> {
+                        if (ConfigStore.isLanguagePreference(key)) {
+                            AppLanguage.apply(this);
+                            rebuildLocalizedOverlays();
+                        }
+                        refreshRuntimeConfiguration();
+                        evaluateNow();
+                    });
+                }
+            };
+            store.registerListener(preferenceListener);
+            connected = true;
+            handler.removeCallbacks(ticker);
+            handler.post(ticker);
+            DiagnosticLog.info(
+                    this,
+                    TAG,
+                    "Connected; configured=" + configurationPresent
+                            + ", enforcement=" + enforcementEnabled
+                );
+        } catch (RuntimeException exception) {
+            DiagnosticLog.error(
+                    this,
+                    TAG,
+                    "Connection attempt " + connectionAttempts + " failed",
+                    exception
+            );
+            cleanupRuntimeRegistrations();
+            if (connectionAttempts < 3) {
+                handler.postDelayed(connector, connectionAttempts * 2_000L);
+            }
+        }
     }
 
     @Override
@@ -182,6 +217,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
 
     @Override
     public void onInterrupt() {
+        DiagnosticLog.warning(this, TAG, "Service interrupted by Android", null);
         countedDuringPreviousInterval = false;
         flushPendingUsage();
         removeAllOverlays();
@@ -386,8 +422,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setGravity(Gravity.CENTER);
         boolean compact = getResources().getDisplayMetrics().widthPixels < dp(600);
-        int panelPadding = compact ? dp(12) : dp(24);
-        panel.setPadding(panelPadding, dp(20), panelPadding, dp(20));
+        int panelPadding = compact ? dp(10) : dp(18);
+        panel.setPadding(panelPadding, dp(12), panelPadding, dp(12));
         View initialFocus = reason == BlockReason.USAGE_WARNING
                 ? renderUsageWarning(panel)
                 : renderPinPrompt(panel, reason);
@@ -395,7 +431,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         ScrollView panelScroll = new ScrollView(this);
         panelScroll.setFillViewport(true);
         panelScroll.setClipToPadding(true);
-        panelScroll.setPadding(0, dp(64), 0, dp(12));
+        panelScroll.setPadding(0, dp(52), 0, dp(10));
         ScrollView.LayoutParams panelContentParams = new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -404,7 +440,13 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         panelScroll.addView(panel, panelContentParams);
         int outerMargin = compact ? dp(16) : dp(40);
         FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
-                Math.min(dp(620), getResources().getDisplayMetrics().widthPixels - outerMargin),
+                Math.max(
+                        1,
+                        Math.min(
+                                dp(560),
+                                getResources().getDisplayMetrics().widthPixels - (2 * outerMargin)
+                        )
+                ),
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 Gravity.CENTER
         );
@@ -454,10 +496,10 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         String instructionText = reason == BlockReason.TIME_LIMIT
                 ? getString(R.string.time_finished_instruction)
                 : getString(R.string.settings_protection_instruction);
-        TextView title = overlayText(titleText, 30f, Color.WHITE);
+        TextView title = overlayText(titleText, 24f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
         panel.addView(title, wrapParams(dp(8)));
-        TextView instructions = overlayText(instructionText, 20f, 0xffeeeeee);
+        TextView instructions = overlayText(instructionText, 16f, 0xffeeeeee);
         instructions.setGravity(Gravity.CENTER);
         panel.addView(instructions, wrapParams(dp(12)));
 
@@ -496,7 +538,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private View renderUsageWarning(LinearLayout panel) {
         pinPromptGeneration++;
         panel.removeAllViews();
-        TextView title = overlayText(getString(R.string.usage_pause_title), 30f, Color.WHITE);
+        TextView title = overlayText(getString(R.string.usage_pause_title), 24f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
         panel.addView(title, wrapParams(dp(10)));
 
@@ -506,7 +548,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                         (int) pendingWarningMinutes,
                         pendingWarningMinutes
                 ),
-                23f,
+                18f,
                 0xffeeeeee
         );
         message.setGravity(Gravity.CENTER);
@@ -542,7 +584,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private void renderParentActions(LinearLayout panel, BlockReason reason) {
         pinPromptGeneration++;
         panel.removeAllViews();
-        TextView title = overlayText(getString(R.string.parent_actions_title), 28f, Color.WHITE);
+        TextView title = overlayText(getString(R.string.parent_actions_title), 22f, Color.WHITE);
         title.setGravity(Gravity.CENTER);
         panel.addView(title, wrapParams(dp(18)));
 
@@ -751,20 +793,32 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     }
 
     private void shutdown() {
-        if (!connected) {
-            return;
-        }
+        boolean wasConnected = connected;
         connected = false;
+        handler.removeCallbacks(connector);
         handler.removeCallbacks(ticker);
         flushPendingUsage();
         countedDuringPreviousInterval = false;
         removeAllOverlays();
-        if (store != null && preferenceListener != null) {
-            store.unregisterListener(preferenceListener);
+        cleanupRuntimeRegistrations();
+        if (wasConnected) {
+            DiagnosticLog.info(this, TAG, "Disconnected");
         }
+    }
+
+    private void cleanupRuntimeRegistrations() {
+        if (store != null && preferenceListener != null) {
+            try {
+                store.unregisterListener(preferenceListener);
+            } catch (RuntimeException exception) {
+                DiagnosticLog.warning(this, TAG, "Unable to remove settings listener", exception);
+            }
+        }
+        preferenceListener = null;
         unregisterSafely(stateReceiver);
         unregisterSafely(usbReceiver);
-        Log.i(TAG, "Accessibility service disconnected");
+        stateReceiver = null;
+        usbReceiver = null;
     }
 
     private void unregisterSafely(BroadcastReceiver receiver) {
@@ -792,6 +846,12 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         long delaySeconds = Math.min(60L, 1L << overlayFailureCount);
         nextOverlayAttemptElapsed = SystemClock.elapsedRealtime() + delaySeconds * 1_000L;
         Log.e(TAG, "Unable to show " + overlayName + "; retry is delayed", exception);
+        DiagnosticLog.error(
+                this,
+                TAG,
+                "Unable to show " + overlayName + "; retry delayed " + delaySeconds + " seconds",
+                exception
+        );
     }
 
     private void removeAllOverlays() {
@@ -844,8 +904,11 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private Button overlayButton(String text) {
         Button button = new Button(this);
         button.setText(text);
-        button.setTextSize(18f);
-        button.setMinHeight(dp(58));
+        button.setTextSize(15f);
+        button.setMinHeight(dp(46));
+        button.setSingleLine(false);
+        button.setMaxLines(2);
+        button.setPadding(dp(10), dp(4), dp(10), dp(4));
         button.setAllCaps(false);
         int[][] states = new int[][]{
                 new int[]{android.R.attr.state_focused},
@@ -861,8 +924,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 new int[]{Color.BLACK, Color.BLACK, Color.WHITE}
         ));
         button.setOnFocusChangeListener((view, hasFocus) -> {
-            float scale = hasFocus ? 1.06f : 1f;
-            view.animate().scaleX(scale).scaleY(scale).setDuration(90L).start();
+            view.animate().scaleX(1f).scaleY(1f).setDuration(0L).start();
             view.setElevation(hasFocus ? dp(10) : dp(2));
         });
         return button;

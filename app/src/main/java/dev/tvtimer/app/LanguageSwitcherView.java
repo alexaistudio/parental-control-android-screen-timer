@@ -28,12 +28,12 @@ final class LanguageSwitcherView extends LinearLayout {
         TextView label = new TextView(context);
         label.setText(R.string.language_label);
         label.setTextColor(0xffb0bec5);
-        label.setTextSize(14f);
+        label.setTextSize(12f);
         LayoutParams labelParams = new LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        labelParams.setMarginEnd(dp(8));
+        labelParams.setMarginEnd(dp(5));
         addView(label, labelParams);
 
         String selected = new ConfigStore(context).getLanguage();
@@ -51,11 +51,11 @@ final class LanguageSwitcherView extends LinearLayout {
         Button button = new Button(getContext());
         button.setText(label);
         button.setContentDescription(getResources().getString(contentDescription));
-        button.setTextSize(14f);
+        button.setTextSize(12f);
         button.setAllCaps(false);
-        button.setMinWidth(dp(58));
-        button.setMinHeight(dp(48));
-        button.setPadding(dp(8), 0, dp(8), 0);
+        button.setMinWidth(dp(48));
+        button.setMinHeight(dp(40));
+        button.setPadding(dp(5), 0, dp(5), 0);
         boolean active = language.equals(selected);
         int[][] states = new int[][]{
                 new int[]{android.R.attr.state_focused},
@@ -71,7 +71,7 @@ final class LanguageSwitcherView extends LinearLayout {
                 new int[]{Color.BLACK, Color.BLACK, Color.WHITE}
         ));
         button.setOnFocusChangeListener((view, hasFocus) -> {
-            float scale = hasFocus ? 1.08f : 1f;
+            float scale = hasFocus ? 1.02f : 1f;
             view.animate().scaleX(scale).scaleY(scale).setDuration(90L).start();
             view.setElevation(hasFocus ? dp(8) : dp(1));
         });
@@ -89,7 +89,7 @@ final class LanguageSwitcherView extends LinearLayout {
             }
             listener.onLanguageChanged();
         });
-        LayoutParams params = new LayoutParams(dp(64), dp(48));
+        LayoutParams params = new LayoutParams(dp(54), dp(40));
         params.setMargins(dp(2), 0, dp(2), 0);
         addView(button, params);
     }

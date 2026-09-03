@@ -48,7 +48,20 @@
     <string name="pin_enter_digits">Enter 4 to 8 digits</string>
 
     <string name="settings_title">Android Screen Timer settings</string>
-    <string name="open_accessibility_settings">Open system service settings</string>
+    <string name="open_accessibility_settings">Open screen-control service</string>
+    <string name="accessibility_restricted_hint">If the switch immediately returns to Off, open App info → ⋮ → Allow restricted settings, then enable the service again. If that does not help, show the diagnostic QR log to the developer.</string>
+    <string name="open_app_info">Open App info</string>
+    <string name="show_diagnostic_log">Error log as QR codes</string>
+    <string name="app_info_open_failed">The firmware did not open App info</string>
+    <string name="diagnostic_title">Diagnostics</string>
+    <string name="diagnostic_instructions">Scan the QR code with a phone. If there are several pages, open and scan each one: together they contain the complete local log. PINs, parent-code secrets, and viewing history are never logged.</string>
+    <string name="diagnostic_page">Page %1$d of %2$d</string>
+    <string name="diagnostic_qr_description">QR code containing a diagnostics log page</string>
+    <string name="previous_log_page">Previous page</string>
+    <string name="next_log_page">Next page</string>
+    <string name="copy_diagnostic_log">Copy complete log</string>
+    <string name="diagnostic_log_copied">Diagnostic log copied</string>
+    <string name="back_to_settings">Back to settings</string>
     <string name="removal_protection_title">Uninstall protection</string>
     <string name="enable_removal_protection">Enable stronger uninstall protection</string>
     <string name="device_owner_notice">To let Android block uninstalling at the system level, enable Device Owner mode through ADB on a clean profile. The exact command is in the README.</string>
@@ -118,7 +131,7 @@
     <string name="protection_enabled">Protection is already enabled</string>
     <string name="feature_unavailable">Feature unavailable</string>
     <string name="device_admin_open_failed">The firmware did not open uninstall protection setup</string>
-    <string name="accessibility_settings_open_failed">The firmware did not open accessibility settings</string>
+    <string name="accessibility_settings_open_failed">The firmware did not open accessibility settings. Open the diagnostic QR log.</string>
 
     <string name="checking">Checking…</string>
     <string name="checking_latest_release">Checking the latest stable release…</string>

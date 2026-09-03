@@ -50,7 +50,20 @@
     <string name="pin_enter_digits">Введите от 4 до 8 цифр</string>
 
     <string name="settings_title">Настройки Android Screen Timer</string>
-    <string name="open_accessibility_settings">Открыть системную настройку службы</string>
+    <string name="open_accessibility_settings">Открыть включение контроля экрана</string>
+    <string name="accessibility_restricted_hint">Если ползунок сразу возвращается в «Выкл.», откройте «О приложении» → меню ⋮ → «Разрешить ограниченные настройки», затем включите службу ещё раз. Если не помогло — покажите QR-журнал разработчику.</string>
+    <string name="open_app_info">Открыть «О приложении»</string>
+    <string name="show_diagnostic_log">Журнал ошибок в виде QR</string>
+    <string name="app_info_open_failed">Прошивка не открыла сведения о приложении</string>
+    <string name="diagnostic_title">Диагностика</string>
+    <string name="diagnostic_instructions">Отсканируйте QR телефоном. Если страниц несколько, откройте и отсканируйте каждую: вместе они содержат весь локальный журнал. PIN, секрет родительского кода и история просмотра сюда не записываются.</string>
+    <string name="diagnostic_page">Страница %1$d из %2$d</string>
+    <string name="diagnostic_qr_description">QR-код страницы журнала диагностики</string>
+    <string name="previous_log_page">Предыдущая страница</string>
+    <string name="next_log_page">Следующая страница</string>
+    <string name="copy_diagnostic_log">Скопировать весь журнал</string>
+    <string name="diagnostic_log_copied">Журнал скопирован</string>
+    <string name="back_to_settings">Назад в настройки</string>
     <string name="removal_protection_title">Защита удаления</string>
     <string name="enable_removal_protection">Включить усиленную защиту удаления</string>
     <string name="device_owner_notice">Чтобы Android системно запретил удаление, включите режим Device Owner через ADB на чистом профиле. Точная команда указана в README.</string>
@@ -126,7 +139,7 @@
     <string name="protection_enabled">Защита уже включена</string>
     <string name="feature_unavailable">Функция недоступна</string>
     <string name="device_admin_open_failed">Прошивка не открыла включение защиты удаления</string>
-    <string name="accessibility_settings_open_failed">Прошивка не открыла настройки специальных возможностей</string>
+    <string name="accessibility_settings_open_failed">Прошивка не открыла настройки специальных возможностей. Откройте QR-журнал диагностики.</string>
 
     <string name="checking">Проверяю…</string>
     <string name="checking_latest_release">Проверяю последний стабильный релиз…</string>

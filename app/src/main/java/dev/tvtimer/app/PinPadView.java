@@ -38,10 +38,10 @@ public final class PinPadView extends LinearLayout {
 
         display = new TextView(context);
         display.setTextColor(Color.WHITE);
-        display.setTextSize(25f);
+        display.setTextSize(21f);
         display.setGravity(Gravity.CENTER);
-        display.setMinWidth(dp(240));
-        display.setMinHeight(dp(40));
+        display.setMinWidth(dp(210));
+        display.setMinHeight(dp(36));
         display.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
         display.setContentDescription(context.getString(R.string.pin_entered_description));
         addView(display, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
@@ -132,16 +132,16 @@ public final class PinPadView extends LinearLayout {
     private void addActionButton(GridLayout grid, String label, OnClickListener onClickListener) {
         Button button = new Button(getContext());
         button.setText(label);
-        button.setTextSize(19f);
-        button.setMinWidth(dp(72));
-        button.setMinHeight(dp(44));
+        button.setTextSize(17f);
+        button.setMinWidth(dp(62));
+        button.setMinHeight(dp(40));
         button.setAllCaps(false);
         applyTvFocus(button);
         button.setOnClickListener(onClickListener);
         GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-        params.width = dp(82);
-        params.height = dp(48);
-        params.setMargins(dp(3), dp(2), dp(3), dp(2));
+        params.width = dp(72);
+        params.height = dp(44);
+        params.setMargins(dp(2), dp(2), dp(2), dp(2));
         grid.addView(button, params);
     }
 
@@ -186,7 +186,7 @@ public final class PinPadView extends LinearLayout {
                 new int[]{Color.BLACK, Color.BLACK, Color.WHITE}
         ));
         button.setOnFocusChangeListener((view, hasFocus) -> {
-            float scale = hasFocus ? 1.10f : 1f;
+            float scale = hasFocus ? 1.03f : 1f;
             view.animate().scaleX(scale).scaleY(scale).setDuration(90L).start();
             view.setElevation(hasFocus ? dp(10) : dp(2));
         });
