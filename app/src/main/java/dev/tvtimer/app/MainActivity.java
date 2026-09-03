@@ -2,6 +2,8 @@ package dev.tvtimer.app;
 
 import android.app.DownloadManager;
 import android.app.admin.DevicePolicyManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.res.ColorStateList;
@@ -42,6 +44,7 @@ public final class MainActivity extends LocalizedActivity {
     private static final String TAG = "TVTimerActivity";
     private static final String APK_MIME_TYPE = "application/vnd.android.package-archive";
     private static final long UPDATE_TIMEOUT_MILLIS = 15L * 60L * 1_000L;
+    private static final String SUPPORT_ADDRESS = "TMoM4t1JsevXo42cRBiYue51NXrsjuGhqd";
 
     private ConfigStore store;
     private DownloadManager downloadManager;
@@ -81,9 +84,11 @@ public final class MainActivity extends LocalizedActivity {
         scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
         scrollView.setBackgroundColor(0xff121212);
+        SystemBarInsets.apply(scrollView);
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(40), dp(28), dp(40), dp(40));
+        int horizontalPadding = contentHorizontalPadding();
+        content.setPadding(horizontalPadding, dp(28), horizontalPadding, dp(40));
         scrollView.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -169,7 +174,15 @@ public final class MainActivity extends LocalizedActivity {
         addParagraph(getString(R.string.qr_instructions));
         String secret = store.getOrCreateAuthenticatorSecret();
         ImageView qr = new ImageView(this);
-        int qrSize = Math.min(dp(360), getResources().getDisplayMetrics().heightPixels / 2);
+        int availableWidth = getResources().getDisplayMetrics().widthPixels
+                - (2 * contentHorizontalPadding());
+        int qrSize = Math.max(
+                dp(120),
+                Math.min(
+                        dp(360),
+                        Math.min(availableWidth, getResources().getDisplayMetrics().heightPixels / 2)
+                )
+        );
         qr.setImageBitmap(QrCodeRenderer.render(TotpAuthenticator.provisioningUri(secret), qrSize));
         qr.setContentDescription(getString(R.string.qr_content_description));
         LinearLayout.LayoutParams qrParams = new LinearLayout.LayoutParams(qrSize, qrSize);
@@ -447,6 +460,13 @@ public final class MainActivity extends LocalizedActivity {
         addTaggedRadio(launcherGroup, getString(R.string.launcher_timer), LauncherProfile.DEFAULT, store.getLauncherProfile());
         addTaggedRadio(launcherGroup, getString(R.string.launcher_calculator), LauncherProfile.CALCULATOR, store.getLauncherProfile());
         addTaggedRadio(launcherGroup, getString(R.string.launcher_media), LauncherProfile.MEDIA, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, getString(R.string.launcher_clock), LauncherProfile.CLOCK, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, getString(R.string.launcher_weather), LauncherProfile.WEATHER, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, getString(R.string.launcher_notes), LauncherProfile.NOTES, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, getString(R.string.launcher_calendar), LauncherProfile.CALENDAR, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, getString(R.string.launcher_files), LauncherProfile.FILES, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, getString(R.string.launcher_gallery), LauncherProfile.GALLERY, store.getLauncherProfile());
+        addTaggedRadio(launcherGroup, getString(R.string.launcher_help), LauncherProfile.HELP, store.getLauncherProfile());
         addSection(launcherGroup);
         addNotice(getString(R.string.launcher_notice), 0xffb2dfdb);
 
@@ -570,6 +590,34 @@ public final class MainActivity extends LocalizedActivity {
             renderLockedHome();
         });
         addNotice(getString(R.string.usb_recovery_settings_notice), 0xffffcc80);
+
+        addSubheading(getString(R.string.support_title));
+        addParagraph(getString(R.string.support_info));
+        ImageView supportQr = new ImageView(this);
+        int supportQrSize = Math.min(
+                dp(260),
+                getResources().getDisplayMetrics().widthPixels - (2 * contentHorizontalPadding())
+        );
+        supportQr.setImageBitmap(QrCodeRenderer.render(SUPPORT_ADDRESS, supportQrSize));
+        supportQr.setContentDescription(getString(R.string.support_qr_description));
+        LinearLayout.LayoutParams supportQrParams = new LinearLayout.LayoutParams(
+                supportQrSize,
+                supportQrSize
+        );
+        supportQrParams.gravity = Gravity.CENTER_HORIZONTAL;
+        supportQrParams.bottomMargin = dp(8);
+        content.addView(supportQr, supportQrParams);
+        TextView supportAddress = addParagraph(SUPPORT_ADDRESS);
+        supportAddress.setTypeface(Typeface.MONOSPACE);
+        supportAddress.setTextIsSelectable(true);
+        Button copyAddress = addButton(getString(R.string.copy_support_address));
+        copyAddress.setOnClickListener(view -> {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(ClipData.newPlainText("USDT TRC-20", SUPPORT_ADDRESS));
+                Toast.makeText(this, R.string.support_address_copied, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void openAppSelection() {
@@ -746,7 +794,7 @@ public final class MainActivity extends LocalizedActivity {
         }
         try {
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(release.downloadUrl))
-                    .setTitle("TV Timer " + release.version)
+                    .setTitle(getString(R.string.app_name) + " " + release.version)
                     .setDescription(getString(R.string.update_notification_description))
                     .setMimeType(APK_MIME_TYPE)
                     .setAllowedOverMetered(true)
@@ -923,7 +971,8 @@ public final class MainActivity extends LocalizedActivity {
         content.removeAllViews();
         content.setMinimumHeight(0);
         content.setGravity(Gravity.TOP);
-        content.setPadding(dp(40), dp(28), dp(40), dp(40));
+        int horizontalPadding = contentHorizontalPadding();
+        content.setPadding(horizontalPadding, dp(28), horizontalPadding, dp(40));
         serviceStatus = null;
         deviceAdminStatus = null;
         deviceAdminButton = null;
@@ -1026,7 +1075,12 @@ public final class MainActivity extends LocalizedActivity {
         input.setSingleLine(true);
         input.setInputType(InputType.TYPE_CLASS_NUMBER
                 | (password ? InputType.TYPE_NUMBER_VARIATION_PASSWORD : InputType.TYPE_NUMBER_VARIATION_NORMAL));
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(420), dp(58));
+        input.setMaxWidth(dp(420));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(58)
+        );
+        params.gravity = Gravity.START;
         params.bottomMargin = dp(10);
         content.addView(input, params);
         return input;
@@ -1086,11 +1140,12 @@ public final class MainActivity extends LocalizedActivity {
         button.setText(text);
         button.setTextSize(17f);
         button.setMinHeight(dp(56));
+        button.setMaxWidth(dp(560));
         button.setAllCaps(false);
         applyTvButtonFocus(button);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                dp(60)
+                ViewGroup.LayoutParams.WRAP_CONTENT
         );
         params.topMargin = dp(8);
         params.bottomMargin = dp(4);
@@ -1168,6 +1223,10 @@ public final class MainActivity extends LocalizedActivity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private int contentHorizontalPadding() {
+        return getResources().getDisplayMetrics().widthPixels < dp(600) ? dp(20) : dp(40);
     }
 
     private static final class UpdateUi {

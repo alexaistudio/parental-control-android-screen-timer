@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TV Timer</string>
+    <string name="app_name">Android Screen Timer</string>
     <string name="calculator_name">Calculator</string>
     <string name="media_name">Media Service</string>
-    <string name="accessibility_service_label">TV Timer screen-time control</string>
+    <string name="accessibility_service_label">Android Screen Timer control</string>
     <string name="accessibility_service_description">Tracks only the active app name, counts allowed viewing time, and displays the timer or blocking screen. Window contents are never read or sent anywhere.</string>
-    <string name="device_admin_description">Makes TV Timer harder to remove by requiring the system administration protection to be disabled first.</string>
+    <string name="device_admin_description">Makes Android Screen Timer harder to remove by requiring the system administration protection to be disabled first.</string>
 
     <string name="language_label">Language / Язык</string>
     <string name="language_russian">Russian language</string>
@@ -20,17 +20,17 @@
     <string name="qr_done_settings">QR scanned — return to settings</string>
     <string name="qr_done_setup">QR scanned — continue setup</string>
 
-    <string name="setup_title">TV Timer — first-time setup</string>
+    <string name="setup_title">Android Screen Timer — first-time setup</string>
     <string name="usb_recovery_completed">USB recovery completed: the previous PIN and settings were removed, and protection was disabled.</string>
     <string name="setup_intro">Set a backup PIN and daily viewing time. Parents can use either the PIN or a changing code from a phone.</string>
     <string name="pin_hint">PIN: 4–8 digits</string>
     <string name="repeat_pin_hint">Repeat PIN</string>
-    <string name="scope_all">The whole TV and all apps</string>
+    <string name="scope_all">The whole device and all apps</string>
     <string name="scope_selected">Selected apps only</string>
     <string name="choose_apps">Choose apps</string>
     <string name="accessibility_notice">The accessibility service must be enabled manually. It receives only the active app name, never reads window text, does not use the network, and displays the timer over the picture.</string>
     <string name="accessibility_consent">I understand the purpose of the service and allow it to identify the active app in order to apply the time limit</string>
-    <string name="usb_recovery_setup_notice">Emergency reset: connecting a USB flash drive clears the PIN and disables protection. Some TV firmware does not forward events from USB keyboards or receivers to the app.</string>
+    <string name="usb_recovery_setup_notice">Emergency reset: connecting a USB flash drive clears the PIN and disables protection. Some devices do not forward events from USB keyboards or receivers to the app.</string>
     <string name="save_and_open_service">Save and open service settings</string>
     <string name="pin_format_error">The PIN must contain 4 to 8 digits</string>
     <string name="pin_mismatch">The PINs do not match</string>
@@ -41,13 +41,13 @@
     <string name="settings_saved">Settings saved</string>
     <string name="settings_invalid">Check the entered settings</string>
 
-    <string name="locked_title">TV Timer — parent code</string>
+    <string name="locked_title">Android Screen Timer — parent code</string>
     <string name="parent_code_invalid">Incorrect PIN or code</string>
     <string name="pin_entered_description">Entered PIN</string>
     <string name="pin_checking">Checking…</string>
     <string name="pin_enter_digits">Enter 4 to 8 digits</string>
 
-    <string name="settings_title">TV Timer settings</string>
+    <string name="settings_title">Android Screen Timer settings</string>
     <string name="open_accessibility_settings">Open system service settings</string>
     <string name="removal_protection_title">Uninstall protection</string>
     <string name="enable_removal_protection">Enable stronger uninstall protection</string>
@@ -72,10 +72,17 @@
         <item quantity="one">Automatically continue for %d minute</item>
         <item quantity="other">Automatically continue for %d minutes</item>
     </plurals>
-    <string name="launcher_title">Name and icon in the TV menu</string>
-    <string name="launcher_timer">TV Timer</string>
+    <string name="launcher_title">Name and icon on the Home screen</string>
+    <string name="launcher_timer">Android Screen Timer</string>
     <string name="launcher_calculator">Calculator</string>
     <string name="launcher_media">Media Service</string>
+    <string name="launcher_clock">Clock</string>
+    <string name="launcher_weather">Weather</string>
+    <string name="launcher_notes">Notes</string>
+    <string name="launcher_calendar">Calendar</string>
+    <string name="launcher_files">Files</string>
+    <string name="launcher_gallery">Gallery</string>
+    <string name="launcher_help">Help</string>
     <string name="launcher_notice">Disguise makes the launcher tile less noticeable but does not hide the app from the system app list. The parent code and, when enabled, Device Owner provide uninstall protection.</string>
     <string name="change_pin_title">Change PIN (optional)</string>
     <string name="new_pin_hint">New PIN</string>
@@ -84,12 +91,17 @@
     <string name="new_pin_format_error">The new PIN must contain 4 to 8 digits</string>
     <string name="new_pin_mismatch">The new PINs do not match</string>
     <string name="settings_saved_pin_failed">Settings were saved, but the PIN could not be changed</string>
-    <string name="settings_saved_launcher_failed">Settings were saved, but the TV menu did not apply the new icon</string>
+    <string name="settings_saved_launcher_failed">Settings were saved, but the Home screen did not apply the new icon</string>
     <string name="updates_title">Updates</string>
     <string name="installed_version">Installed version %1$s</string>
     <string name="check_update">Check for updates</string>
     <string name="lock_settings">Lock settings</string>
     <string name="usb_recovery_settings_notice">A USB flash drive is the emergency key: connecting one removes local PIN and settings and dismisses the blocker.</string>
+    <string name="support_title">Support development</string>
+    <string name="support_info">USDT TRC-20 · TRON network. Scan the QR code or copy the address.</string>
+    <string name="support_qr_description">QR code for the USDT TRC-20 support address on TRON</string>
+    <string name="copy_support_address">Copy address</string>
+    <string name="support_address_copied">Address copied</string>
     <string name="apps_not_selected">No apps selected</string>
     <plurals name="apps_selected">
         <item quantity="one">%d app selected</item>
@@ -97,7 +109,7 @@
     </plurals>
     <string name="service_enabled">Control service: enabled</string>
     <string name="service_disabled">Control service: disabled — the limit is not active yet</string>
-    <string name="device_owner_blocked">Device Owner: Android is blocking TV Timer uninstall</string>
+    <string name="device_owner_blocked">Device Owner: Android is blocking Android Screen Timer uninstall</string>
     <string name="device_owner_unconfirmed">Device Owner is active, but uninstall blocking was not confirmed</string>
     <string name="device_admin_unsupported">This firmware does not support device administrators.</string>
     <string name="device_admin_enabled">Stronger uninstall protection: enabled</string>
@@ -115,13 +127,13 @@
     <string name="download_service_unavailable">The system download service is unavailable on this firmware.</string>
     <string name="update_storage_unavailable">Update storage is unavailable.</string>
     <string name="update_file_prepare_failed">Could not prepare the update file.</string>
-    <string name="update_notification_description">Secure TV Timer update</string>
+    <string name="update_notification_description">Secure Android Screen Timer update</string>
     <string name="update_downloading">Update found: %1$s\nDownloading…\n%2$s</string>
     <string name="download_start_failed">The system service could not start the download.</string>
     <string name="update_downloaded">Update %1$s downloaded\n%2$s\nSHA-256 and signature verified.</string>
     <string name="install_update">Install update</string>
     <string name="update_rejected">Update rejected: APK download or verification failed.</string>
-    <string name="allow_unknown_source">Allow TV Timer to install from this source, then return and select “Install”.</string>
+    <string name="allow_unknown_source">Allow Android Screen Timer to install from this source, then return and select “Install”.</string>
     <string name="unknown_source_open_failed">The firmware did not open the install permission</string>
     <string name="update_file_missing">The update file is no longer available. Check for updates again.</string>
     <string name="installer_open_failed">The firmware did not open the APK installer</string>
@@ -130,8 +142,8 @@
     <string name="minutes_short">%1$d min</string>
 
     <string name="app_selection_title">Choose apps</string>
-    <string name="app_selection_instructions">Select the apps to control. Pressing Back on the remote saves the selection immediately.</string>
-    <string name="app_selection_done">Back — save selection</string>
+    <string name="app_selection_instructions">Select the apps to control. Back on the device or remote saves the selection immediately.</string>
+    <string name="app_selection_done">Back — save</string>
     <string name="apps_loading">Loading apps…</string>
     <string name="apps_not_found">No launchable apps found</string>
     <string name="apps_query_restricted">The firmware restricted access to the app list</string>

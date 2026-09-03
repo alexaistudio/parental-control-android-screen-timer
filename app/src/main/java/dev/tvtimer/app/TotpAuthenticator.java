@@ -42,8 +42,8 @@ final class TotpAuthenticator {
         if (!isValidSecret(secret)) {
             throw new IllegalArgumentException("Invalid authenticator secret");
         }
-        String issuer = encodeUriComponent("TV Timer");
-        String account = encodeUriComponent("TV Timer:Android TV");
+        String issuer = encodeUriComponent("Android Screen Timer");
+        String account = encodeUriComponent("Android Screen Timer:Family device");
         return "otpauth://totp/" + account
                 + "?secret=" + secret
                 + "&issuer=" + issuer

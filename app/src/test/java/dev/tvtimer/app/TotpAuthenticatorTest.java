@@ -45,8 +45,8 @@ public final class TotpAuthenticatorTest {
     @Test
     public void sameSecretAlwaysCreatesSameQrPayload() {
         assertEquals(
-                "otpauth://totp/TV%20Timer%3AAndroid%20TV?secret=" + RFC_SECRET
-                        + "&issuer=TV%20Timer&algorithm=SHA1&digits=6&period=30",
+                "otpauth://totp/Android%20Screen%20Timer%3AFamily%20device?secret=" + RFC_SECRET
+                        + "&issuer=Android%20Screen%20Timer&algorithm=SHA1&digits=6&period=30",
                 TotpAuthenticator.provisioningUri(RFC_SECRET)
         );
     }

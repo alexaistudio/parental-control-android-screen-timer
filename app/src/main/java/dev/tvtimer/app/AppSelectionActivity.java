@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class AppSelectionActivity extends LocalizedActivity {
+    private static final String STATE_SELECTED_PACKAGES = "selected_packages";
     private final ExecutorService loader = Executors.newSingleThreadExecutor();
     private final Map<String, CheckBox> checks = new LinkedHashMap<>();
     private ConfigStore store;
@@ -40,14 +41,23 @@ public final class AppSelectionActivity extends LocalizedActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         store = new ConfigStore(this);
-        previouslySelected = store.getSelectedPackages();
+        ArrayList<String> restored = savedInstanceState == null
+                ? null
+                : savedInstanceState.getStringArrayList(STATE_SELECTED_PACKAGES);
+        previouslySelected = restored == null
+                ? store.getSelectedPackages()
+                : new HashSet<>(restored);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(0xff121212);
+        SystemBarInsets.apply(scroll);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(36), dp(24), dp(36), dp(40));
+        int horizontalPadding = getResources().getDisplayMetrics().widthPixels < dp(600)
+                ? dp(18)
+                : dp(36);
+        content.setPadding(horizontalPadding, dp(24), horizontalPadding, dp(40));
         scroll.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -99,6 +109,15 @@ public final class AppSelectionActivity extends LocalizedActivity {
         super.onDestroy();
     }
 
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putStringArrayList(
+                STATE_SELECTED_PACKAGES,
+                new ArrayList<>(currentSelection())
+        );
+        super.onSaveInstanceState(outState);
+    }
+
     private void loadApps() {
         Set<String> selectedSnapshot = new HashSet<>(previouslySelected);
         loader.execute(() -> {
@@ -118,6 +137,7 @@ public final class AppSelectionActivity extends LocalizedActivity {
                     ));
                     checkBox.setTextColor(Color.WHITE);
                     checkBox.setTextSize(17f);
+                    checkBox.setMinHeight(dp(48));
                     checkBox.setPadding(dp(10), dp(7), dp(10), dp(7));
                     checkBox.setChecked(selectedSnapshot.contains(app.packageName));
                     applyTvFocus(checkBox);
@@ -197,6 +217,10 @@ public final class AppSelectionActivity extends LocalizedActivity {
     }
 
     private boolean persistCurrentSelection() {
+        return store.updateSelectedPackages(currentSelection());
+    }
+
+    private Set<String> currentSelection() {
         Set<String> selected = new HashSet<>(previouslySelected);
         if (loaded) {
             selected.clear();
@@ -206,7 +230,7 @@ public final class AppSelectionActivity extends LocalizedActivity {
                 }
             }
         }
-        return store.updateSelectedPackages(selected);
+        return selected;
     }
 
     private TextView text(String value, float size, int color) {

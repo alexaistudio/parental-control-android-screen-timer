@@ -2,12 +2,14 @@ package dev.tvtimer.app;
 
 import android.accessibilityservice.AccessibilityService;
 import android.annotation.SuppressLint;
+import android.app.KeyguardManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
@@ -27,6 +29,7 @@ import android.view.accessibility.AccessibilityEvent;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.Collections;
@@ -53,6 +56,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private ConfigStore store;
     private WindowManager windowManager;
     private PowerManager powerManager;
+    private KeyguardManager keyguardManager;
     private String activePackage;
     private boolean interactive;
     private boolean dreaming;
@@ -95,6 +99,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        keyguardManager = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
         homePackages = loadHomePackages();
         launchablePackages = loadLaunchablePackages();
         interactive = powerManager != null && powerManager.isInteractive();
@@ -183,6 +188,25 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     }
 
     @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        AppLanguage.apply(this);
+        boolean hadTimer = timerView != null;
+        BlockReason reason = blockerReason;
+        long warningMinutes = pendingWarningMinutes;
+        String warningDay = pendingWarningDay;
+        removeTimer();
+        if (reason != null) {
+            removeBlocker();
+            pendingWarningMinutes = warningMinutes;
+            pendingWarningDay = warningDay;
+            showBlocker(reason);
+        } else if (hadTimer) {
+            evaluateNow();
+        }
+    }
+
+    @Override
     public boolean onUnbind(Intent intent) {
         shutdown();
         return super.onUnbind(intent);
@@ -234,7 +258,10 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             flushPendingUsage();
         }
 
-        boolean screenActive = powerManager != null && powerManager.isInteractive() && !dreaming;
+        boolean screenActive = powerManager != null
+                && powerManager.isInteractive()
+                && (keyguardManager == null || !keyguardManager.isKeyguardLocked())
+                && !dreaming;
         interactive = screenActive;
         if (configurationPresent
                 && screenActive
@@ -355,6 +382,34 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         root.setFocusable(false);
         root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
 
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setGravity(Gravity.CENTER);
+        boolean compact = getResources().getDisplayMetrics().widthPixels < dp(600);
+        int panelPadding = compact ? dp(12) : dp(24);
+        panel.setPadding(panelPadding, dp(20), panelPadding, dp(20));
+        View initialFocus = reason == BlockReason.USAGE_WARNING
+                ? renderUsageWarning(panel)
+                : renderPinPrompt(panel, reason);
+
+        ScrollView panelScroll = new ScrollView(this);
+        panelScroll.setFillViewport(true);
+        panelScroll.setClipToPadding(true);
+        panelScroll.setPadding(0, dp(64), 0, dp(12));
+        ScrollView.LayoutParams panelContentParams = new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        panelContentParams.gravity = Gravity.CENTER_VERTICAL;
+        panelScroll.addView(panel, panelContentParams);
+        int outerMargin = compact ? dp(16) : dp(40);
+        FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
+                Math.min(dp(620), getResources().getDisplayMetrics().widthPixels - outerMargin),
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+        );
+        root.addView(panelScroll, panelParams);
+
         LanguageSwitcherView languageSwitcher = new LanguageSwitcherView(this, () -> {
         });
         FrameLayout.LayoutParams languageParams = new FrameLayout.LayoutParams(
@@ -364,21 +419,6 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         );
         languageParams.setMargins(0, dp(16), dp(18), 0);
         root.addView(languageSwitcher, languageParams);
-
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setGravity(Gravity.CENTER_HORIZONTAL);
-        panel.setPadding(dp(24), dp(20), dp(24), dp(20));
-        View initialFocus = reason == BlockReason.USAGE_WARNING
-                ? renderUsageWarning(panel)
-                : renderPinPrompt(panel, reason);
-
-        FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
-                Math.min(dp(620), getResources().getDisplayMetrics().widthPixels - dp(40)),
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER
-        );
-        root.addView(panel, panelParams);
 
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
@@ -618,6 +658,10 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                     interactive = true;
                     lastTickElapsed = SystemClock.elapsedRealtime();
                     evaluateNow();
+                } else if (Intent.ACTION_USER_PRESENT.equals(action)) {
+                    interactive = true;
+                    lastTickElapsed = SystemClock.elapsedRealtime();
+                    evaluateNow();
                 } else if (Intent.ACTION_DREAMING_STARTED.equals(action)) {
                     dreaming = true;
                     countedDuringPreviousInterval = false;
@@ -633,6 +677,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         IntentFilter stateFilter = new IntentFilter();
         stateFilter.addAction(Intent.ACTION_SCREEN_ON);
         stateFilter.addAction(Intent.ACTION_SCREEN_OFF);
+        stateFilter.addAction(Intent.ACTION_USER_PRESENT);
         stateFilter.addAction(Intent.ACTION_DREAMING_STARTED);
         stateFilter.addAction(Intent.ACTION_DREAMING_STOPPED);
         registerSystemReceiver(stateReceiver, stateFilter);
@@ -800,7 +845,6 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         Button button = new Button(this);
         button.setText(text);
         button.setTextSize(18f);
-        button.setMinWidth(dp(320));
         button.setMinHeight(dp(58));
         button.setAllCaps(false);
         int[][] states = new int[][]{
@@ -834,7 +878,11 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     }
 
     private LinearLayout.LayoutParams buttonParams() {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(360), dp(64));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.gravity = Gravity.CENTER_HORIZONTAL;
         params.bottomMargin = dp(10);
         return params;
     }

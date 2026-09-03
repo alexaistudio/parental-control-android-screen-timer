@@ -103,6 +103,132 @@
             </intent-filter>
         </activity-alias>
 
+        <activity-alias
+            android:name=".ClockLauncher"
+            android:banner="@drawable/clock_banner"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_clock"
+            android:label="@string/launcher_clock"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".WeatherLauncher"
+            android:banner="@drawable/weather_banner"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_weather"
+            android:label="@string/launcher_weather"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".NotesLauncher"
+            android:banner="@drawable/notes_banner"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_notes"
+            android:label="@string/launcher_notes"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".CalendarLauncher"
+            android:banner="@drawable/calendar_banner"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_calendar"
+            android:label="@string/launcher_calendar"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".FilesLauncher"
+            android:banner="@drawable/files_banner"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_files"
+            android:label="@string/launcher_files"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".GalleryLauncher"
+            android:banner="@drawable/gallery_banner"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_gallery"
+            android:label="@string/launcher_gallery"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".HelpLauncher"
+            android:banner="@drawable/help_banner"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/ic_help"
+            android:label="@string/launcher_help"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <service
             android:name=".LimiterAccessibilityService"
             android:description="@string/accessibility_service_description"

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TV Timer</string>
+    <string name="app_name">Android Screen Timer</string>
     <string name="calculator_name">Калькулятор</string>
     <string name="media_name">Медиа-служба</string>
-    <string name="accessibility_service_label">Контроль времени TV Timer</string>
+    <string name="accessibility_service_label">Контроль времени Android Screen Timer</string>
     <string name="accessibility_service_description">Отслеживает только имя активного приложения, считает разрешённое время и показывает таймер или экран блокировки. Содержимое окон не читается и никуда не отправляется.</string>
-    <string name="device_admin_description">Усложняет удаление TV Timer: сначала потребуется отключить системную административную защиту.</string>
+    <string name="device_admin_description">Усложняет удаление Android Screen Timer: сначала потребуется отключить системную административную защиту.</string>
     <string name="default_minutes" translatable="false">60</string>
     <string name="app_entry_format" translatable="false">%1$s\n%2$s</string>
 
@@ -22,17 +22,17 @@
     <string name="qr_done_settings">QR отсканирован — вернуться в настройки</string>
     <string name="qr_done_setup">QR отсканирован — продолжить настройку</string>
 
-    <string name="setup_title">TV Timer — первоначальная настройка</string>
+    <string name="setup_title">Android Screen Timer — первоначальная настройка</string>
     <string name="usb_recovery_completed">USB-восстановление выполнено: прежний PIN и настройки удалены, защита выключена.</string>
     <string name="setup_intro">Задайте резервный PIN и дневное время. Для родительского доступа можно использовать PIN или меняющийся код с телефона.</string>
     <string name="pin_hint">PIN: 4–8 цифр</string>
     <string name="repeat_pin_hint">Повторите PIN</string>
-    <string name="scope_all">Весь телевизор и все приложения</string>
+    <string name="scope_all">Всё устройство и все приложения</string>
     <string name="scope_selected">Только выбранные приложения</string>
     <string name="choose_apps">Выбрать приложения</string>
     <string name="accessibility_notice">Для работы нужно вручную включить службу специальных возможностей. Она получает только имя активного приложения, не читает текст окон, не использует сеть и показывает таймер поверх изображения.</string>
     <string name="accessibility_consent">Я понимаю назначение службы и разрешаю определять активное приложение для применения лимита</string>
-    <string name="usb_recovery_setup_notice">Аварийный сброс: подключение USB-флешки очищает PIN и выключает защиту. На некоторых прошивках события от USB-клавиатур и приёмников приложению не передаются.</string>
+    <string name="usb_recovery_setup_notice">Аварийный сброс: подключение USB-флешки очищает PIN и выключает защиту. На некоторых устройствах события от USB-клавиатур и приёмников приложению не передаются.</string>
     <string name="save_and_open_service">Сохранить и открыть включение службы</string>
     <string name="pin_format_error">PIN должен содержать от 4 до 8 цифр</string>
     <string name="pin_mismatch">PIN-коды не совпадают</string>
@@ -43,13 +43,13 @@
     <string name="settings_saved">Настройки сохранены</string>
     <string name="settings_invalid">Проверьте введённые настройки</string>
 
-    <string name="locked_title">TV Timer — код родителя</string>
+    <string name="locked_title">Android Screen Timer — код родителя</string>
     <string name="parent_code_invalid">Неверный PIN или код</string>
     <string name="pin_entered_description">Введённый PIN</string>
     <string name="pin_checking">Проверка…</string>
     <string name="pin_enter_digits">Введите от 4 до 8 цифр</string>
 
-    <string name="settings_title">Настройки TV Timer</string>
+    <string name="settings_title">Настройки Android Screen Timer</string>
     <string name="open_accessibility_settings">Открыть системную настройку службы</string>
     <string name="removal_protection_title">Защита удаления</string>
     <string name="enable_removal_protection">Включить усиленную защиту удаления</string>
@@ -78,10 +78,17 @@
         <item quantity="many">Сразу продолжать на %d минут</item>
         <item quantity="other">Сразу продолжать на %d минуты</item>
     </plurals>
-    <string name="launcher_title">Название и иконка в меню телевизора</string>
-    <string name="launcher_timer">TV Timer</string>
+    <string name="launcher_title">Название и значок на главном экране</string>
+    <string name="launcher_timer">Android Screen Timer</string>
     <string name="launcher_calculator">Калькулятор</string>
     <string name="launcher_media">Медиа-служба</string>
+    <string name="launcher_clock">Часы</string>
+    <string name="launcher_weather">Погода</string>
+    <string name="launcher_notes">Заметки</string>
+    <string name="launcher_calendar">Календарь</string>
+    <string name="launcher_files">Файлы</string>
+    <string name="launcher_gallery">Галерея</string>
+    <string name="launcher_help">Справка</string>
     <string name="launcher_notice">Маскировка делает плитку менее заметной, но не скрывает приложение из системного списка. Защиту от удаления обеспечивает код родителя и, при включении, Device Owner.</string>
     <string name="change_pin_title">Смена PIN (необязательно)</string>
     <string name="new_pin_hint">Новый PIN</string>
@@ -90,12 +97,17 @@
     <string name="new_pin_format_error">Новый PIN должен содержать от 4 до 8 цифр</string>
     <string name="new_pin_mismatch">Новые PIN-коды не совпадают</string>
     <string name="settings_saved_pin_failed">Настройки сохранены, но PIN изменить не удалось</string>
-    <string name="settings_saved_launcher_failed">Настройки сохранены, но меню телевизора не применило новую иконку</string>
+    <string name="settings_saved_launcher_failed">Настройки сохранены, но главный экран не применил новый значок</string>
     <string name="updates_title">Обновления</string>
     <string name="installed_version">Установлена версия %1$s</string>
     <string name="check_update">Проверить обновление</string>
     <string name="lock_settings">Заблокировать настройки</string>
     <string name="usb_recovery_settings_notice">USB-флешка — аварийный ключ: при подключении локальные PIN и настройки удаляются, а блокировка снимается.</string>
+    <string name="support_title">Поддержать разработку</string>
+    <string name="support_info">USDT TRC-20 · сеть TRON. Отсканируйте QR-код или скопируйте адрес.</string>
+    <string name="support_qr_description">QR-код адреса поддержки USDT TRC-20 в сети TRON</string>
+    <string name="copy_support_address">Скопировать адрес</string>
+    <string name="support_address_copied">Адрес скопирован</string>
     <string name="apps_not_selected">Приложения не выбраны</string>
     <plurals name="apps_selected">
         <item quantity="one">Выбрано приложение: %d</item>
@@ -105,7 +117,7 @@
     </plurals>
     <string name="service_enabled">Служба контроля: включена</string>
     <string name="service_disabled">Служба контроля: выключена — лимит пока не применяется</string>
-    <string name="device_owner_blocked">Device Owner: удаление TV Timer системно запрещено</string>
+    <string name="device_owner_blocked">Device Owner: удаление Android Screen Timer системно запрещено</string>
     <string name="device_owner_unconfirmed">Device Owner активен, но запрет удаления не подтвердился</string>
     <string name="device_admin_unsupported">Прошивка не поддерживает администраторов устройства.</string>
     <string name="device_admin_enabled">Усиленная защита удаления: включена</string>
@@ -123,13 +135,13 @@
     <string name="download_service_unavailable">Системная служба загрузок недоступна на этой прошивке.</string>
     <string name="update_storage_unavailable">Хранилище для обновления недоступно.</string>
     <string name="update_file_prepare_failed">Не удалось подготовить файл обновления.</string>
-    <string name="update_notification_description">Безопасное обновление TV Timer</string>
+    <string name="update_notification_description">Безопасное обновление Android Screen Timer</string>
     <string name="update_downloading">Обновление найдено: %1$s\nСкачиваю…\n%2$s</string>
     <string name="download_start_failed">Системная служба не смогла начать загрузку.</string>
     <string name="update_downloaded">Обновление %1$s скачано\n%2$s\nSHA-256 и подпись проверены.</string>
     <string name="install_update">Установить обновление</string>
     <string name="update_rejected">Обновление отклонено: загрузка или проверка APK не пройдена.</string>
-    <string name="allow_unknown_source">Разрешите TV Timer установку из этого источника, затем вернитесь и нажмите «Установить».</string>
+    <string name="allow_unknown_source">Разрешите Android Screen Timer установку из этого источника, затем вернитесь и нажмите «Установить».</string>
     <string name="unknown_source_open_failed">Прошивка не открыла разрешение установки</string>
     <string name="update_file_missing">Файл обновления больше недоступен. Проверьте обновление снова.</string>
     <string name="installer_open_failed">Прошивка не открыла установщик APK</string>
@@ -138,8 +150,8 @@
     <string name="minutes_short">%1$d мин</string>
 
     <string name="app_selection_title">Выбор приложений</string>
-    <string name="app_selection_instructions">Отметьте нужные приложения. Нажатие Back на пульте сразу сохраняет выбор.</string>
-    <string name="app_selection_done">Назад — сохранить выбор</string>
+    <string name="app_selection_instructions">Отметьте нужные приложения. Кнопка «Назад» на устройстве или пульте сразу сохраняет выбор.</string>
+    <string name="app_selection_done">Назад — сохранить</string>
     <string name="apps_loading">Загрузка списка приложений…</string>
     <string name="apps_not_found">Запускаемые приложения не найдены</string>
     <string name="apps_query_restricted">Прошивка ограничила чтение списка приложений</string>

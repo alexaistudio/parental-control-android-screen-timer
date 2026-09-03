@@ -54,7 +54,7 @@ final class LanguageSwitcherView extends LinearLayout {
         button.setTextSize(14f);
         button.setAllCaps(false);
         button.setMinWidth(dp(58));
-        button.setMinHeight(dp(42));
+        button.setMinHeight(dp(48));
         button.setPadding(dp(8), 0, dp(8), 0);
         boolean active = language.equals(selected);
         int[][] states = new int[][]{
@@ -89,7 +89,7 @@ final class LanguageSwitcherView extends LinearLayout {
             }
             listener.onLanguageChanged();
         });
-        LayoutParams params = new LayoutParams(dp(64), dp(46));
+        LayoutParams params = new LayoutParams(dp(64), dp(48));
         params.setMargins(dp(2), 0, dp(2), 0);
         addView(button, params);
     }
