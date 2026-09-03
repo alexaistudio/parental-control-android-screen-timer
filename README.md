@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⏱️ Android Screen Timer
+# ⏱️ Родительский контроль — Android Screen Timer
 
 ### Телевизор, планшет или телефон — экранное время под контролем.
 
@@ -9,9 +9,9 @@
 
 **Не подберёт код. Не отключит лимит через обычные настройки. Device Owner блокирует обычное удаление приложения.**
 
-[![CI](https://github.com/alexaistudio/tvtimer/actions/workflows/ci.yml/badge.svg)](https://github.com/alexaistudio/tvtimer/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/alexaistudio/tvtimer?sort=semver&display_name=tag&label=версия)](https://github.com/alexaistudio/tvtimer/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/alexaistudio/tvtimer/total?label=скачиваний)](https://github.com/alexaistudio/tvtimer/releases)
+[![CI](https://github.com/alexaistudio/parental-control-android-screen-timer/actions/workflows/ci.yml/badge.svg)](https://github.com/alexaistudio/parental-control-android-screen-timer/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/alexaistudio/parental-control-android-screen-timer?sort=semver&display_name=tag&label=версия)](https://github.com/alexaistudio/parental-control-android-screen-timer/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/alexaistudio/parental-control-android-screen-timer/total?label=скачиваний)](https://github.com/alexaistudio/parental-control-android-screen-timer/releases)
 [![License](https://img.shields.io/badge/лицензия-PolyForm_Strict_1.0.0-2563eb)](LICENSE.md)
 
 ![Android](https://img.shields.io/badge/Android-6.0%2B-3DDC84?logo=android&logoColor=white)
@@ -27,7 +27,7 @@
 ![Java](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
 ![Target SDK](https://img.shields.io/badge/target_SDK-35-3DDC84)
 
-[**⬇️ Скачать готовый APK**](https://github.com/alexaistudio/tvtimer/releases/latest) ·
+[**⬇️ Скачать готовый APK**](https://github.com/alexaistudio/parental-control-android-screen-timer/releases/latest) ·
 [Как включить максимальную защиту](#максимальная-защита-от-удаления-device-owner) ·
 [💚 Поддержать разработку](#поддержать-разработку) ·
 [🇬🇧 Full English README](README.en.md)
@@ -69,13 +69,13 @@ Set the rule once. Android Screen Timer tracks real viewing time, shows what rem
 - No ads, accounts, analytics, telemetry, or cloud storage.
 - Switch between Russian and English from the first screen, settings, and every parent-code panel.
 
-[**Download the latest APK**](https://github.com/alexaistudio/tvtimer/releases/latest)
+[**Download the latest APK**](https://github.com/alexaistudio/parental-control-android-screen-timer/releases/latest)
 
 [Read the complete installation, protection, privacy, and build guide in English](README.en.md).
 
 ---
 
-Android Screen Timer (ранее TV Timer) — локальное приложение для Android TV, Google TV, планшетов и телефонов. Оно считает активное экранное время, показывает остаток в правом верхнем углу и закрывает контролируемые приложения после исчерпания дневного лимита.
+«Родительский контроль — Android Screen Timer» — локальное приложение для Android TV, Google TV, планшетов и телефонов. Оно считает активное экранное время, показывает остаток в правом верхнем углу и закрывает контролируемые приложения после исчерпания дневного лимита.
 
 ## Возможности
 
@@ -97,7 +97,7 @@ Android Screen Timer (ранее TV Timer) — локальное приложе
 - Device Owner-режим системно запрещает удаление пакета. USB-восстановление остаётся аварийным способом снять защиту.
 - Значок launcher можно переключать между 10 встроенными профилями: «Android Screen Timer», «Калькулятор», «Медиа-служба», «Часы», «Погода», «Заметки», «Календарь», «Файлы», «Галерея» и «Справка». Это маскировка значка, а не замена системной защиты.
 - Ручная проверка GitHub Releases: ASCII-прогресс загрузки, сверка SHA-256, package ID, версии и сертификата подписи APK перед запуском установщика.
-- Нет аккаунта, рекламы, аналитики, телеметрии и облака. Сеть используется только после нажатия «Проверить обновление» для официального репозитория `alexaistudio/tvtimer`.
+- Нет аккаунта, рекламы, аналитики, телеметрии и облака. Сеть используется только после нажатия «Проверить обновление» для официального репозитория `alexaistudio/parental-control-android-screen-timer`.
 
 ## Совместимость и ограничения
 
@@ -109,7 +109,7 @@ Android Screen Timer (ранее TV Timer) — локальное приложе
 
 ## Установка
 
-1. Возьмите подписанный APK из [GitHub Releases](https://github.com/alexaistudio/tvtimer/releases) или соберите debug APK.
+1. Возьмите подписанный APK из [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases) или соберите debug APK.
 2. Установите его с флешки или через ADB:
 
    ```powershell
@@ -169,7 +169,7 @@ chmod +x gradlew
 
 Результат — `app/build/outputs/apk/debug/app-debug.apk`. Это APK с отладочной подписью, подходящий для локальной установки. Для публичного релиза нужен отдельный закрытый release-keystore; ключи и пароли нельзя добавлять в репозиторий.
 
-Локальная release-сборка читает путь к keystore, alias и пароли из исключённого Git-файла `signing/release.properties`. Эти же значения можно переопределить переменными окружения `TVTIMER_KEYSTORE_FILE`, `TVTIMER_KEYSTORE_PASSWORD`, `TVTIMER_KEY_ALIAS` и `TVTIMER_KEY_PASSWORD`. Без всех четырёх значений `assembleRelease` намеренно завершается ошибкой, чтобы unsigned/debug APK не был случайно опубликован как стабильный релиз.
+Локальная release-сборка читает путь к keystore, alias и пароли из исключённого Git-файла `signing/release.properties`. Эти же значения можно переопределить переменными окружения `ANDROID_SCREEN_TIMER_KEYSTORE_FILE`, `ANDROID_SCREEN_TIMER_KEYSTORE_PASSWORD`, `ANDROID_SCREEN_TIMER_KEY_ALIAS` и `ANDROID_SCREEN_TIMER_KEY_PASSWORD`. Без всех четырёх значений `assembleRelease` намеренно завершается ошибкой, чтобы unsigned/debug APK не был случайно опубликован как стабильный релиз.
 
 ## Данные и разрешения
 

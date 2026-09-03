@@ -41,7 +41,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class MainActivity extends LocalizedActivity {
-    private static final String TAG = "TVTimerActivity";
+    private static final String TAG = "ScreenTimerActivity";
     private static final String APK_MIME_TYPE = "application/vnd.android.package-archive";
     private static final long UPDATE_TIMEOUT_MILLIS = 15L * 60L * 1_000L;
     private static final String SUPPORT_ADDRESS = "TMoM4t1JsevXo42cRBiYue51NXrsjuGhqd";

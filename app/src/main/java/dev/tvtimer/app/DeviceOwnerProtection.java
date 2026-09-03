@@ -7,7 +7,7 @@ import android.content.Context;
 import android.util.Log;
 
 final class DeviceOwnerProtection {
-    private static final String TAG = "TVTimerOwner";
+    private static final String TAG = "ScreenTimerOwner";
 
     private DeviceOwnerProtection() {
     }

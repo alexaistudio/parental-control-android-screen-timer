@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TVTimer"
+rootProject.name = "ParentalControlAndroidScreenTimer"
 include(":app")

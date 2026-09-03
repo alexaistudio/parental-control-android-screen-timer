@@ -39,7 +39,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class LimiterAccessibilityService extends AccessibilityService {
-    private static final String TAG = "TVTimerService";
+    private static final String TAG = "ScreenTimerService";
     private static final long TICK_MILLIS = 1_000L;
     private static final long PERSIST_INTERVAL_MILLIS = 5_000L;
 

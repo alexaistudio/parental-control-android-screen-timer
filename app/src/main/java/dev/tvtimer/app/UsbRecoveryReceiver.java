@@ -12,7 +12,7 @@ import android.util.Log;
 import java.io.File;
 
 public final class UsbRecoveryReceiver extends BroadcastReceiver {
-    private static final String TAG = "TVTimerUsb";
+    private static final String TAG = "ScreenTimerUsb";
 
     @Override
     public void onReceive(Context context, Intent intent) {

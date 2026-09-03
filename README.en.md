@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⏱️ Android Screen Timer
+# ⏱️ Parental Control — Android Screen Timer
 
 ### TV, tablet, or phone — family screen time under control.
 
@@ -9,9 +9,9 @@ with parent codes, viewing reminders, per-app limits, discreet launcher profiles
 
 **Hard to guess. Hard to disable through ordinary settings. Device Owner blocks ordinary uninstall attempts.**
 
-[![CI](https://github.com/alexaistudio/tvtimer/actions/workflows/ci.yml/badge.svg)](https://github.com/alexaistudio/tvtimer/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/alexaistudio/tvtimer?sort=semver&display_name=tag&label=release)](https://github.com/alexaistudio/tvtimer/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/alexaistudio/tvtimer/total?label=downloads)](https://github.com/alexaistudio/tvtimer/releases)
+[![CI](https://github.com/alexaistudio/parental-control-android-screen-timer/actions/workflows/ci.yml/badge.svg)](https://github.com/alexaistudio/parental-control-android-screen-timer/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/alexaistudio/parental-control-android-screen-timer?sort=semver&display_name=tag&label=release)](https://github.com/alexaistudio/parental-control-android-screen-timer/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/alexaistudio/parental-control-android-screen-timer/total?label=downloads)](https://github.com/alexaistudio/parental-control-android-screen-timer/releases)
 [![License](https://img.shields.io/badge/license-PolyForm_Strict_1.0.0-2563eb)](LICENSE.md)
 
 ![Android](https://img.shields.io/badge/Android-6.0%2B-3DDC84?logo=android&logoColor=white)
@@ -25,7 +25,7 @@ with parent codes, viewing reminders, per-app limits, discreet launcher profiles
 ![No ads](https://img.shields.io/badge/ads-none-16a34a)
 ![No tracking](https://img.shields.io/badge/tracking-none-16a34a)
 
-[**⬇️ Download the APK**](https://github.com/alexaistudio/tvtimer/releases/latest) ·
+[**⬇️ Download the APK**](https://github.com/alexaistudio/parental-control-android-screen-timer/releases/latest) ·
 [Maximum uninstall protection](#maximum-uninstall-protection-device-owner) ·
 [💚 Support development](#support-development) ·
 [🇷🇺 Русский README](README.md)
@@ -80,11 +80,11 @@ On devices with USB host support, the guaranteed emergency path is a USB flash d
 
 ## Installation
 
-1. Download the signed APK from [GitHub Releases](https://github.com/alexaistudio/tvtimer/releases).
+1. Download the signed APK from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
 2. Install it from a USB drive or through ADB:
 
    ```powershell
-   adb install -r TVTimer-1.3.0.apk
+   adb install -r AndroidScreenTimer-1.3.1.apk
    ```
 
 3. Open Android Screen Timer, select `EN`, and scan the first QR code with an authenticator app on a parent's phone.
@@ -134,7 +134,7 @@ The complete local verification command on Windows is:
 .\scripts\verify.ps1
 ```
 
-Release signing is read from the ignored `signing/release.properties` file or the `TVTIMER_KEYSTORE_*` environment variables. The release task fails intentionally when signing is incomplete, preventing an unsigned or debug APK from being published as stable.
+Release signing is read from the ignored `signing/release.properties` file or the `ANDROID_SCREEN_TIMER_KEYSTORE_*` environment variables. The release task fails intentionally when signing is incomplete, preventing an unsigned or debug APK from being published as stable.
 
 ## Data and permissions
 

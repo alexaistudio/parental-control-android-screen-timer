@@ -15,10 +15,10 @@ def signingValue = { name ->
     environmentValue != null ? environmentValue : localSigningProperties.getProperty(name)
 }
 
-def releaseStoreFile = signingValue("TVTIMER_KEYSTORE_FILE")
-def releaseStorePassword = signingValue("TVTIMER_KEYSTORE_PASSWORD")
-def releaseKeyAlias = signingValue("TVTIMER_KEY_ALIAS")
-def releaseKeyPassword = signingValue("TVTIMER_KEY_PASSWORD")
+def releaseStoreFile = signingValue("ANDROID_SCREEN_TIMER_KEYSTORE_FILE")
+def releaseStorePassword = signingValue("ANDROID_SCREEN_TIMER_KEYSTORE_PASSWORD")
+def releaseKeyAlias = signingValue("ANDROID_SCREEN_TIMER_KEY_ALIAS")
+def releaseKeyPassword = signingValue("ANDROID_SCREEN_TIMER_KEY_PASSWORD")
 def hasReleaseSigning = [
         releaseStoreFile,
         releaseStorePassword,
@@ -35,8 +35,8 @@ android {
         applicationId "dev.tvtimer.app"
         minSdk 23
         targetSdk 35
-        versionCode 8
-        versionName "1.3.0"
+        versionCode 9
+        versionName "1.3.1"
     }
 
     compileOptions {
@@ -93,7 +93,7 @@ tasks.configureEach { task ->
     if (task.name == "assembleRelease" && !hasReleaseSigning) {
         task.doFirst {
             throw new GradleException(
-                    "Release signing is not configured. Create signing/release.properties or set the TVTIMER_KEYSTORE_* environment variables."
+                    "Release signing is not configured. Create signing/release.properties or set the ANDROID_SCREEN_TIMER_KEYSTORE_* environment variables."
             )
         }
     }

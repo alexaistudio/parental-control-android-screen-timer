@@ -32,14 +32,14 @@
 
     <application
         android:allowBackup="false"
-        android:banner="@drawable/tv_banner"
+        android:banner="@drawable/android_screen_timer_banner"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.TVTimer">
+        android:theme="@style/Theme.AndroidScreenTimer">
 
         <activity
             android:name=".MainActivity"
@@ -51,7 +51,7 @@
 
         <activity-alias
             android:name=".TimerLauncher"
-            android:banner="@drawable/tv_banner"
+            android:banner="@drawable/android_screen_timer_banner"
             android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"

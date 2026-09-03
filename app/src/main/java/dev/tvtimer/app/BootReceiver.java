@@ -6,7 +6,7 @@ import android.content.Intent;
 import android.util.Log;
 
 public final class BootReceiver extends BroadcastReceiver {
-    private static final String TAG = "TVTimerBoot";
+    private static final String TAG = "ScreenTimerBoot";
 
     @Override
     public void onReceive(Context context, Intent intent) {

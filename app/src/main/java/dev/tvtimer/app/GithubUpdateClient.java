@@ -16,9 +16,9 @@ import java.util.Locale;
 
 final class GithubUpdateClient {
     private static final String LATEST_RELEASE_URL =
-            "https://api.github.com/repos/alexaistudio/tvtimer/releases/latest";
+            "https://api.github.com/repos/alexaistudio/parental-control-android-screen-timer/releases/latest";
     private static final String DOWNLOAD_PATH_PREFIX =
-            "/alexaistudio/tvtimer/releases/download/";
+            "/alexaistudio/parental-control-android-screen-timer/releases/download/";
     private static final int MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
     ReleaseInfo fetchLatest() throws IOException, JSONException {
@@ -27,7 +27,7 @@ final class GithubUpdateClient {
         connection.setReadTimeout(15_000);
         connection.setRequestProperty("Accept", "application/vnd.github+json");
         connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-        connection.setRequestProperty("User-Agent", "TVTimer/" + BuildConfig.VERSION_NAME);
+        connection.setRequestProperty("User-Agent", "AndroidScreenTimer/" + BuildConfig.VERSION_NAME);
         try {
             int status = connection.getResponseCode();
             if (status != HttpURLConnection.HTTP_OK) {
@@ -43,7 +43,7 @@ final class GithubUpdateClient {
             if (assets == null) {
                 throw new IOException("Release has no assets");
             }
-            String expectedName = "TVTimer-" + normalizedVersion + ".apk";
+            String expectedName = expectedAssetName(normalizedVersion);
             JSONObject selected = null;
             for (int index = 0; index < assets.length(); index++) {
                 JSONObject asset = assets.getJSONObject(index);
@@ -89,7 +89,11 @@ final class GithubUpdateClient {
         }
     }
 
-    private static void validateDownloadUrl(String value, String tag) throws IOException {
+    static String expectedAssetName(String normalizedVersion) {
+        return "AndroidScreenTimer-" + normalizedVersion + ".apk";
+    }
+
+    static void validateDownloadUrl(String value, String tag) throws IOException {
         try {
             URI uri = new URI(value);
             String requiredPrefix = DOWNLOAD_PATH_PREFIX + tag + "/";
