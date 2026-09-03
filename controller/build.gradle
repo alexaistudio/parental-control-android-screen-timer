@@ -27,31 +27,21 @@ def hasReleaseSigning = [
 ].every { value -> value != null && !value.isBlank() }
 
 android {
-    namespace "dev.tvtimer.app"
+    namespace "dev.tvtimer.controller"
     compileSdk 35
     buildToolsVersion "35.0.0"
 
     defaultConfig {
-        applicationId "dev.tvtimer.app"
+        applicationId "dev.tvtimer.controller"
         minSdk 23
         targetSdk 35
-        versionCode 11
+        versionCode 1
         versionName "1.4.0"
     }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
-    }
-
-    buildFeatures {
-        buildConfig true
-    }
-
-    bundle {
-        language {
-            enableSplit = false
-        }
     }
 
     signingConfigs {
@@ -82,10 +72,47 @@ android {
         abortOnError = true
         checkReleaseBuilds = true
     }
+
+    sourceSets {
+        debug.assets.srcDir(layout.buildDirectory.dir("generated/embedded-apk/debug"))
+        release.assets.srcDir(layout.buildDirectory.dir("generated/embedded-apk/release"))
+    }
+}
+
+tasks.register("prepareEmbeddedDebugApk", Copy) {
+    dependsOn(":app:assembleDebug")
+    from(project(":app").layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
+    into(layout.buildDirectory.dir("generated/embedded-apk/debug"))
+    rename { "android-screen-timer.apk" }
+}
+
+tasks.register("prepareEmbeddedReleaseApk", Copy) {
+    dependsOn(":app:assembleRelease")
+    from(project(":app").layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
+    into(layout.buildDirectory.dir("generated/embedded-apk/release"))
+    rename { "android-screen-timer.apk" }
+}
+
+tasks.matching { it.name == "mergeDebugAssets" }.configureEach {
+    dependsOn("prepareEmbeddedDebugApk")
+}
+
+tasks.matching { it.name == "mergeReleaseAssets" }.configureEach {
+    dependsOn("prepareEmbeddedReleaseApk")
+}
+
+tasks.matching { it.name.toLowerCase().contains("lint") && it.name.contains("Debug") }.configureEach {
+    dependsOn("prepareEmbeddedDebugApk")
+}
+
+tasks.matching { it.name.toLowerCase().contains("lint") && it.name.contains("Release") }.configureEach {
+    dependsOn("prepareEmbeddedReleaseApk")
 }
 
 dependencies {
-    implementation "com.google.zxing:core:3.5.3"
+    implementation "com.github.MuntashirAkon:libadb-android:3.1.1"
+    implementation "com.github.MuntashirAkon:sun-security-android:1.1"
+    implementation "org.conscrypt:conscrypt-android:2.5.3"
     testImplementation "junit:junit:4.13.2"
 }
 

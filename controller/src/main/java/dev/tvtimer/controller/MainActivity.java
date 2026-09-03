@@ -1,0 +1,395 @@
+package dev.tvtimer.controller;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.os.Bundle;
+import android.text.InputType;
+import android.view.View;
+import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+public final class MainActivity extends Activity {
+    private final DeviceRegistry devices = new DeviceRegistry();
+    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final AtomicBoolean busy = new AtomicBoolean(false);
+
+    private AdbClient adbClient;
+    private AdbDiscovery discovery;
+    private LinearLayout deviceList;
+    private EditText hostField;
+    private EditText pairPortField;
+    private EditText connectPortField;
+    private EditText pairCodeField;
+    private Button scanButton;
+    private Button pairButton;
+    private Button connectButton;
+    private Button installButton;
+    private ProgressBar scanProgress;
+    private ProgressBar installProgress;
+    private TextView statusView;
+    private CheckBox accessibilityCheck;
+    private CheckBox deviceOwnerCheck;
+    private CheckBox disableDebugCheck;
+
+    @Override
+    protected void attachBaseContext(Context newBase) {
+        super.attachBaseContext(ControllerLanguage.wrap(newBase));
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        adbClient = new AdbClient(this);
+        bindViews();
+        bindActions();
+    }
+
+    private void bindViews() {
+        deviceList = findViewById(R.id.deviceList);
+        hostField = findViewById(R.id.editHost);
+        pairPortField = findViewById(R.id.editPairPort);
+        connectPortField = findViewById(R.id.editConnectPort);
+        pairCodeField = findViewById(R.id.editPairCode);
+        pairCodeField.setInputType(InputType.TYPE_CLASS_NUMBER
+                | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        scanButton = findViewById(R.id.buttonScan);
+        pairButton = findViewById(R.id.buttonPair);
+        connectButton = findViewById(R.id.buttonConnect);
+        installButton = findViewById(R.id.buttonInstall);
+        scanProgress = findViewById(R.id.progressScan);
+        installProgress = findViewById(R.id.progressInstall);
+        statusView = findViewById(R.id.textStatus);
+        accessibilityCheck = findViewById(R.id.checkAccessibility);
+        deviceOwnerCheck = findViewById(R.id.checkDeviceOwner);
+        disableDebugCheck = findViewById(R.id.checkDisableDebug);
+    }
+
+    private void bindActions() {
+        findViewById(R.id.buttonRu).setOnClickListener(view -> switchLanguage("ru"));
+        findViewById(R.id.buttonEn).setOnClickListener(view -> switchLanguage("en"));
+        findViewById(R.id.buttonInstructions).setOnClickListener(view -> showInstructions());
+        scanButton.setOnClickListener(view -> startScan());
+        pairButton.setOnClickListener(view -> pair());
+        connectButton.setOnClickListener(view -> connect());
+        installButton.setOnClickListener(view -> confirmInstall());
+    }
+
+    private void switchLanguage(String language) {
+        if (!language.equals(ControllerLanguage.get(this))) {
+            ControllerLanguage.set(this, language);
+            recreate();
+        }
+    }
+
+    private void showInstructions() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.instructions_title)
+                .setMessage(R.string.instructions_body)
+                .setPositiveButton(R.string.ok, null)
+                .show();
+    }
+
+    private void startScan() {
+        if (!beginOperation()) {
+            return;
+        }
+        adbClient.disconnect();
+        installButton.setEnabled(false);
+        devices.clear();
+        deviceList.removeAllViews();
+        scanProgress.setVisibility(View.VISIBLE);
+        setStatus(R.string.status_scanning);
+
+        if (discovery != null) {
+            discovery.stop();
+        }
+        discovery = new AdbDiscovery(this, new AdbDiscovery.Listener() {
+            @Override
+            public void onEndpoint(DeviceEndpoint endpoint) {
+                devices.upsert(endpoint);
+                renderDevices();
+            }
+
+            @Override
+            public void onFinished() {
+                finishScan();
+            }
+        });
+        discovery.start(10_000);
+
+        worker.execute(() -> LegacyAdbScanner.scan(endpoint -> runOnUiThread(() -> {
+            devices.upsert(endpoint);
+            renderDevices();
+        })));
+    }
+
+    private void finishScan() {
+        scanProgress.setVisibility(View.GONE);
+        busy.set(false);
+        setControlsEnabled(true);
+        List<DeviceEndpoint> snapshot = devices.snapshot();
+        if (snapshot.isEmpty()) {
+            setStatus(R.string.status_none);
+        } else {
+            setStatus(getString(R.string.status_found, snapshot.size()));
+        }
+    }
+
+    private void renderDevices() {
+        List<DeviceEndpoint> snapshot = devices.snapshot();
+        deviceList.removeAllViews();
+        for (DeviceEndpoint endpoint : snapshot) {
+            Button button = new Button(this);
+            String ports = endpoint.host;
+            if (endpoint.connectionPort > 0) {
+                ports += ":" + endpoint.connectionPort;
+            }
+            if (endpoint.pairingPort > 0) {
+                ports += " · pair " + endpoint.pairingPort;
+            }
+            button.setText(getString(R.string.found_device, endpoint.name, ports));
+            button.setAllCaps(false);
+            button.setMinHeight(dp(58));
+            button.setOnClickListener(view -> selectDevice(endpoint));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            params.topMargin = dp(6);
+            deviceList.addView(button, params);
+        }
+    }
+
+    private void selectDevice(DeviceEndpoint endpoint) {
+        if (discovery != null) {
+            discovery.stop();
+        }
+        hostField.setText(endpoint.host);
+        if (endpoint.pairingPort > 0) {
+            pairPortField.setText(String.valueOf(endpoint.pairingPort));
+        }
+        if (endpoint.connectionPort > 0) {
+            connectPortField.setText(String.valueOf(endpoint.connectionPort));
+        }
+        setStatus(getString(R.string.status_selected, endpoint.name));
+        if (endpoint.canConnect()) {
+            connect();
+        } else if (endpoint.canPair()) {
+            pairCodeField.requestFocus();
+        }
+    }
+
+    private void pair() {
+        String host = hostField.getText().toString().trim();
+        int port = parsePort(pairPortField, -1);
+        String code = pairCodeField.getText().toString().trim();
+        if (host.isBlank() || port <= 0 || !code.matches("\\d{6}")) {
+            setStatus(R.string.invalid_pair);
+            return;
+        }
+        if (!beginOperation()) {
+            return;
+        }
+        setStatus(getString(R.string.status_pairing, host));
+        worker.execute(() -> {
+            try {
+                adbClient.pair(host, port, code);
+                runOnUiThread(() -> {
+                    pairCodeField.setText("");
+                    endOperation();
+                    setStatus(R.string.paired_rescan);
+                    startScan();
+                });
+            } catch (Exception exception) {
+                runOnUiThread(() -> showError(exception));
+            }
+        });
+    }
+
+    private void connect() {
+        String host = hostField.getText().toString().trim();
+        int port = parsePort(connectPortField, 5555);
+        if (host.isBlank()) {
+            setStatus(R.string.invalid_host);
+            return;
+        }
+        if (port <= 0) {
+            setStatus(R.string.invalid_port);
+            return;
+        }
+        connectTo(host, port);
+    }
+
+    private void connectTo(String host, int port) {
+        if (!beginOperation()) {
+            return;
+        }
+        connectPortField.setText(String.valueOf(port));
+        setStatus(getString(R.string.status_connecting, host, port));
+        worker.execute(() -> {
+            try {
+                String label = adbClient.connect(host, port);
+                runOnUiThread(() -> {
+                    endOperation();
+                    installButton.setEnabled(true);
+                    setStatus(getString(R.string.status_connected, label));
+                });
+            } catch (Exception exception) {
+                runOnUiThread(() -> showError(exception));
+            }
+        });
+    }
+
+    private void confirmInstall() {
+        if (!deviceOwnerCheck.isChecked()) {
+            install();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.configure_device_owner)
+                .setMessage(R.string.device_owner_warning)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.continue_action, (dialog, which) -> install())
+                .show();
+    }
+
+    private void install() {
+        String host = hostField.getText().toString().trim();
+        int port = parsePort(connectPortField, 5555);
+        if (!adbClient.isConnectedTo(host, port)) {
+            setStatus(R.string.invalid_port);
+            installButton.setEnabled(false);
+            return;
+        }
+        if (!beginOperation()) {
+            return;
+        }
+        installProgress.setProgress(0);
+        installProgress.setVisibility(View.VISIBLE);
+        setStatus(getString(R.string.status_installing, 0));
+        boolean configureAccessibility = accessibilityCheck.isChecked();
+        boolean requestOwner = deviceOwnerCheck.isChecked();
+        boolean disableDebug = disableDebugCheck.isChecked();
+        worker.execute(() -> {
+            try {
+                AdbClient.InstallResult result = adbClient.installAndConfigure(
+                        configureAccessibility,
+                        requestOwner,
+                        disableDebug,
+                        percent -> runOnUiThread(() -> {
+                            installProgress.setProgress(percent);
+                            setStatus(getString(R.string.status_installing, percent));
+                            if (percent == 100) {
+                                setStatus(R.string.status_configuring);
+                            }
+                        }));
+                runOnUiThread(() -> showSuccess(result, disableDebug));
+            } catch (Exception exception) {
+                runOnUiThread(() -> showError(exception));
+            }
+        });
+    }
+
+    private void showSuccess(AdbClient.InstallResult result, boolean disableDebugRequested) {
+        installProgress.setVisibility(View.GONE);
+        endOperation();
+        StringBuilder notes = new StringBuilder();
+        if (!result.accessibilityEnabled) {
+            notes.append(getString(R.string.partial_accessibility));
+        }
+        if (result.deviceOwnerRequested) {
+            notes.append(getString(result.deviceOwnerEnabled
+                    ? R.string.device_owner_enabled
+                    : R.string.device_owner_not_enabled));
+        }
+        if (disableDebugRequested) {
+            notes.append(getString(result.debuggingDisabled
+                    ? R.string.debug_off_note
+                    : R.string.debug_manual_note));
+        }
+        setStatus(getString(R.string.status_complete, notes.toString()));
+        installButton.setEnabled(!result.debuggingDisabled);
+    }
+
+    private boolean beginOperation() {
+        if (!busy.compareAndSet(false, true)) {
+            setStatus(R.string.busy);
+            return false;
+        }
+        setControlsEnabled(false);
+        return true;
+    }
+
+    private void endOperation() {
+        busy.set(false);
+        setControlsEnabled(true);
+    }
+
+    private void setControlsEnabled(boolean enabled) {
+        scanButton.setEnabled(enabled);
+        pairButton.setEnabled(enabled);
+        connectButton.setEnabled(enabled);
+        if (!enabled) {
+            installButton.setEnabled(false);
+        }
+    }
+
+    private void showError(Exception exception) {
+        scanProgress.setVisibility(View.GONE);
+        installProgress.setVisibility(View.GONE);
+        endOperation();
+        String host = hostField.getText().toString().trim();
+        int port = parsePort(connectPortField, 5555);
+        installButton.setEnabled(port > 0 && adbClient.isConnectedTo(host, port));
+        String message = exception.getMessage();
+        if (message == null || message.isBlank()) {
+            message = exception.getClass().getSimpleName();
+        }
+        setStatus(getString(R.string.status_error, message));
+    }
+
+    private int parsePort(EditText field, int fallback) {
+        String value = field.getText().toString().trim();
+        if (value.isBlank()) {
+            return fallback;
+        }
+        try {
+            int port = Integer.parseInt(value);
+            return port >= 1 && port <= 65535 ? port : -1;
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
+    }
+
+    private void setStatus(int stringResource) {
+        statusView.setText(stringResource);
+    }
+
+    private void setStatus(String message) {
+        statusView.setText(message);
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (discovery != null) {
+            discovery.stop();
+        }
+        adbClient.disconnect();
+        worker.shutdownNow();
+        super.onDestroy();
+    }
+}

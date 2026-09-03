@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="controller_background">#F5F7FB</color>
+    <color name="controller_surface">#FFFFFF</color>
+    <color name="controller_primary">#2457D6</color>
+    <color name="controller_primary_dark">#173B98</color>
+    <color name="controller_text">#14213D</color>
+    <color name="controller_muted">#5E6B85</color>
+    <color name="controller_success">#16794D</color>
+    <color name="controller_warning">#9A5B00</color>
+</resources>

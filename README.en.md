@@ -26,6 +26,7 @@ with parent codes, viewing reminders, per-app limits, discreet launcher profiles
 ![Offline](https://img.shields.io/badge/data-local_only-059669)
 ![No ads](https://img.shields.io/badge/ads-none-16a34a)
 ![No tracking](https://img.shields.io/badge/tracking-none-16a34a)
+![Two APKs](https://img.shields.io/badge/setup-two_APKs_in_one_release-2457D6)
 
 [**⬇️ Download the APK**](https://github.com/alexaistudio/parental-control-android-screen-timer/releases/latest) ·
 [Maximum uninstall protection](#maximum-uninstall-protection-device-owner) ·
@@ -50,6 +51,7 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - 🛡️ **A child cannot simply open settings and remove the limiter** — Android settings and the package installer require a parent code; Device Owner enables Android-level uninstall blocking.
 - 🔌 **USB emergency recovery** gives a parent a physical way to clear local protection and settings on devices with USB host support.
 - 📴 **No account and no tracking** — no ads, analytics, telemetry, cloud storage, or remote TOTP processing.
+- 📲 **Install from a phone without Bugjaeger** — the separate Parent Installer finds the target on the local network, pairs with Android's system code, installs its embedded blocker APK, and verifies screen control.
 - 🌍 **Russian and English UI**, switchable from the first screen, settings, app picker, and every full-screen parent-code panel.
 
 > Maximum uninstall protection requires Device Owner mode. A regular Android app cannot guarantee that it will block its own uninstall without this managed-device role. Launcher disguise changes the home-screen tile but does not hide the package from Android's system app list.
@@ -86,17 +88,42 @@ On devices with USB host support, the guaranteed emergency path is a USB flash d
 
 ## Installation
 
-1. Download the signed APK from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
-2. Install it from a USB drive or through ADB:
+Every release contains two signed files:
+
+- `AndroidScreenTimer-1.4.0.apk` — the blocker for a TV, tablet, or phone;
+- `AndroidScreenTimer-Parent-1.4.0.apk` — the Parent Installer for an Android phone; it already embeds the first APK.
+
+### Option 1 — install from a phone
+
+1. Install `AndroidScreenTimer-Parent-1.4.0.apk` on the parent's phone. Bugjaeger, a computer, and root are not required.
+2. Put the phone and target device on the same normal Wi‑Fi network without client isolation.
+3. On a target **TV / Google TV**, open `Settings → System` or `Device preferences → About`, then press `Build`, `Build number`, or `Android TV OS build` seven times. Go back to `Developer options`.
+4. On a target **phone / tablet**, open `Settings → About phone/tablet → Build number`, press it seven times, then open `System → Developer options`.
+5. Use the connection method exposed by that device:
+
+   - Android 11+ phone/tablet or Android TV 13+: enable `Wireless debugging`, open `Pair using pairing code`, and keep the six-digit code dialog open;
+   - if the firmware exposes `Network debugging`, `ADB debugging`, or `Debug over network`, enable it — port `5555` is common;
+   - `USB debugging` is for a cable connection and does not by itself enable Wi‑Fi ADB.
+
+6. In Parent Installer, tap `Find devices` and select the target. Enter its six-digit code on the first modern connection, or approve the key prompt for legacy network ADB.
+7. Tap `INSTALL`. Parent Installer transfers its embedded APK, permits Restricted Settings where Android exposes that AppOp, adds the screen-control service without removing TalkBack or other services, verifies the result, and launches Android Screen Timer.
+8. Modern wireless debugging is turned off after success by default. Some legacy network-debugging switches must be turned off manually.
+
+If the router blocks automatic discovery, enter the IP, pairing port, and connection port manually. If an older target exposes no wireless/network debugging at all, an ordinary phone app cannot remotely enable ADB; use direct installation instead.
+
+### Option 2 — install the APK directly
+
+1. Download `AndroidScreenTimer-1.4.0.apk` from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
+2. Install it from a USB drive, browser, or through ADB:
 
    ```powershell
-   adb install -r AndroidScreenTimer-1.3.2.apk
+   adb install -r AndroidScreenTimer-1.4.0.apk
    ```
 
 3. Open Android Screen Timer, select `EN`, and scan the first QR code with an authenticator app on a parent's phone.
 4. Set the backup PIN, daily limit, and controlled app scope.
 5. Confirm the accessibility-service disclosure.
-6. If the service switch immediately returns to Off, select `Open App info` in Android Screen Timer, then `⋮` → `Allow restricted settings`, and try again. Android applies this restriction to apps installed outside a store.
+6. If the service switch immediately returns to Off, select `Open App info`. If the firmware offers `⋮ → Allow restricted settings`, enable it and try again. Some TVs omit that menu; use Parent Installer and the ADB path above, or follow that firmware's managed-device procedure.
 7. Enable “Android Screen Timer control” in the Android system page that opens.
 8. If the service still turns off, open `Error log as QR codes` and scan every numbered page with a phone.
 9. Return to Android Screen Timer and confirm that the control service is enabled.
@@ -175,3 +202,5 @@ The QR code contains only the address shown above. Before sending, make sure the
 ## License
 
 Android Screen Timer is free for unmodified personal, family, and other noncommercial use under the [PolyForm Strict License 1.0.0](LICENSE.md). Commercial use, modified redistribution, and derivative works require separate written permission. The license text takes precedence over this summary.
+
+Notices and licenses for the mobile ADB installer's libraries are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

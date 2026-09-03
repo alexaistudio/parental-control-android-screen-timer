@@ -1,6 +1,6 @@
 # Исследование Android parental control для TV, планшетов и телефонов
 
-Проверено 15 августа 2026 года.
+Проверено 3 сентября 2026 года.
 
 ## Существующие решения
 
@@ -23,7 +23,15 @@ TVUsage публично описывает сочетание Usage Stats, acce
 - Android предоставляет сертификаты установленного и архивного APK через `SigningInfo`: <https://developer.android.com/reference/android/content/pm/SigningInfo>
 - Загрузка APK выполняется системным `DownloadManager`, а установка остаётся отдельным действием пользователя: <https://developer.android.com/reference/android/app/DownloadManager>
 - Настоящий `setUninstallBlocked` доступен Device/Profile Owner, поэтому обычный Device Admin рассматривается только как дополнительный барьер: <https://developer.android.com/reference/android/app/admin/DevicePolicyManager>
+- Официальный ADB-путь требует включить Developer options и подтвердить RSA-ключ; для USB отдельно включается USB debugging: <https://developer.android.com/tools/adb#Enabling>
+- Android 11+ на телефонах/планшетах и Android TV 13+ поддерживают Wireless debugging с pairing-кодом или QR; оба устройства должны быть в одной Wi‑Fi сети, а обнаружение использует mDNS: <https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi>
+- Для Android 10 и старше стандартный Wi‑Fi ADB требует первичного USB-подключения и `adb tcpip 5555`, если OEM не дал собственный переключатель сетевой отладки: <https://developer.android.com/tools/adb#wireless-android10-and-lower>
+- Мобильный ADB-клиент построен на `libadb-android` 3.1.1, который поддерживает TCP, TLS pairing и shell/services; библиотека выбрана по Apache-2.0 варианту двойной лицензии: <https://github.com/MuntashirAkon/libadb-android>
 
 ## Почему нет root, Usage Access и Device Owner
 
 Root противоречит требованию и повышает риск для телевизора. Usage Access хорошо подходит для истории, но не нужен для реального времени, когда уже используется accessibility event. Device Owner даёт более сильную защиту от обхода, но обычно требует factory reset/ADB provisioning и не является универсальной установкой обычного APK. Поэтому выбран обратимый PIN-барьер плюс опциональный обычный Device Admin с честно указанными ограничениями.
+
+## Почему два APK и почему всё равно нужен один шаг на целевом устройстве
+
+Обычное приложение на телефоне не имеет права незаметно включить ADB на другом Android-устройстве. Поэтому продукт разделён на блокировщик и родительский установщик, но не обещает невозможного: владелец один раз открывает Developer options и подтверждает системное сопряжение. После этого телефон действительно выполняет поиск, установку, настройку и проверку сам, без Bugjaeger или компьютера. Для старых устройств без сетевого ADB остаётся прямая установка блокировщика.
