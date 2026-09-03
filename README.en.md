@@ -90,12 +90,12 @@ On devices with USB host support, the guaranteed emergency path is a USB flash d
 
 Every release contains two signed files:
 
-- `AndroidScreenTimer-1.4.0.apk` — the blocker for a TV, tablet, or phone;
-- `AndroidScreenTimer-Parent-1.4.0.apk` — the Parent Installer for an Android phone; it already embeds the first APK.
+- `AndroidScreenTimer-1.4.1.apk` — the blocker for a TV, tablet, or phone;
+- `AndroidScreenTimer-Parent-1.4.1.apk` — the Parent Installer for an Android phone; it already embeds the first APK.
 
 ### Option 1 — install from a phone
 
-1. Install `AndroidScreenTimer-Parent-1.4.0.apk` on the parent's phone. Bugjaeger, a computer, and root are not required.
+1. Install `AndroidScreenTimer-Parent-1.4.1.apk` on the parent's phone. Bugjaeger, a computer, and root are not required.
 2. Put the phone and target device on the same normal Wi‑Fi network without client isolation.
 3. On a target **TV / Google TV**, open `Settings → System` or `Device preferences → About`, then press `Build`, `Build number`, or `Android TV OS build` seven times. Go back to `Developer options`.
 4. On a target **phone / tablet**, open `Settings → About phone/tablet → Build number`, press it seven times, then open `System → Developer options`.
@@ -103,9 +103,9 @@ Every release contains two signed files:
 
    - Android 11+ phone/tablet or Android TV 13+: enable `Wireless debugging`, open `Pair using pairing code`, and keep the six-digit code dialog open;
    - if the firmware exposes `Network debugging`, `ADB debugging`, or `Debug over network`, enable it — port `5555` is common;
-   - `USB debugging` is for a cable connection and does not by itself enable Wi‑Fi ADB.
+   - `USB debugging` alone does not enable Wi‑Fi ADB. A direct phone cable requires USB-host/OTG mode on the phone and an ADB peripheral interface on the target; a regular TV USB port is usually another host port and cannot make this connection.
 
-6. In Parent Installer, tap `Find devices` and select the target. Enter its six-digit code on the first modern connection, or approve the key prompt for legacy network ADB.
+6. In Parent Installer, tap `Find over Wi-Fi / network` and select the target. Enter its six-digit code on the first modern connection, or approve the key prompt for legacy network ADB.
 7. Tap `INSTALL`. Parent Installer transfers its embedded APK, permits Restricted Settings where Android exposes that AppOp, adds the screen-control service without removing TalkBack or other services, verifies the result, and launches Android Screen Timer.
 8. Modern wireless debugging is turned off after success by default. Some legacy network-debugging switches must be turned off manually.
 
@@ -113,11 +113,11 @@ If the router blocks automatic discovery, enter the IP, pairing port, and connec
 
 ### Option 2 — install the APK directly
 
-1. Download `AndroidScreenTimer-1.4.0.apk` from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
+1. Download `AndroidScreenTimer-1.4.1.apk` from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
 2. Install it from a USB drive, browser, or through ADB:
 
    ```powershell
-   adb install -r AndroidScreenTimer-1.4.0.apk
+   adb install -r AndroidScreenTimer-1.4.1.apk
    ```
 
 3. Open Android Screen Timer, select `EN`, and scan the first QR code with an authenticator app on a parent's phone.

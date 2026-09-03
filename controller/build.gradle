@@ -35,8 +35,8 @@ android {
         applicationId "dev.tvtimer.controller"
         minSdk 23
         targetSdk 35
-        versionCode 1
-        versionName "1.4.0"
+        versionCode 2
+        versionName "1.4.1"
     }
 
     compileOptions {

@@ -29,7 +29,7 @@ final class AdbDiscovery {
     private final List<DiscoveryListener> discoveryListeners = new ArrayList<>();
     private final Queue<PendingResolution> pendingResolutions = new ArrayDeque<>();
     private final AtomicBoolean resolving = new AtomicBoolean(false);
-    private boolean stopped;
+    private volatile boolean stopped;
 
     AdbDiscovery(Context context, Listener listener) {
         nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
@@ -64,7 +64,7 @@ final class AdbDiscovery {
         synchronized (pendingResolutions) {
             pendingResolutions.clear();
         }
-        listener.onFinished();
+        dispatchFinished();
     }
 
     private void discover(String type, boolean pairing, boolean connection) {
@@ -110,7 +110,7 @@ final class AdbDiscovery {
                         String host = serviceInfo.getHost().getHostAddress();
                         int pairingPort = pending.pairing ? serviceInfo.getPort() : -1;
                         int connectionPort = pending.connection ? serviceInfo.getPort() : -1;
-                        listener.onEndpoint(new DeviceEndpoint(
+                        dispatchEndpoint(new DeviceEndpoint(
                                 host,
                                 cleanName(serviceInfo.getServiceName(), host),
                                 pairingPort,
@@ -123,6 +123,22 @@ final class AdbDiscovery {
         } catch (RuntimeException ignored) {
             resolving.set(false);
             resolveNext();
+        }
+    }
+
+    private void dispatchEndpoint(DeviceEndpoint endpoint) {
+        handler.post(() -> {
+            if (!stopped) {
+                listener.onEndpoint(endpoint);
+            }
+        });
+    }
+
+    private void dispatchFinished() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            listener.onFinished();
+        } else {
+            handler.post(listener::onFinished);
         }
     }
 
