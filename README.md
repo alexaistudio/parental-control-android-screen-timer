@@ -2,6 +2,8 @@
 
 # ⏱️ Родительский контроль — Android Screen Timer
 
+<img src="https://raw.githubusercontent.com/alexaistudio/parental-control-android-screen-timer/refs/heads/main/poster.jpg">
+
 ### Телевизор, планшет или телефон — экранное время под контролем.
 
 **Бесплатный семейный ограничитель времени для Android**<br>
