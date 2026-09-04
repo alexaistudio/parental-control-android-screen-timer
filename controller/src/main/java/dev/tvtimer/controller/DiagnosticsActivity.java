@@ -93,6 +93,7 @@ public final class DiagnosticsActivity extends Activity {
         root.addView(logScroll, scrollParams);
 
         setContentView(root);
+        SystemBarInsets.apply(root);
     }
 
     private void refreshLog() {

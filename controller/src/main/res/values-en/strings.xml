@@ -33,6 +33,7 @@
     <string name="status_connecting">Connecting to %1$s:%2$d… Approve the key on the target device if asked.</string>
     <string name="status_connected">Connected: %1$s</string>
     <string name="status_installing">Sending the embedded APK… %1$d%%</string>
+    <string name="status_waiting_for_package_manager">APK sent. The target is finishing installation; verifying the result… %1$d s</string>
     <string name="status_configuring">APK installed. Configuring screen control…</string>
     <string name="status_complete">Done. Android Screen Timer is installed and open on the target device.%1$s</string>
     <string name="status_error">Error: %1$s</string>

@@ -51,6 +51,7 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        SystemBarInsets.apply(findViewById(R.id.rootScroll));
         adbClient = new AdbClient(this);
         bindViews();
         bindActions();
@@ -353,13 +354,28 @@ public final class MainActivity extends Activity {
                         configureAccessibility,
                         requestOwner,
                         disableDebug,
-                        percent -> runOnUiThread(() -> {
-                            installProgress.setProgress(percent);
-                            setStatus(getString(R.string.status_installing, percent));
-                            if (percent == 100) {
-                                setStatus(R.string.status_configuring);
+                        new AdbClient.ProgressListener() {
+                            @Override
+                            public void onProgress(int percent) {
+                                runOnUiThread(() -> {
+                                    installProgress.setProgress(percent);
+                                    setStatus(getString(R.string.status_installing, percent));
+                                });
                             }
-                        }));
+
+                            @Override
+                            public void onWaitingForPackageManager(int elapsedSeconds) {
+                                runOnUiThread(() -> setStatus(getString(
+                                        R.string.status_waiting_for_package_manager,
+                                        elapsedSeconds
+                                )));
+                            }
+
+                            @Override
+                            public void onConfiguring() {
+                                runOnUiThread(() -> setStatus(R.string.status_configuring));
+                            }
+                        });
                 runOnUiThread(() -> showSuccess(result, disableDebug));
             } catch (Exception exception) {
                 runOnUiThread(() -> showError(exception));

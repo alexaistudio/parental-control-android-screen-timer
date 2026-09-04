@@ -1,6 +1,8 @@
 package dev.tvtimer.controller;
 
 import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.os.Build;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -8,6 +10,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -26,6 +29,20 @@ final class AdbClient {
 
     interface ProgressListener {
         void onProgress(int percent);
+
+        void onWaitingForPackageManager(int elapsedSeconds);
+
+        void onConfiguring();
+    }
+
+    private static final class ApkIdentity {
+        final String versionName;
+        final long versionCode;
+
+        ApkIdentity(String versionName, long versionCode) {
+            this.versionName = versionName;
+            this.versionCode = versionCode;
+        }
     }
 
     static final class InstallResult {
@@ -145,13 +162,15 @@ final class AdbClient {
             File apk = materializeEmbeddedApk();
             String packageManagerResponse;
             try {
-                packageManagerResponse = installApk(apk, progress);
+                ApkIdentity identity = readApkIdentity(apk);
+                packageManagerResponse = installApk(apk, identity, progress);
             } finally {
                 //noinspection ResultOfMethodCallIgnored
                 apk.delete();
             }
             ControllerLog.result("ADB/PackageManager", ControllerResultMessages.installed(
                     targetHost, targetPort, BLOCKER_PACKAGE, packageManagerResponse));
+            progress.onConfiguring();
 
             boolean ownerEnabled = false;
             if (requestDeviceOwner) {
@@ -272,7 +291,8 @@ final class AdbClient {
         return output;
     }
 
-    private String installApk(File apk, ProgressListener progress) throws Exception {
+    private String installApk(File apk, ApkIdentity identity,
+                              ProgressListener progress) throws Exception {
         long size = apk.length();
         long requestId = ControllerLog.request("ADB/PackageManager",
                 "exec:cmd package install -r -S " + size + " binary=<omitted>");
@@ -300,7 +320,14 @@ final class AdbClient {
                 }
             }
             output.flush();
-            String response = readResponse(stream, 180, TimeUnit.SECONDS, null);
+            ControllerLog.result("ADB/PackageManager",
+                    "IN PROGRESS: APK UPLOADED target=" + connectedHost + ":" + connectedPort
+                            + " bytes=" + size
+                            + " expectedVersion=" + identity.versionName
+                            + " expectedVersionCode=" + identity.versionCode
+                            + "; waiting for the target Package Manager");
+            progress.onWaitingForPackageManager(0);
+            String response = readInstallResponse(stream, requestId, identity, progress);
             ControllerLog.response("ADB/PackageManager", requestId, response);
             if (!response.toLowerCase(java.util.Locale.ROOT).contains("success")) {
                 throw new IllegalStateException(response.isBlank()
@@ -313,6 +340,92 @@ final class AdbClient {
                     "APK install request failed", exception);
             throw exception;
         }
+    }
+
+    private String readInstallResponse(AdbStream stream, long requestId, ApkIdentity identity,
+                                       ProgressListener progress) throws Exception {
+        ExecutorService reader = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "adb-install-response");
+            thread.setDaemon(true);
+            return thread;
+        });
+        Future<String> future = reader.submit(() -> {
+            StringBuilder output = new StringBuilder();
+            InputStream input = stream.openInputStream();
+            byte[] buffer = new byte[4096];
+            int count;
+            while ((count = input.read(buffer)) > 0) {
+                output.append(new String(buffer, 0, count, StandardCharsets.UTF_8));
+            }
+            return output.toString();
+        });
+        long startedNanos = System.nanoTime();
+        long deadlineNanos = startedNanos + TimeUnit.SECONDS.toNanos(120);
+        try {
+            while (System.nanoTime() < deadlineNanos) {
+                try {
+                    return future.get(3, TimeUnit.SECONDS);
+                } catch (TimeoutException timeout) {
+                    int elapsedSeconds = (int) TimeUnit.NANOSECONDS.toSeconds(
+                            System.nanoTime() - startedNanos
+                    );
+                    progress.onWaitingForPackageManager(elapsedSeconds);
+                    ControllerLog.info("ADB/PackageManager",
+                            "#" + requestId + " final response still open after "
+                                    + elapsedSeconds + "s; probing installed package version");
+                    try {
+                        String packageDump = runShell("dumpsys package " + BLOCKER_PACKAGE
+                                + " | grep -E 'versionCode=|versionName='");
+                        if (InstalledPackageProbe.matches(
+                                packageDump,
+                                identity.versionName,
+                                identity.versionCode
+                        )) {
+                            ControllerLog.warning("ADB/PackageManager",
+                                    "#" + requestId + " target kept the install response open, "
+                                            + "but the requested package version is installed; "
+                                            + "continuing configuration", null);
+                            return "Success (verified installed version=" + identity.versionName
+                                    + " versionCode=" + identity.versionCode
+                                    + "; OEM Package Manager kept the response stream open)";
+                        }
+                    } catch (Exception probeFailure) {
+                        ControllerLog.warning("ADB/PackageManager",
+                                "#" + requestId + " installed-version probe failed; "
+                                        + "continuing to wait for the original response",
+                                probeFailure);
+                    }
+                } catch (ExecutionException executionException) {
+                    Throwable cause = executionException.getCause();
+                    if (cause instanceof Exception) {
+                        throw (Exception) cause;
+                    }
+                    throw executionException;
+                }
+            }
+            throw new IllegalStateException(
+                    "Package Manager returned no final response for 120 seconds and the "
+                            + "requested app version could not be verified"
+            );
+        } finally {
+            future.cancel(true);
+            reader.shutdownNow();
+        }
+    }
+
+    private ApkIdentity readApkIdentity(File apk) {
+        PackageInfo archive = context.getPackageManager().getPackageArchiveInfo(
+                apk.getAbsolutePath(), 0
+        );
+        if (archive == null || archive.versionName == null || archive.versionName.isBlank()) {
+            throw new IllegalStateException("Unable to read embedded blocker APK version");
+        }
+        long versionCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                ? archive.getLongVersionCode()
+                : archive.versionCode;
+        ControllerLog.info("ADB/Install", "Embedded APK identity package=" + BLOCKER_PACKAGE
+                + " version=" + archive.versionName + " versionCode=" + versionCode);
+        return new ApkIdentity(archive.versionName, versionCode);
     }
 
     private String runShell(String command) throws Exception {

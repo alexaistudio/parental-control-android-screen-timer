@@ -33,6 +33,7 @@
     <string name="status_connecting">Подключаюсь к %1$s:%2$d… Подтвердите ключ на целевом устройстве, если появится запрос.</string>
     <string name="status_connected">Подключено: %1$s</string>
     <string name="status_installing">Передаю встроенный APK… %1$d%%</string>
+    <string name="status_waiting_for_package_manager">APK передан. Устройство завершает установку, проверяю результат… %1$d с</string>
     <string name="status_configuring">APK установлен. Настраиваю контроль экрана…</string>
     <string name="status_complete">Готово. Android Screen Timer установлен и открыт на целевом устройстве.%1$s</string>
     <string name="status_error">Ошибка: %1$s</string>
