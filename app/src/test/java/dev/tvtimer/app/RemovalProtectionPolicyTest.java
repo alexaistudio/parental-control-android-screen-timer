@@ -54,6 +54,33 @@ public final class RemovalProtectionPolicyTest {
     }
 
     @Test
+    public void optionalSettingAllowsOrdinarySettingsButStillProtectsRemoval() {
+        assertFalse(RemovalProtectionPolicy.isSensitiveScreen(
+                "com.android.tv.settings",
+                "com.android.tv.settings.MainSettings",
+                false
+        ));
+        assertTrue(RemovalProtectionPolicy.isSensitiveScreen(
+                "com.android.tv.settings",
+                "com.android.tv.settings.device.apps.AppManagementActivity",
+                false
+        ));
+        assertTrue(RemovalProtectionPolicy.isSensitiveScreen(
+                "com.google.android.permissioncontroller",
+                "com.android.packageinstaller.UninstallerActivity",
+                false
+        ));
+        assertFalse(RemovalProtectionPolicy.isProtectionPackage(
+                "com.android.tv.settings",
+                false
+        ));
+        assertTrue(RemovalProtectionPolicy.isProtectionPackage(
+                "com.google.android.permissioncontroller",
+                false
+        ));
+    }
+
+    @Test
     public void waitsForAStableSensitiveScreenAndHonorsMaintenance() {
         assertFalse(RemovalProtectionPolicy.shouldBlock(true, 1_100L, 1_400L, false));
         assertTrue(RemovalProtectionPolicy.shouldBlock(true, 1_400L, 1_400L, false));

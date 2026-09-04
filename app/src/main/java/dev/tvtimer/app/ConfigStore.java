@@ -25,6 +25,8 @@ public final class ConfigStore {
     private static final String KEY_RECOVERY_REQUESTED = "recovery_requested";
     private static final String KEY_USB_RECOVERY_ENABLED = "usb_recovery_enabled";
     private static final String KEY_PARENT_MODE_GESTURE_ENABLED = "parent_mode_gesture_enabled";
+    private static final String KEY_SYSTEM_SETTINGS_PROTECTION_ENABLED =
+            "system_settings_protection_enabled";
     private static final String KEY_MAINTENANCE_UNTIL = "maintenance_until_ms";
     private static final String KEY_AUTHENTICATOR_SECRET = "authenticator_secret";
     private static final String KEY_DEFAULT_EXTENSION_MINUTES = "default_extension_minutes";
@@ -116,6 +118,7 @@ public final class ConfigStore {
                 .putBoolean(KEY_RECOVERY_REQUESTED, false)
                 .putBoolean(KEY_USB_RECOVERY_ENABLED, true)
                 .putBoolean(KEY_PARENT_MODE_GESTURE_ENABLED, true)
+                .putBoolean(KEY_SYSTEM_SETTINGS_PROTECTION_ENABLED, true)
                 .putInt(KEY_DEFAULT_EXTENSION_MINUTES, DEFAULT_EXTENSION_MINUTES)
                 .putInt(KEY_USAGE_WARNING_INTERVAL_MINUTES, UsageWarningPolicy.DISABLED)
                 .putString(KEY_LAUNCHER_PROFILE, LauncherProfile.DEFAULT)
@@ -131,7 +134,8 @@ public final class ConfigStore {
             int usageWarningIntervalMinutes,
             String launcherProfile,
             boolean usbRecoveryEnabled,
-            boolean parentModeGestureEnabled
+            boolean parentModeGestureEnabled,
+            boolean systemSettingsProtectionEnabled
     ) {
         validateSettings(dailyLimitMillis, scope, selectedPackages);
         ExtensionDurationPolicy.requireSupported(defaultExtensionMinutes);
@@ -149,7 +153,11 @@ public final class ConfigStore {
                 .putInt(KEY_USAGE_WARNING_INTERVAL_MINUTES, usageWarningIntervalMinutes)
                 .putString(KEY_LAUNCHER_PROFILE, launcherProfile)
                 .putBoolean(KEY_USB_RECOVERY_ENABLED, usbRecoveryEnabled)
-                .putBoolean(KEY_PARENT_MODE_GESTURE_ENABLED, parentModeGestureEnabled);
+                .putBoolean(KEY_PARENT_MODE_GESTURE_ENABLED, parentModeGestureEnabled)
+                .putBoolean(
+                        KEY_SYSTEM_SETTINGS_PROTECTION_ENABLED,
+                        systemSettingsProtectionEnabled
+                );
         if (!usbRecoveryEnabled) {
             editor.putBoolean(KEY_RECOVERY_REQUESTED, false);
         }
@@ -395,6 +403,10 @@ public final class ConfigStore {
         return preferences.getBoolean(KEY_PARENT_MODE_GESTURE_ENABLED, true);
     }
 
+    public boolean isSystemSettingsProtectionEnabled() {
+        return preferences.getBoolean(KEY_SYSTEM_SETTINGS_PROTECTION_ENABLED, true);
+    }
+
     public boolean isRecoveryModeRequested() {
         return preferences.getBoolean(KEY_RECOVERY_REQUESTED, false);
     }
@@ -422,6 +434,7 @@ public final class ConfigStore {
                 || KEY_RECOVERY_REQUESTED.equals(key)
                 || KEY_USB_RECOVERY_ENABLED.equals(key)
                 || KEY_PARENT_MODE_GESTURE_ENABLED.equals(key)
+                || KEY_SYSTEM_SETTINGS_PROTECTION_ENABLED.equals(key)
                 || KEY_DEFAULT_EXTENSION_MINUTES.equals(key)
                 || KEY_USAGE_WARNING_INTERVAL_MINUTES.equals(key)
                 || KEY_AUTHENTICATOR_SECRET.equals(key)

@@ -8,9 +8,18 @@ final class RemovalProtectionPolicy {
     }
 
     static boolean isSensitiveScreen(String packageName, String className) {
+        return isSensitiveScreen(packageName, className, true);
+    }
+
+    static boolean isSensitiveScreen(
+            String packageName,
+            String className,
+            boolean protectSystemSettings
+    ) {
         String packageValue = lower(packageName);
         String classValue = lower(className);
-        if (isSettingsPackage(packageValue) || isInstallerPackage(packageValue)) {
+        if (isInstallerPackage(packageValue)
+                || (protectSystemSettings && isSettingsPackage(packageValue))) {
             return true;
         }
         if (classValue.isEmpty()) {
@@ -21,6 +30,9 @@ final class RemovalProtectionPolicy {
                 "uninstall",
                 "deletepackage",
                 "appmanagement",
+                "appinfo",
+                "appdetails",
+                "manageapp",
                 "manageapplications",
                 "installedappdetails",
                 "applicationdetails",
@@ -38,9 +50,13 @@ final class RemovalProtectionPolicy {
     }
 
     static boolean isProtectionPackage(String packageName) {
+        return isProtectionPackage(packageName, true);
+    }
+
+    static boolean isProtectionPackage(String packageName, boolean protectSystemSettings) {
         String value = lower(packageName);
         return value.equals("android")
-                || isSettingsPackage(value)
+                || (protectSystemSettings && isSettingsPackage(value))
                 || isInstallerPackage(value);
     }
 

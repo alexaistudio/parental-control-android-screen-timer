@@ -17,6 +17,7 @@ public final class ConfigStorePolicyTest {
         assertTrue(ConfigStore.affectsRuntimeConfiguration("recovery_requested"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("usb_recovery_enabled"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("parent_mode_gesture_enabled"));
+        assertTrue(ConfigStore.affectsRuntimeConfiguration("system_settings_protection_enabled"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("default_extension_minutes"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("authenticator_secret"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("usage_warning_interval_minutes"));

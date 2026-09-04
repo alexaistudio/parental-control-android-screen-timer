@@ -66,6 +66,8 @@
     <string name="back_to_settings">Назад в настройки</string>
     <string name="removal_protection_title">Защита удаления</string>
     <string name="enable_removal_protection">Включить усиленную защиту удаления</string>
+    <string name="system_settings_protection_enabled">Защищать системные настройки кодом</string>
+    <string name="system_settings_protection_notice">Выключите, если обычные настройки устройства должны быть доступны без кода. Экраны установки и удаления приложения защищаются отдельно; максимальную защиту удаления даёт Device Owner.</string>
     <string name="device_owner_notice">Чтобы Android системно запретил удаление, включите режим Device Owner через ADB на чистом профиле. Точная команда указана в README.</string>
     <string name="phone_code_title">Код с телефона</string>
     <string name="phone_code_info">Код действует до 5 минут — его удобно вводить с пульта. Он автоматически меняется каждые 30 секунд, а старые коды не накапливаются в памяти.</string>

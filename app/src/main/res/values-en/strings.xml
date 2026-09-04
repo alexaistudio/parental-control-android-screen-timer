@@ -64,6 +64,8 @@
     <string name="back_to_settings">Back to settings</string>
     <string name="removal_protection_title">Uninstall protection</string>
     <string name="enable_removal_protection">Enable stronger uninstall protection</string>
+    <string name="system_settings_protection_enabled">Protect system settings with a code</string>
+    <string name="system_settings_protection_notice">Turn this off when ordinary device settings should remain available without a code. App install and removal screens are protected separately; Device Owner provides the strongest uninstall protection.</string>
     <string name="device_owner_notice">To let Android block uninstalling at the system level, enable Device Owner mode through ADB on a clean profile. The exact command is in the README.</string>
     <string name="phone_code_title">Code from phone</string>
     <string name="phone_code_info">A code works for up to 5 minutes, so it is easy to enter with a remote. It changes automatically every 30 seconds, and old codes never accumulate in memory.</string>

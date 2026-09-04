@@ -48,7 +48,7 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - 🔔 **Simple viewing reminders** every 10, 20, or 30 minutes ask the child whether to continue or finish.
 - 🥷 **Ten names and icons**: Android Screen Timer, Calculator, Media Service, Clock, Weather, Notes, Calendar, Files, Gallery, or Help.
 - 🖼️ **Recognize selected apps immediately** from their real installed icons.
-- 🛡️ **A child cannot simply open settings and remove the limiter** — Android settings and the package installer require a parent code; Device Owner enables Android-level uninstall blocking.
+- 🛡️ **A child cannot simply remove the limiter** — ordinary system-settings protection is enabled by default but can be switched off separately; install/removal screens and Device Owner remain independent protection layers.
 - ✅ **Protection stays out of the way when a parent exits** — Back returns directly to the device Home screen; the overlay appears only for a genuinely open sensitive system page and cannot remain frozen on `Checking…`.
 - 🔌 **Safer USB recovery** — ordinary drives, charging, and peripherals disable nothing. Only a `Recovery` file opens parent mode without deleting settings, and USB Recovery can be disabled completely.
 - 🕵️ **The hidden entrance stays under parent control** — holding Back and seven corner taps can be disabled completely with their own checkbox, independently of USB Recovery.
@@ -79,7 +79,7 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - First-time setup creates a one-time four-digit emergency code. Only its PBKDF2 hash is stored; successful use removes it, and three failures block further attempts for 30 minutes. A new code can be created in settings.
 - Optional child reminders every 10, 20, or 30 minutes of actual viewing.
 - Usage pauses while the screen is off or a screensaver is active and is persisted every five seconds.
-- Android settings and the package installer are covered by a parent-code overlay.
+- Parent-code protection for ordinary Android settings is enabled by default and can be disabled separately when the family needs open settings access. Install/removal screens remain protected independently.
 - Optional Device Admin and Device Owner protection.
 - USB Recovery reacts only to a case-insensitive `Recovery`, `Recovery.txt`, or `File Recovery` file in the root of mounted removable storage. It opens parent mode without clearing settings and can be disabled with its own checkbox.
 - Ten built-in launcher profiles with localized names, separate icons, and TV banners.

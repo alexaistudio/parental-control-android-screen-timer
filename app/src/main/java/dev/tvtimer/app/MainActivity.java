@@ -471,6 +471,14 @@ public final class MainActivity extends LocalizedActivity {
         if (!DeviceOwnerProtection.isDeviceOwner(this)) {
             addNotice(getString(R.string.device_owner_notice), 0xffffcc80);
         }
+        CheckBox systemSettingsProtection = new CheckBox(this);
+        systemSettingsProtection.setText(R.string.system_settings_protection_enabled);
+        systemSettingsProtection.setTextColor(Color.WHITE);
+        systemSettingsProtection.setTextSize(15f);
+        systemSettingsProtection.setChecked(store.isSystemSettingsProtectionEnabled());
+        applyRowFocus(systemSettingsProtection);
+        addSection(systemSettingsProtection);
+        addNotice(getString(R.string.system_settings_protection_notice), 0xffffcc80);
 
         addSubheading(getString(R.string.phone_code_title));
         addParagraph(getString(R.string.phone_code_info));
@@ -662,6 +670,7 @@ public final class MainActivity extends LocalizedActivity {
             );
             boolean usbRecoveryEnabled = usbRecovery.isChecked();
             boolean parentModeGestureEnabled = parentModeGesture.isChecked();
+            boolean systemSettingsProtectionEnabled = systemSettingsProtection.isChecked();
             int generation = screenGeneration;
             setButtonBusy(save, true, getString(R.string.saving));
             backgroundExecutor.execute(() -> {
@@ -675,7 +684,8 @@ public final class MainActivity extends LocalizedActivity {
                             usageWarningIntervalMinutes,
                             launcherProfile,
                             usbRecoveryEnabled,
-                            parentModeGestureEnabled
+                            parentModeGestureEnabled,
+                            systemSettingsProtectionEnabled
                     );
                     boolean pinSaved = replacementPin.isEmpty() || store.changePin(replacementPin);
                     postToScreen(generation, () -> {

@@ -69,6 +69,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private boolean enforcementEnabled;
     private boolean protectedScreenActive;
     private long protectionEligibleAtElapsed;
+    private boolean systemSettingsProtectionEnabled = true;
     private String targetScope = AppScope.ALL;
     private Set<String> targetPackages = Collections.emptySet();
     private Set<String> homePackages = Collections.emptySet();
@@ -193,9 +194,16 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 && MainActivity.class.getName().equals(nextClass)) {
             protectedScreenActive = false;
         } else if (!nextPackage.equals(getPackageName())) {
-            if (RemovalProtectionPolicy.isSensitiveScreen(nextPackage, nextClass)) {
+            if (RemovalProtectionPolicy.isSensitiveScreen(
+                    nextPackage,
+                    nextClass,
+                    systemSettingsProtectionEnabled
+            )) {
                 protectedScreenActive = true;
-            } else if (!RemovalProtectionPolicy.isProtectionPackage(nextPackage)) {
+            } else if (!RemovalProtectionPolicy.isProtectionPackage(
+                    nextPackage,
+                    systemSettingsProtectionEnabled
+            )) {
                 protectedScreenActive = false;
             }
         }
@@ -297,6 +305,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             targetPackages = Collections.emptySet();
             dailyLimitMillis = ConfigStore.DEFAULT_LIMIT_MILLIS;
             parentModeGestureEnabled = true;
+            systemSettingsProtectionEnabled = true;
             return;
         }
         configurationPresent = store.isConfigured();
@@ -309,6 +318,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         targetPackages = store.getSelectedPackages();
         dailyLimitMillis = store.getDailyLimitMillis();
         parentModeGestureEnabled = store.isParentModeGestureEnabled();
+        systemSettingsProtectionEnabled = store.isSystemSettingsProtectionEnabled();
     }
 
     private void evaluateNow() {
