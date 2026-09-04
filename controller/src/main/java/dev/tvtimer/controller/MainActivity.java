@@ -80,15 +80,32 @@ public final class MainActivity extends Activity {
     private void bindActions() {
         findViewById(R.id.buttonRu).setOnClickListener(view -> switchLanguage("ru"));
         findViewById(R.id.buttonEn).setOnClickListener(view -> switchLanguage("en"));
-        findViewById(R.id.buttonInstructions).setOnClickListener(view -> showInstructions());
+        findViewById(R.id.buttonInstructions).setOnClickListener(view -> showWifiInstructions());
+        findViewById(R.id.buttonUsbInstructions).setOnClickListener(
+                view -> showUsbInstructions());
         findViewById(R.id.buttonDiagnostics).setOnClickListener(view -> {
             ControllerLog.info("Main/UI", "Opening persistent diagnostics");
             startActivity(new Intent(this, DiagnosticsActivity.class));
         });
-        scanButton.setOnClickListener(view -> startScan());
-        pairButton.setOnClickListener(view -> pair());
-        connectButton.setOnClickListener(view -> connect());
-        installButton.setOnClickListener(view -> confirmInstall());
+        scanButton.setOnClickListener(view -> {
+            ControllerLog.info("UserAction", "SCAN BUTTON pressed transport=wifi");
+            startScan();
+        });
+        pairButton.setOnClickListener(view -> {
+            ControllerLog.info("UserAction", "PAIR BUTTON pressed target="
+                    + endpointForLog(pairPortField));
+            pair();
+        });
+        connectButton.setOnClickListener(view -> {
+            ControllerLog.info("UserAction", "CONNECT BUTTON pressed target="
+                    + endpointForLog(connectPortField));
+            connect();
+        });
+        installButton.setOnClickListener(view -> {
+            ControllerLog.info("UserAction", "INSTALL BUTTON pressed target="
+                    + endpointForLog(connectPortField));
+            confirmInstall();
+        });
     }
 
     private void switchLanguage(String language) {
@@ -98,11 +115,20 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void showInstructions() {
-        ControllerLog.info("Main/UI", "Universal setup guide opened");
+    private void showWifiInstructions() {
+        ControllerLog.info("UserAction", "WIFI INSTRUCTIONS opened");
         new AlertDialog.Builder(this)
-                .setTitle(R.string.instructions_title)
-                .setMessage(R.string.instructions_body)
+                .setTitle(R.string.wifi_instructions_title)
+                .setMessage(R.string.wifi_instructions_body)
+                .setPositiveButton(R.string.ok, null)
+                .show();
+    }
+
+    private void showUsbInstructions() {
+        ControllerLog.info("UserAction", "USB INSTRUCTIONS opened");
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.usb_instructions_title)
+                .setMessage(R.string.usb_instructions_body)
                 .setPositiveButton(R.string.ok, null)
                 .show();
     }
@@ -125,6 +151,11 @@ public final class MainActivity extends Activity {
         discovery = new AdbDiscovery(this, new AdbDiscovery.Listener() {
             @Override
             public void onEndpoint(DeviceEndpoint endpoint) {
+                ControllerLog.result("Discovery/Found",
+                        "FOUND target=" + endpoint.host
+                                + " pairingPort=" + endpoint.pairingPort
+                                + " connectionPort=" + endpoint.connectionPort
+                                + " name=" + endpoint.name);
                 ControllerLog.info("Discovery/UI", "Endpoint displayed host=" + endpoint.host
                         + " pairingPort=" + endpoint.pairingPort
                         + " connectionPort=" + endpoint.connectionPort
@@ -152,6 +183,15 @@ public final class MainActivity extends Activity {
         setControlsEnabled(true);
         List<DeviceEndpoint> snapshot = devices.snapshot();
         if (snapshot.isEmpty()) {
+            ControllerLog.result("Discovery/Result",
+                    "NO DEVICE FOUND: no ADB endpoint was discovered; wait for scan completion, "
+                            + "enable Wireless debugging, or enter the target IP and its separate "
+                            + "pairing/connection ports manually");
+            ControllerLog.warning("Discovery/Diagnosis",
+                    "No NSD endpoint and no open legacy TCP/5555 endpoint. The target is not "
+                            + "advertising wireless/network ADB, the devices are on different or "
+                            + "isolated networks, or mDNS/multicast is blocked. Use the separate "
+                            + "pairing and connection ports shown by Wireless debugging.", null);
             ControllerLog.info("Discovery/UI", "Scan finished; no endpoints found");
             setStatus(R.string.status_none);
         } else {
@@ -288,8 +328,10 @@ public final class MainActivity extends Activity {
         String host = hostField.getText().toString().trim();
         int port = parsePort(connectPortField, 5555);
         if (!adbClient.isConnectedTo(host, port)) {
-            setStatus(R.string.invalid_port);
-            installButton.setEnabled(false);
+            ControllerLog.result("Install/Rejected",
+                    "INSTALL NOT STARTED target=" + host + ":" + port
+                            + " reason=no active ADB connection; press Connect first");
+            setStatus(R.string.connect_first);
             return;
         }
         if (!beginOperation()) {
@@ -369,9 +411,7 @@ public final class MainActivity extends Activity {
         scanButton.setEnabled(enabled);
         pairButton.setEnabled(enabled);
         connectButton.setEnabled(enabled);
-        if (!enabled) {
-            installButton.setEnabled(false);
-        }
+        installButton.setEnabled(enabled);
     }
 
     private void showError(Exception exception) {
@@ -400,6 +440,13 @@ public final class MainActivity extends Activity {
         } catch (NumberFormatException ignored) {
             return -1;
         }
+    }
+
+    private String endpointForLog(EditText portField) {
+        String host = hostField.getText().toString().trim();
+        String port = portField.getText().toString().trim();
+        return (host.isBlank() ? "<empty-ip>" : host)
+                + ":" + (port.isBlank() ? "<empty-port>" : port);
     }
 
     private void setStatus(int stringResource) {

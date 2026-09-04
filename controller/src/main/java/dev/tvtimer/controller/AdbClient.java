@@ -87,8 +87,11 @@ final class AdbClient {
                 pairingWorker.shutdownNow();
             }
             ControllerLog.response("ADB/Pair", requestId, "paired=true");
+            ControllerLog.result("ADB/Pair", ControllerResultMessages.paired(host, port));
         } catch (Exception exception) {
             ControllerLog.failure("ADB/Pair", requestId, "Pairing failed", exception);
+            ControllerLog.result("ADB/Pair",
+                    ControllerResultMessages.failed("PAIR", host, port, exception));
             throw exception;
         }
     }
@@ -114,9 +117,13 @@ final class AdbClient {
             String result = android.isBlank() ? label : label + " · Android " + android;
             ControllerLog.response("ADB/Connect", requestId,
                     "connected=true device=" + result);
+            ControllerLog.result("ADB/Connect",
+                    ControllerResultMessages.connected(host, port, result));
             return result;
         } catch (Exception exception) {
             ControllerLog.failure("ADB/Connect", requestId, "Connection failed", exception);
+            ControllerLog.result("ADB/Connect",
+                    ControllerResultMessages.failed("CONNECT", host, port, exception));
             throw exception;
         }
     }
@@ -132,73 +139,105 @@ final class AdbClient {
                 "accessibility=" + configureAccessibility
                         + " deviceOwner=" + requestDeviceOwner
                         + " disableWirelessDebug=" + disableDebugging);
-        File apk = materializeEmbeddedApk();
+        String targetHost = connectedHost;
+        int targetPort = connectedPort;
         try {
-            installApk(apk, progress);
-        } finally {
-            //noinspection ResultOfMethodCallIgnored
-            apk.delete();
-        }
-
-        boolean ownerEnabled = false;
-        if (requestDeviceOwner) {
-            String ownerOutput = runShell("dpm set-device-owner --user 0 " + DEVICE_ADMIN);
-            ownerEnabled = ownerOutput.toLowerCase(java.util.Locale.ROOT).contains("success");
-        }
-
-        boolean accessibilityEnabled = !configureAccessibility;
-        if (configureAccessibility) {
+            File apk = materializeEmbeddedApk();
+            String packageManagerResponse;
             try {
-                runShell("cmd appops set " + BLOCKER_PACKAGE + " ACCESS_RESTRICTED_SETTINGS allow");
-            } catch (Exception unsupportedAppOp) {
-                ControllerLog.warning("ADB/Configure",
-                        "ACCESS_RESTRICTED_SETTINGS app-op unavailable", unsupportedAppOp);
-                // This app-op does not exist on older Android versions.
+                packageManagerResponse = installApk(apk, progress);
+            } finally {
+                //noinspection ResultOfMethodCallIgnored
+                apk.delete();
             }
-            String current = runShell("settings get secure enabled_accessibility_services").trim();
-            String updated = AccessibilityServices.add(current, ACCESSIBILITY_SERVICE);
-            runShell("settings put secure enabled_accessibility_services " + updated);
-            runShell("settings put secure accessibility_enabled 1");
-            String verified = runShell("settings get secure enabled_accessibility_services").trim();
-            accessibilityEnabled = AccessibilityServices.contains(verified, ACCESSIBILITY_SERVICE);
-        }
+            ControllerLog.result("ADB/PackageManager", ControllerResultMessages.installed(
+                    targetHost, targetPort, BLOCKER_PACKAGE, packageManagerResponse));
 
-        String packageCheck = runShell("pm list packages " + BLOCKER_PACKAGE);
-        if (!packageCheck.contains("package:" + BLOCKER_PACKAGE)) {
-            throw new IllegalStateException("Android did not report the installed package");
-        }
+            boolean ownerEnabled = false;
+            if (requestDeviceOwner) {
+                String ownerOutput = runShell("dpm set-device-owner --user 0 " + DEVICE_ADMIN);
+                ownerEnabled = ownerOutput.toLowerCase(java.util.Locale.ROOT).contains("success");
+            }
 
-        runShell("am start -n " + BLOCKER_PACKAGE + "/.MainActivity");
-
-        String manufacturer = cleanProperty(runShell("getprop ro.product.manufacturer"));
-        String model = cleanProperty(runShell("getprop ro.product.model"));
-        String deviceLabel = (manufacturer + " " + model).trim();
-
-        boolean debugDisabled = false;
-        if (disableDebugging) {
-            String wireless = runShell("settings get global adb_wifi_enabled").trim();
-            if ("1".equals(wireless)) {
+            boolean accessibilityEnabled = !configureAccessibility;
+            if (configureAccessibility) {
                 try {
-                    runShell("settings put global adb_wifi_enabled 0");
-                    debugDisabled = !"1".equals(
-                            runShell("settings get global adb_wifi_enabled").trim());
-                } catch (Exception expectedDisconnect) {
-                    ControllerLog.info("ADB/Configure",
-                            "Connection closed while disabling wireless debugging; treating as success");
-                    // Losing the connection is the expected success signal here.
-                    debugDisabled = true;
+                    runShell("cmd appops set " + BLOCKER_PACKAGE
+                            + " ACCESS_RESTRICTED_SETTINGS allow");
+                    String restrictedState = runShell("cmd appops get " + BLOCKER_PACKAGE
+                            + " ACCESS_RESTRICTED_SETTINGS");
+                    ControllerLog.result("ADB/RestrictedSettings",
+                            (restrictedState.toLowerCase(java.util.Locale.ROOT).contains("allow")
+                                    ? "SUCCESS: RESTRICTED SETTINGS ALLOWED target="
+                                    : "WARNING: RESTRICTED SETTINGS NOT ALLOWED target=")
+                                    + targetHost + ":" + targetPort
+                                    + " response=" + restrictedState);
+                } catch (Exception unsupportedAppOp) {
+                    ControllerLog.warning("ADB/Configure",
+                            "ACCESS_RESTRICTED_SETTINGS app-op unavailable", unsupportedAppOp);
+                    ControllerLog.result("ADB/RestrictedSettings",
+                            "WARNING: RESTRICTED SETTINGS APP-OP UNAVAILABLE target="
+                                    + targetHost + ":" + targetPort
+                                    + " error=" + unsupportedAppOp.getClass().getSimpleName()
+                                    + ": " + unsupportedAppOp.getMessage());
+                    // This app-op does not exist on older Android versions.
+                }
+                String current = runShell(
+                        "settings get secure enabled_accessibility_services").trim();
+                String updated = AccessibilityServices.add(current, ACCESSIBILITY_SERVICE);
+                runShell("settings put secure enabled_accessibility_services " + updated);
+                runShell("settings put secure accessibility_enabled 1");
+                String verified = runShell(
+                        "settings get secure enabled_accessibility_services").trim();
+                accessibilityEnabled = AccessibilityServices.contains(
+                        verified, ACCESSIBILITY_SERVICE);
+            }
+
+            String packageCheck = runShell("pm list packages " + BLOCKER_PACKAGE);
+            if (!packageCheck.contains("package:" + BLOCKER_PACKAGE)) {
+                throw new IllegalStateException("Android did not report the installed package");
+            }
+
+            runShell("am start -n " + BLOCKER_PACKAGE + "/.MainActivity");
+
+            String manufacturer = cleanProperty(runShell("getprop ro.product.manufacturer"));
+            String model = cleanProperty(runShell("getprop ro.product.model"));
+            String deviceLabel = (manufacturer + " " + model).trim();
+
+            boolean debugDisabled = false;
+            if (disableDebugging) {
+                String wireless = runShell("settings get global adb_wifi_enabled").trim();
+                if ("1".equals(wireless)) {
+                    try {
+                        runShell("settings put global adb_wifi_enabled 0");
+                        debugDisabled = !"1".equals(
+                                runShell("settings get global adb_wifi_enabled").trim());
+                    } catch (Exception expectedDisconnect) {
+                        ControllerLog.info("ADB/Configure",
+                                "Connection closed while disabling wireless debugging; "
+                                        + "treating as success");
+                        // Losing the connection is the expected success signal here.
+                        debugDisabled = true;
+                    }
                 }
             }
-        }
 
-        InstallResult result = new InstallResult(accessibilityEnabled, requestDeviceOwner,
-                ownerEnabled, debugDisabled, deviceLabel);
-        ControllerLog.response("ADB/Install", requestId,
-                "complete=true accessibility=" + accessibilityEnabled
-                        + " deviceOwner=" + ownerEnabled
-                        + " wirelessDebugDisabled=" + debugDisabled
-                        + " device=" + deviceLabel);
-        return result;
+            InstallResult result = new InstallResult(accessibilityEnabled, requestDeviceOwner,
+                    ownerEnabled, debugDisabled, deviceLabel);
+            ControllerLog.response("ADB/Install", requestId,
+                    "complete=true accessibility=" + accessibilityEnabled
+                            + " deviceOwner=" + ownerEnabled
+                            + " wirelessDebugDisabled=" + debugDisabled
+                            + " device=" + deviceLabel);
+            ControllerLog.result("ADB/Install", ControllerResultMessages.setupComplete(
+                    targetHost, targetPort, accessibilityEnabled, ownerEnabled, debugDisabled));
+            return result;
+        } catch (Exception exception) {
+            ControllerLog.failure("ADB/Install", requestId, "Install or setup failed", exception);
+            ControllerLog.result("ADB/Install", ControllerResultMessages.failed(
+                    "INSTALL", targetHost, targetPort, exception));
+            throw exception;
+        }
     }
 
     synchronized void disconnect() {
@@ -233,7 +272,7 @@ final class AdbClient {
         return output;
     }
 
-    private void installApk(File apk, ProgressListener progress) throws Exception {
+    private String installApk(File apk, ProgressListener progress) throws Exception {
         long size = apk.length();
         long requestId = ControllerLog.request("ADB/PackageManager",
                 "exec:cmd package install -r -S " + size + " binary=<omitted>");
@@ -268,6 +307,7 @@ final class AdbClient {
                         ? "Package Manager returned no installation result"
                         : response.trim());
             }
+            return response.trim();
         } catch (Exception exception) {
             ControllerLog.failure("ADB/PackageManager", requestId,
                     "APK install request failed", exception);

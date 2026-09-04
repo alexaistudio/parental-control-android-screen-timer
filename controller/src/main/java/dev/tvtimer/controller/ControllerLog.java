@@ -14,16 +14,17 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicLong;
 
 final class ControllerLog {
     private static final String TAG = "ASTParentDiagnostics";
     private static final String FILE_NAME = "parent-installer-diagnostics.log";
+    private static final String RESULTS_FILE_NAME = "parent-installer-results.log";
     private static final int MAX_BYTES = 512 * 1024;
     private static final int RETAIN_BYTES = 384 * 1024;
-    private static final int QR_PAGE_BYTES = 1_100;
+    private static final int MAX_RESULTS_BYTES = 64 * 1024;
+    private static final int RETAIN_RESULTS_BYTES = 48 * 1024;
     private static final Object LOCK = new Object();
     private static final AtomicLong REQUEST_IDS = new AtomicLong();
 
@@ -86,24 +87,39 @@ final class ControllerLog {
                 Thread.currentThread().getName());
     }
 
+    static void result(String source, String message) {
+        String threadName = Thread.currentThread().getName();
+        String timestamp = timestamp();
+        String entry = timestamp + " RESULT [" + safe(threadName) + "] "
+                + safe(source) + " - " + SecretRedactor.redact(message).replace("\r", "") + "\n";
+        Log.i(TAG, "RESULT " + source + ": " + SecretRedactor.redact(message));
+        synchronized (LOCK) {
+            appendBounded(resultsFile(), entry.getBytes(StandardCharsets.UTF_8),
+                    MAX_RESULTS_BYTES, RETAIN_RESULTS_BYTES, timestamp, threadName);
+        }
+        append("RESULT", source, message, null, threadName);
+    }
+
     static String snapshot() {
         String events;
+        String results;
         synchronized (LOCK) {
             events = readFile(logFile());
+            results = readFile(resultsFile());
         }
         return "Android Screen Timer Parent diagnostics\n"
                 + "version=" + BuildConfig.VERSION_NAME
                 + " sdk=" + Build.VERSION.SDK_INT
                 + " device=" + safe(Build.MANUFACTURER) + " " + safe(Build.MODEL) + "\n"
+                + "exportedAt=" + timestamp() + "\n"
                 + "Detailed local requests and responses are included. Pairing codes, private "
                 + "ADB keys, and APK binary contents are never logged. Local IP addresses and "
                 + "device details may be present.\n"
                 + "The file is bounded to 512 KiB; when full, the oldest entries rotate out.\n\n"
+                + "=== IMPORTANT RESULTS ===\n"
+                + (results.isEmpty() ? "No connection or installation result yet.\n" : results)
+                + "\n=== FULL CHRONOLOGICAL TRACE ===\n"
                 + (events.isEmpty() ? "No events yet.\n" : events);
-    }
-
-    static List<String> qrPages() {
-        return DiagnosticTextPager.split(snapshot(), QR_PAGE_BYTES);
     }
 
     private static void append(String level, String source, String message, Throwable throwable,
@@ -112,8 +128,7 @@ final class ControllerLog {
         if (context == null) {
             return;
         }
-        String timestamp = new SimpleDateFormat(
-                "yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(new Date());
+        String timestamp = timestamp();
         StringBuilder entry = new StringBuilder()
                 .append(timestamp).append(' ')
                 .append(level).append(' ')
@@ -128,15 +143,19 @@ final class ControllerLog {
         }
         byte[] bytes = entry.toString().getBytes(StandardCharsets.UTF_8);
         synchronized (LOCK) {
-            File file = logFile();
-            if (file.length() + bytes.length > MAX_BYTES) {
-                String retained = utf8Tail(readFile(file), RETAIN_BYTES);
-                String marker = timestamp + " INFO [" + safe(threadName)
-                        + "] Log - Oldest entries rotated at 512 KiB\n";
-                write(file, (marker + retained).getBytes(StandardCharsets.UTF_8), false);
-            }
-            write(file, bytes, true);
+            appendBounded(logFile(), bytes, MAX_BYTES, RETAIN_BYTES, timestamp, threadName);
         }
+    }
+
+    private static void appendBounded(File file, byte[] bytes, int maxBytes, int retainBytes,
+                                      String timestamp, String threadName) {
+        if (file.length() + bytes.length > maxBytes) {
+            String retained = utf8Tail(readFile(file), retainBytes);
+            String marker = timestamp + " INFO [" + safe(threadName)
+                    + "] Log - Oldest entries rotated at " + (maxBytes / 1024) + " KiB\n";
+            write(file, (marker + retained).getBytes(StandardCharsets.UTF_8), false);
+        }
+        write(file, bytes, true);
     }
 
     private static void write(File file, byte[] bytes, boolean append) {
@@ -185,6 +204,15 @@ final class ControllerLog {
 
     private static File logFile() {
         return new File(applicationContext.getFilesDir(), FILE_NAME);
+    }
+
+    private static File resultsFile() {
+        return new File(applicationContext.getFilesDir(), RESULTS_FILE_NAME);
+    }
+
+    private static String timestamp() {
+        return new SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(new Date());
     }
 
     private static String display(String value) {

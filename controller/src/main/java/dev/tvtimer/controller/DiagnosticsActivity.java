@@ -8,9 +8,7 @@ import android.content.Intent;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.widget.Button;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -20,19 +18,12 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 
 public final class DiagnosticsActivity extends Activity {
     private static final int REQUEST_SAVE_LOG = 4102;
 
-    private ImageView qrView;
-    private TextView pageView;
     private TextView logView;
-    private Button previousButton;
-    private Button nextButton;
-    private List<String> pages;
-    private int pageIndex;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -83,37 +74,6 @@ public final class DiagnosticsActivity extends Activity {
         refreshParams.topMargin = dp(8);
         root.addView(refresh, refreshParams);
 
-        pageView = text("", 14, true);
-        pageView.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams pageParams = matchWrap();
-        pageParams.topMargin = dp(10);
-        root.addView(pageView, pageParams);
-
-        qrView = new ImageView(this);
-        qrView.setContentDescription(getString(R.string.diagnostics_qr_description));
-        int qrSize = Math.max(dp(210), Math.min(dp(340),
-                getResources().getDisplayMetrics().widthPixels - dp(48)));
-        LinearLayout.LayoutParams qrParams = new LinearLayout.LayoutParams(qrSize, qrSize);
-        qrParams.gravity = Gravity.CENTER_HORIZONTAL;
-        qrParams.topMargin = dp(6);
-        root.addView(qrView, qrParams);
-
-        LinearLayout navigation = new LinearLayout(this);
-        navigation.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams navigationParams = matchWrap();
-        navigationParams.topMargin = dp(6);
-        root.addView(navigation, navigationParams);
-
-        previousButton = button(R.string.previous_log_page);
-        previousButton.setOnClickListener(view -> showPage(pageIndex - 1));
-        navigation.addView(previousButton, weightedButton());
-
-        nextButton = button(R.string.next_log_page);
-        nextButton.setOnClickListener(view -> showPage(pageIndex + 1));
-        LinearLayout.LayoutParams nextParams = weightedButton();
-        nextParams.leftMargin = dp(8);
-        navigation.addView(nextButton, nextParams);
-
         TextView rawTitle = text(getString(R.string.full_log_title), 17, true);
         LinearLayout.LayoutParams rawTitleParams = matchWrap();
         rawTitleParams.topMargin = dp(12);
@@ -136,22 +96,7 @@ public final class DiagnosticsActivity extends Activity {
     }
 
     private void refreshLog() {
-        pages = ControllerLog.qrPages();
-        pageIndex = Math.max(0, Math.min(pageIndex, pages.size() - 1));
         logView.setText(ControllerLog.snapshot());
-        showPage(pageIndex);
-    }
-
-    private void showPage(int requestedPage) {
-        pageIndex = Math.max(0, Math.min(requestedPage, pages.size() - 1));
-        pageView.setText(getString(R.string.diagnostics_page, pageIndex + 1, pages.size()));
-        String payload = "Android Screen Timer Parent diagnostics "
-                + (pageIndex + 1) + "/" + pages.size() + "\n" + pages.get(pageIndex);
-        int size = Math.max(dp(210), Math.min(dp(340),
-                getResources().getDisplayMetrics().widthPixels - dp(48)));
-        qrView.setImageBitmap(QrCodeRenderer.render(payload, size));
-        previousButton.setEnabled(pageIndex > 0);
-        nextButton.setEnabled(pageIndex + 1 < pages.size());
     }
 
     private void copyLog() {

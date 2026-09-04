@@ -35,8 +35,8 @@ android {
         applicationId "dev.tvtimer.controller"
         minSdk 23
         targetSdk 35
-        versionCode 3
-        versionName "1.4.2"
+        versionCode 4
+        versionName "1.4.3"
     }
 
     compileOptions {
@@ -117,7 +117,6 @@ dependencies {
     implementation "com.github.MuntashirAkon:libadb-android:3.1.1"
     implementation "com.github.MuntashirAkon:sun-security-android:1.1"
     implementation "org.conscrypt:conscrypt-android:2.5.3"
-    implementation "com.google.zxing:core:3.5.3"
     testImplementation "junit:junit:4.13.2"
 }
 

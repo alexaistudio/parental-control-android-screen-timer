@@ -2,9 +2,12 @@
 <resources>
     <string name="app_name">Parent Installer</string>
     <string name="header_subtitle">Finds your Android device, installs Android Screen Timer, and helps enable protection — no separate ADB app required.</string>
-    <string name="step_one_title">1. Allow the connection</string>
-    <string name="step_one_summary">On the target device, enable Developer options and wireless or network debugging once. Android will require the owner to approve the connection.</string>
-    <string name="show_instructions">Steps for a TV, tablet, or phone</string>
+    <string name="wifi_path_title">Wi-Fi — install directly from this phone</string>
+    <string name="step_one_summary">The main method for Android 11+: enable Wireless debugging on the target. Pair once, then connect and tap INSTALL.</string>
+    <string name="show_instructions">Show the 4 simple Wi-Fi steps</string>
+    <string name="usb_path_title">USB — a separate method</string>
+    <string name="usb_path_summary">A normal phone ↔ TV cable usually cannot work because both devices are USB hosts. Use a computer with ADB or install the APK from a flash drive.</string>
+    <string name="show_usb_instructions">What to do over USB</string>
     <string name="step_two_title">2. Find the device over the network</string>
     <string name="scan_hint">The phone and target device must use the same Wi‑Fi network. Discovery stays inside your local network.</string>
     <string name="scan">Find over Wi-Fi / network</string>
@@ -23,7 +26,7 @@
     <string name="status_title">Progress</string>
     <string name="status_ready">Ready to scan. No data is sent to the internet.</string>
     <string name="status_scanning">Looking for Android devices…</string>
-    <string name="status_none">No devices found. Check Wi‑Fi and debugging, or enter the IP and port manually.</string>
+    <string name="status_none">The target did not advertise ADB and port 5555 was not found. Open Wireless debugging on the target. Enter the IP and port from its main screen as the connection port; enter the separate port from the six-digit-code dialog as the pairing port.</string>
     <string name="status_found">Devices found: %1$d. Select yours.</string>
     <string name="status_selected">Selected: %1$s. Enter a code if it is not paired yet; otherwise tap Connect.</string>
     <string name="status_pairing">Pairing with %1$s… Keep the code dialog open on the target device.</string>
@@ -39,10 +42,13 @@
     <string name="invalid_host">Enter the device IP address.</string>
     <string name="invalid_port">Enter a valid connection port.</string>
     <string name="invalid_pair">Enter the IP, pairing port, and a fresh 6-digit code.</string>
+    <string name="connect_first">INSTALL was not started: enter the IP and connection port, then tap Connect first. The connection port is shown on the main Wireless debugging screen.</string>
     <string name="busy">Wait for the current operation to finish.</string>
     <string name="device_owner_warning">Device Owner gives maximum uninstall protection, but Android permits it only on a new or reset device with no accounts or work profiles. If Android rejects it, the normal installation will continue.</string>
-    <string name="instructions_title">Universal setup guide</string>
-    <string name="instructions_body">TV / GOOGLE TV\n1. Settings → System or Device preferences → About.\n2. Press “Build”, “Build number”, or “Android TV OS build” seven times.\n3. Go back → Developer options.\n4. Android TV 13+: enable Wireless debugging, open it, and select “Pair using pairing code”.\n5. If you see “Network debugging”, “ADB debugging”, or “Debug over network”, enable it and use the displayed IP/port; port 5555 is common.\n\nPHONE / TABLET\n1. Settings → About phone/tablet → press “Build number” seven times.\n2. System → Developer options → Wireless debugging.\n3. Open “Pair using pairing code”.\n\nIMPORTANT\n• This installer searches over Wi-Fi/the local network.\n• Direct cable ADB requires the phone to act as a USB host through OTG and the target device to expose an ADB interface. A regular TV USB port is usually another host port and cannot make that connection.\n• USB debugging alone does not enable Wi-Fi access; use the separate wireless/network debugging switch.\n• On an older device without network debugging, install the APK directly from USB storage/a browser or enable network ADB once from a computer.\n• Menu names vary slightly across Samsung, Xiaomi, TCL, Haier, Sony, and other manufacturers.</string>
+    <string name="wifi_instructions_title">Install over Wi-Fi from a phone</string>
+    <string name="wifi_instructions_body">1. ON THE TARGET DEVICE\nOpen Settings → About and tap Build number seven times. Then open Developer options → Wireless debugging and enable it. The phone and target must use the same normal Wi-Fi network.\n\n2. PAIR — ONCE ONLY\nOn the target, tap “Pair device with pairing code” and keep that dialog open. Enter its IP, temporary pairing port, and six digits in this app. Tap Pair.\n\n3. CONNECT\nClose the code dialog. On the main Wireless debugging screen find “IP address &amp; port”. This is a different port. Enter it as the connection port and tap Connect.\n\n4. INSTALL\nAfter the app says Connected, tap INSTALL. Device discovery is optional: you can always type the IP and both ports manually.\n\nIf Wireless debugging is unavailable, open the separate USB guide.</string>
+    <string name="usb_instructions_title">USB / older Android</string>
+    <string name="usb_instructions_body">IMPORTANT: this Parent Installer installs from a phone over Wi-Fi. A normal USB cable between a phone and TV usually cannot work: the TV port is intended for flash drives, not for receiving ADB from a phone.\n\nOPTION 1 — FLASH DRIVE\nDownload the AndroidScreenTimer APK, copy it to a USB drive, open the file on the target, and allow installation from that source. Then enable screen control manually in Accessibility.\n\nOPTION 2 — COMPUTER\nEnable USB debugging on the target, connect it to a computer, approve the RSA key on the target, and run: adb install -r AndroidScreenTimer.apk.\n\nOPTION 3 — LEGACY NETWORK ADB\nIf the firmware offers ADB over network / Network debugging, enable it and enter the displayed IP and port as the connection endpoint. Port 5555 is common, but use the value shown by the device. Pairing by code is usually unnecessary in this mode.</string>
     <string name="ok">Got it</string>
     <string name="partial_accessibility">\n\nScreen control could not be enabled automatically. Open Accessibility on the target device and enable Android Screen Timer manually.</string>
     <string name="device_owner_enabled">\nMaximum uninstall protection is enabled.</string>
@@ -53,15 +59,11 @@
     <string name="continue_action">Continue</string>
     <string name="open_diagnostics">Full request and response log</string>
     <string name="diagnostics_title">Installer diagnostics</string>
-    <string name="diagnostics_note">Logging is always on and survives restarts. It contains discovery stages, addresses and ports, ADB commands, complete responses, errors, and stack traces. Pairing codes, the private ADB key, and APK binary contents are hidden. Old entries rotate after 512 KiB.</string>
+    <string name="diagnostics_note">Logging is always on and survives restarts. Important results are shown first: the target IP and port, successful connection, installer response, or exact error. If discovery is still running, wait until its indicator disappears (up to 10 seconds), then tap Refresh log. All addresses, ADB commands, complete responses, and stack traces remain below. Pairing codes, the private ADB key, and APK binary contents are hidden. Copy the log or save it as TXT; old entries rotate automatically.</string>
     <string name="copy_full_log">Copy everything</string>
     <string name="save_log_file">Save .txt</string>
     <string name="refresh_log">Refresh log</string>
     <string name="full_log_title">Complete text</string>
-    <string name="diagnostics_page">QR page %1$d of %2$d</string>
-    <string name="diagnostics_qr_description">QR page of the complete Parent Installer log</string>
-    <string name="previous_log_page">Previous</string>
-    <string name="next_log_page">Next</string>
     <string name="log_copied">Complete log copied</string>
     <string name="copy_log_failed">Clipboard is unavailable</string>
     <string name="log_saved">Log saved</string>

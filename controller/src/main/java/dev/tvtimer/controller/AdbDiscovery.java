@@ -3,6 +3,7 @@ package dev.tvtimer.controller;
 import android.content.Context;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
+import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -24,6 +25,7 @@ final class AdbDiscovery {
     private static final String ADB_TLS_PAIRING = "_adb-tls-pairing._tcp";
 
     private final NsdManager nsdManager;
+    private final WifiManager.MulticastLock multicastLock;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Listener listener;
     private final List<DiscoveryListener> discoveryListeners = new ArrayList<>();
@@ -33,11 +35,26 @@ final class AdbDiscovery {
 
     AdbDiscovery(Context context, Listener listener) {
         nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
+        WifiManager wifiManager = (WifiManager) context.getApplicationContext()
+                .getSystemService(Context.WIFI_SERVICE);
+        multicastLock = wifiManager == null ? null
+                : wifiManager.createMulticastLock("android-screen-timer-adb-discovery");
+        if (multicastLock != null) {
+            multicastLock.setReferenceCounted(false);
+        }
         this.listener = listener;
     }
 
     void start(long durationMs) {
         stopped = false;
+        if (multicastLock != null && !multicastLock.isHeld()) {
+            try {
+                multicastLock.acquire();
+                ControllerLog.info("NSD", "Wi-Fi multicast lock acquired");
+            } catch (RuntimeException exception) {
+                ControllerLog.warning("NSD", "Unable to acquire Wi-Fi multicast lock", exception);
+            }
+        }
         ControllerLog.info("NSD", "Discovery started durationMs=" + durationMs
                 + " types=" + ADB_TCP + "," + ADB_TLS_CONNECT + "," + ADB_TLS_PAIRING);
         discover(ADB_TCP, false, true);
@@ -69,6 +86,14 @@ final class AdbDiscovery {
         discoveryListeners.clear();
         synchronized (pendingResolutions) {
             pendingResolutions.clear();
+        }
+        if (multicastLock != null && multicastLock.isHeld()) {
+            try {
+                multicastLock.release();
+                ControllerLog.info("NSD", "Wi-Fi multicast lock released");
+            } catch (RuntimeException exception) {
+                ControllerLog.warning("NSD", "Unable to release Wi-Fi multicast lock", exception);
+            }
         }
         dispatchFinished();
         ControllerLog.info("NSD", "Discovery stopped");
