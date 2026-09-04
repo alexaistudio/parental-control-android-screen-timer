@@ -601,6 +601,15 @@ public final class MainActivity extends LocalizedActivity {
         addSection(usbRecovery);
         addNotice(getString(R.string.usb_recovery_settings_notice), 0xffffcc80);
 
+        CheckBox parentModeGesture = new CheckBox(this);
+        parentModeGesture.setText(R.string.parent_mode_gesture_enabled);
+        parentModeGesture.setTextColor(Color.WHITE);
+        parentModeGesture.setTextSize(15f);
+        parentModeGesture.setChecked(store.isParentModeGestureEnabled());
+        applyRowFocus(parentModeGesture);
+        addSection(parentModeGesture);
+        addNotice(getString(R.string.parent_mode_gesture_settings_notice), 0xffffcc80);
+
         Button save = addButton(getString(R.string.save_settings));
         save.setOnClickListener(view -> {
             long dailyLimit = limitControl.getLimitMillis();
@@ -634,6 +643,7 @@ public final class MainActivity extends LocalizedActivity {
                     LauncherProfile.DEFAULT
             );
             boolean usbRecoveryEnabled = usbRecovery.isChecked();
+            boolean parentModeGestureEnabled = parentModeGesture.isChecked();
             int generation = screenGeneration;
             setButtonBusy(save, true, getString(R.string.saving));
             backgroundExecutor.execute(() -> {
@@ -646,7 +656,8 @@ public final class MainActivity extends LocalizedActivity {
                             defaultExtensionMinutes,
                             usageWarningIntervalMinutes,
                             launcherProfile,
-                            usbRecoveryEnabled
+                            usbRecoveryEnabled,
+                            parentModeGestureEnabled
                     );
                     boolean pinSaved = replacementPin.isEmpty() || store.changePin(replacementPin);
                     postToScreen(generation, () -> {

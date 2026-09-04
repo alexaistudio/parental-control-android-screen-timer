@@ -50,6 +50,7 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - 🖼️ **Recognize selected apps immediately** from their real installed icons.
 - 🛡️ **A child cannot simply open settings and remove the limiter** — Android settings and the package installer require a parent code; Device Owner enables Android-level uninstall blocking.
 - 🔌 **Safer USB recovery** — ordinary drives, charging, and peripherals disable nothing. Only a `Recovery` file opens parent mode without deleting settings, and USB Recovery can be disabled completely.
+- 🕵️ **The hidden entrance stays under parent control** — holding Back and seven corner taps can be disabled completely with their own checkbox, independently of USB Recovery.
 - 📴 **No account and no tracking** — no ads, analytics, telemetry, cloud storage, or remote TOTP processing.
 - 📲 **Install from a phone without Bugjaeger** — the separate Parent Installer finds the target on the local network, pairs with Android's system code, installs its embedded blocker APK, and verifies screen control.
 - 🧾 **A failed operation never loses the device response** — Parent Installer persistently records commands, complete responses, and stack traces; the target IP/port and installation result are pinned at the top, while the full log can be copied or saved as TXT.
@@ -72,13 +73,13 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - Touchscreen or remote limit adjustment with `−15`, `−1`, `+1`, and `+15` buttons.
 - A small remaining-time counter over the active controlled app.
 - A six-digit temporary code automatically adds the parent's preset 10–120 minutes. The permanent PIN changes the same blocker to blue parent mode with manual 10, 15, 20, 30, 40, 60, 90, or 120-minute choices.
-- Hold Back for eight seconds on a remote, or tap the top-left corner seven times on a touchscreen, to switch the existing blocker into parent mode. No second overlay can become hidden underneath it.
+- Hold Back for eight seconds on a remote, or tap the top-left corner seven times on a touchscreen, to switch the existing blocker into parent mode. No second overlay can become hidden underneath it. Both hidden gestures can be disabled completely with one separate checkbox; settings then open from the app icon with the permanent PIN.
 - First-time setup creates a one-time four-digit emergency code. Only its PBKDF2 hash is stored; successful use removes it, and three failures block further attempts for 30 minutes. A new code can be created in settings.
 - Optional child reminders every 10, 20, or 30 minutes of actual viewing.
 - Usage pauses while the screen is off or a screensaver is active and is persisted every five seconds.
 - Android settings and the package installer are covered by a parent-code overlay.
 - Optional Device Admin and Device Owner protection.
-- USB Recovery reacts only to a case-insensitive `Recovery` or `Recovery.txt` file in the root of mounted removable storage. It opens parent mode without clearing settings and can be disabled with a checkbox.
+- USB Recovery reacts only to a case-insensitive `Recovery`, `Recovery.txt`, or `File Recovery` file in the root of mounted removable storage. It opens parent mode without clearing settings and can be disabled with its own checkbox.
 - Ten built-in launcher profiles with localized names, separate icons, and TV banners.
 - Manual secure update checking through GitHub Releases with SHA-256, package ID, version, and signing-certificate verification before the installer opens.
 - No accounts, advertising, analytics, telemetry, or cloud service. Network access is used only after the parent selects “Check for updates”.
@@ -95,12 +96,12 @@ USB Recovery is an additional path, not a universal Android guarantee, because r
 
 Every release contains two signed files:
 
-- `AndroidScreenTimer-1.4.4.apk` — the blocker for a TV, tablet, or phone;
-- `AndroidScreenTimer-Parent-1.4.4.apk` — the Parent Installer for an Android phone; it already embeds the first APK.
+- `AndroidScreenTimer-1.4.5.apk` — the blocker for a TV, tablet, or phone;
+- `AndroidScreenTimer-Parent-1.4.5.apk` — the Parent Installer for an Android phone; it already embeds the first APK.
 
 ### Option 1 — install from a phone
 
-1. Install `AndroidScreenTimer-Parent-1.4.4.apk` on the parent's phone. Bugjaeger, a computer, and root are not required.
+1. Install `AndroidScreenTimer-Parent-1.4.5.apk` on the parent's phone. Bugjaeger, a computer, and root are not required.
 2. Put the phone and target device on the same normal Wi‑Fi network without client isolation.
 3. On a target **TV / Google TV**, open `Settings → System` or `Device preferences → About`, then press `Build`, `Build number`, or `Android TV OS build` seven times. Go back to `Developer options`.
 4. On a target **phone / tablet**, open `Settings → About phone/tablet → Build number`, press it seven times, then open `System → Developer options`.
@@ -116,11 +117,11 @@ Do not mix the methods: `USB debugging` does not enable Wi-Fi ADB. If Wireless d
 
 This is a separate USB/local route. A normal phone ↔ TV cable usually cannot work because both ports act as USB hosts. Use a USB flash drive or a computer to which the target really connects as an ADB device.
 
-1. Download `AndroidScreenTimer-1.4.4.apk` from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
+1. Download `AndroidScreenTimer-1.4.5.apk` from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
 2. Install it from a USB drive, browser, or through ADB:
 
    ```powershell
-   adb install -r AndroidScreenTimer-1.4.4.apk
+   adb install -r AndroidScreenTimer-1.4.5.apk
    ```
 
 3. Open Android Screen Timer, select `EN`, and scan the first QR code with an authenticator app on a parent's phone.

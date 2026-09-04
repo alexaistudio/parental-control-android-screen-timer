@@ -24,6 +24,7 @@ public final class ConfigStore {
     private static final String KEY_BONUS_MILLIS = "bonus_ms";
     private static final String KEY_RECOVERY_REQUESTED = "recovery_requested";
     private static final String KEY_USB_RECOVERY_ENABLED = "usb_recovery_enabled";
+    private static final String KEY_PARENT_MODE_GESTURE_ENABLED = "parent_mode_gesture_enabled";
     private static final String KEY_MAINTENANCE_UNTIL = "maintenance_until_ms";
     private static final String KEY_AUTHENTICATOR_SECRET = "authenticator_secret";
     private static final String KEY_DEFAULT_EXTENSION_MINUTES = "default_extension_minutes";
@@ -114,6 +115,7 @@ public final class ConfigStore {
                 .putStringSet(KEY_SELECTED_PACKAGES, new HashSet<>(safeSelectedPackages))
                 .putBoolean(KEY_RECOVERY_REQUESTED, false)
                 .putBoolean(KEY_USB_RECOVERY_ENABLED, true)
+                .putBoolean(KEY_PARENT_MODE_GESTURE_ENABLED, true)
                 .putInt(KEY_DEFAULT_EXTENSION_MINUTES, DEFAULT_EXTENSION_MINUTES)
                 .putInt(KEY_USAGE_WARNING_INTERVAL_MINUTES, UsageWarningPolicy.DISABLED)
                 .putString(KEY_LAUNCHER_PROFILE, LauncherProfile.DEFAULT)
@@ -128,7 +130,8 @@ public final class ConfigStore {
             int defaultExtensionMinutes,
             int usageWarningIntervalMinutes,
             String launcherProfile,
-            boolean usbRecoveryEnabled
+            boolean usbRecoveryEnabled,
+            boolean parentModeGestureEnabled
     ) {
         validateSettings(dailyLimitMillis, scope, selectedPackages);
         ExtensionDurationPolicy.requireSupported(defaultExtensionMinutes);
@@ -145,7 +148,8 @@ public final class ConfigStore {
                 .putInt(KEY_DEFAULT_EXTENSION_MINUTES, defaultExtensionMinutes)
                 .putInt(KEY_USAGE_WARNING_INTERVAL_MINUTES, usageWarningIntervalMinutes)
                 .putString(KEY_LAUNCHER_PROFILE, launcherProfile)
-                .putBoolean(KEY_USB_RECOVERY_ENABLED, usbRecoveryEnabled);
+                .putBoolean(KEY_USB_RECOVERY_ENABLED, usbRecoveryEnabled)
+                .putBoolean(KEY_PARENT_MODE_GESTURE_ENABLED, parentModeGestureEnabled);
         if (!usbRecoveryEnabled) {
             editor.putBoolean(KEY_RECOVERY_REQUESTED, false);
         }
@@ -387,6 +391,10 @@ public final class ConfigStore {
         return preferences.getBoolean(KEY_USB_RECOVERY_ENABLED, true);
     }
 
+    public boolean isParentModeGestureEnabled() {
+        return preferences.getBoolean(KEY_PARENT_MODE_GESTURE_ENABLED, true);
+    }
+
     public boolean isRecoveryModeRequested() {
         return preferences.getBoolean(KEY_RECOVERY_REQUESTED, false);
     }
@@ -413,6 +421,7 @@ public final class ConfigStore {
                 || KEY_MAINTENANCE_UNTIL.equals(key)
                 || KEY_RECOVERY_REQUESTED.equals(key)
                 || KEY_USB_RECOVERY_ENABLED.equals(key)
+                || KEY_PARENT_MODE_GESTURE_ENABLED.equals(key)
                 || KEY_DEFAULT_EXTENSION_MINUTES.equals(key)
                 || KEY_USAGE_WARNING_INTERVAL_MINUTES.equals(key)
                 || KEY_AUTHENTICATOR_SECRET.equals(key)
@@ -421,6 +430,10 @@ public final class ConfigStore {
 
     static boolean isLanguagePreference(String key) {
         return KEY_LANGUAGE.equals(key);
+    }
+
+    static boolean isParentModeGesturePreference(String key) {
+        return KEY_PARENT_MODE_GESTURE_ENABLED.equals(key);
     }
 
     private void ensureDay(String dayKey) {

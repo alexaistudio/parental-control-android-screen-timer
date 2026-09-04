@@ -125,6 +125,8 @@
     <string name="lock_settings">Заблокировать настройки</string>
     <string name="usb_recovery_enabled">Разрешить USB Recovery</string>
     <string name="usb_recovery_settings_notice">Файл Recovery, Recovery.txt или File Recovery в корне флешки, без учёта регистра, открывает синий родительский режим. Настройки не удаляются. Обычная флешка, зарядка, телефон, мышь и клавиатура ничего не отключают.</string>
+    <string name="parent_mode_gesture_enabled">Разрешить скрытый вызов режима родителя</string>
+    <string name="parent_mode_gesture_settings_notice">Если выключить, удержание «Назад» и семь нажатий в левом верхнем углу полностью игнорируются. Настройки останутся доступны через значок приложения и постоянный PIN либо через USB Recovery, если оно включено.</string>
     <string name="support_title">Поддержать разработку</string>
     <string name="support_info">USDT TRC-20 · сеть TRON. Отсканируйте QR-код или скопируйте адрес.</string>
     <string name="support_qr_description">QR-код адреса поддержки USDT TRC-20 в сети TRON</string>

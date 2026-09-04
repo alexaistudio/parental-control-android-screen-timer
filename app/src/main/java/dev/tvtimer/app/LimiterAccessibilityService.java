@@ -86,6 +86,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private String pendingWarningDay;
     private int connectionAttempts;
     private boolean parentModeActive;
+    private boolean parentModeGestureEnabled = true;
     private ModeSwitchFrameLayout blockerRoot;
     private LinearLayout blockerPanel;
 
@@ -129,11 +130,16 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             preferenceListener = (preferences, key) -> {
                 if (ConfigStore.affectsRuntimeConfiguration(key)) {
                     handler.post(() -> {
+                        boolean parentModeGestureChanged =
+                                ConfigStore.isParentModeGesturePreference(key);
                         if (ConfigStore.isLanguagePreference(key)) {
                             AppLanguage.apply(this);
                             rebuildLocalizedOverlays();
                         }
                         refreshRuntimeConfiguration();
+                        if (parentModeGestureChanged) {
+                            rebuildBlockerForParentModeGesture();
+                        }
                         evaluateNow();
                     });
                 }
@@ -268,6 +274,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             targetScope = AppScope.ALL;
             targetPackages = Collections.emptySet();
             dailyLimitMillis = ConfigStore.DEFAULT_LIMIT_MILLIS;
+            parentModeGestureEnabled = true;
             return;
         }
         configurationPresent = store.isConfigured();
@@ -278,6 +285,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         targetScope = store.getScope();
         targetPackages = store.getSelectedPackages();
         dailyLimitMillis = store.getDailyLimitMillis();
+        parentModeGestureEnabled = store.isParentModeGestureEnabled();
     }
 
     private void evaluateNow() {
@@ -483,7 +491,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         );
         root.addView(panelScroll, panelParams);
 
-        if (reason != BlockReason.USAGE_WARNING) {
+        if (reason != BlockReason.USAGE_WARNING && parentModeGestureEnabled) {
             root.setParentModeAction(() -> activateParentMode(reason));
             View parentHotspot = new View(this);
             parentHotspot.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -841,6 +849,19 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         if (restoreParentMode && reason != BlockReason.RECOVERY) {
             activateParentMode(reason);
         }
+    }
+
+    private void rebuildBlockerForParentModeGesture() {
+        BlockReason reason = blockerReason;
+        if (reason == null) {
+            return;
+        }
+        long warningMinutes = pendingWarningMinutes;
+        String warningDay = pendingWarningDay;
+        removeBlocker();
+        pendingWarningMinutes = warningMinutes;
+        pendingWarningDay = warningDay;
+        showBlocker(reason);
     }
 
     private void registerReceivers() {

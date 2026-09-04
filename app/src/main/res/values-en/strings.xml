@@ -119,6 +119,8 @@
     <string name="lock_settings">Lock settings</string>
     <string name="usb_recovery_enabled">Allow USB Recovery</string>
     <string name="usb_recovery_settings_notice">A Recovery, Recovery.txt, or File Recovery file in the flash-drive root, matched without case sensitivity, opens the blue parent mode. Settings are not deleted. An ordinary drive, charger, phone, mouse, or keyboard disables nothing.</string>
+    <string name="parent_mode_gesture_enabled">Allow hidden parent-mode gesture</string>
+    <string name="parent_mode_gesture_settings_notice">When disabled, holding Back and tapping the top-left corner seven times are ignored completely. Settings remain available from the app icon with the permanent PIN, or through USB Recovery when enabled.</string>
     <string name="support_title">Support development</string>
     <string name="support_info">USDT TRC-20 · TRON network. Scan the QR code or copy the address.</string>
     <string name="support_qr_description">QR code for the USDT TRC-20 support address on TRON</string>

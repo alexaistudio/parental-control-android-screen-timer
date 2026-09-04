@@ -16,15 +16,18 @@ public final class ConfigStorePolicyTest {
         assertTrue(ConfigStore.affectsRuntimeConfiguration("maintenance_until_ms"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("recovery_requested"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("usb_recovery_enabled"));
+        assertTrue(ConfigStore.affectsRuntimeConfiguration("parent_mode_gesture_enabled"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("default_extension_minutes"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("authenticator_secret"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("usage_warning_interval_minutes"));
         assertTrue(ConfigStore.affectsRuntimeConfiguration("language"));
         assertTrue(ConfigStore.isLanguagePreference("language"));
+        assertTrue(ConfigStore.isParentModeGesturePreference("parent_mode_gesture_enabled"));
 
         assertFalse(ConfigStore.affectsRuntimeConfiguration("usage_ms"));
         assertFalse(ConfigStore.affectsRuntimeConfiguration("bonus_ms"));
         assertFalse(ConfigStore.affectsRuntimeConfiguration("pin_hash"));
         assertFalse(ConfigStore.isLanguagePreference("daily_limit_ms"));
+        assertFalse(ConfigStore.isParentModeGesturePreference("usb_recovery_enabled"));
     }
 }
