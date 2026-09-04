@@ -7,27 +7,27 @@ import static org.junit.Assert.assertTrue;
 
 public final class UsbRecoveryPolicyTest {
     @Test
-    public void directUsbAttachAlwaysTriggersRecovery() {
-        assertTrue(UsbRecoveryPolicy.shouldRecover(
-                UsbRecoveryPolicy.ACTION_USB_DEVICE_ATTACHED,
-                false
+    public void ordinaryUsbEventsNeverTriggerRecovery() {
+        assertFalse(UsbRecoveryPolicy.shouldOpenRecovery(
+                "android.hardware.usb.action.USB_DEVICE_ATTACHED",
+                true
         ));
-        assertTrue(UsbRecoveryPolicy.shouldRecover(
-                UsbRecoveryPolicy.ACTION_USB_ACCESSORY_ATTACHED,
-                false
+        assertFalse(UsbRecoveryPolicy.shouldOpenRecovery(
+                "android.hardware.usb.action.USB_ACCESSORY_ATTACHED",
+                true
         ));
     }
 
     @Test
-    public void mediaMountTriggersOnlyForRemovableStorage() {
-        assertTrue(UsbRecoveryPolicy.shouldRecover(
+    public void mountedMediaRequiresRecoveryFile() {
+        assertTrue(UsbRecoveryPolicy.shouldOpenRecovery(
                 UsbRecoveryPolicy.ACTION_MEDIA_MOUNTED,
                 true
         ));
-        assertFalse(UsbRecoveryPolicy.shouldRecover(
+        assertFalse(UsbRecoveryPolicy.shouldOpenRecovery(
                 UsbRecoveryPolicy.ACTION_MEDIA_MOUNTED,
                 false
         ));
-        assertFalse(UsbRecoveryPolicy.shouldRecover("unexpected", true));
+        assertFalse(UsbRecoveryPolicy.shouldOpenRecovery("unexpected", true));
     }
 }

@@ -61,7 +61,7 @@ public final class AppSelectionActivity extends LocalizedActivity {
         int horizontalPadding = getResources().getDisplayMetrics().widthPixels < dp(600)
                 ? dp(12)
                 : dp(20);
-        content.setPadding(horizontalPadding, dp(16), horizontalPadding, dp(24));
+        content.setPadding(horizontalPadding, dp(10), horizontalPadding, dp(14));
         scroll.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -84,7 +84,7 @@ public final class AppSelectionActivity extends LocalizedActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
         languageParams.gravity = Gravity.END;
-        languageParams.bottomMargin = dp(8);
+        languageParams.bottomMargin = dp(5);
         content.addView(languageSwitcher, languageParams);
 
         TextView title = text(getString(R.string.app_selection_title), 24f, Color.WHITE);
@@ -148,15 +148,15 @@ public final class AppSelectionActivity extends LocalizedActivity {
                             app.packageName
                     ));
                     checkBox.setTextColor(Color.WHITE);
-                    checkBox.setTextSize(15f);
-                    checkBox.setMinHeight(dp(44));
-                    checkBox.setPadding(dp(6), dp(4), dp(6), dp(4));
+                    checkBox.setTextSize(14f);
+                    checkBox.setMinHeight(dp(38));
+                    checkBox.setPadding(dp(5), dp(2), dp(5), dp(2));
                     Drawable icon = app.icon == null
                             ? getPackageManager().getDefaultActivityIcon()
                             : app.icon.mutate();
-                    icon.setBounds(0, 0, dp(34), dp(34));
+                    icon.setBounds(0, 0, dp(30), dp(30));
                     checkBox.setCompoundDrawablesRelative(icon, null, null, null);
-                    checkBox.setCompoundDrawablePadding(dp(10));
+                    checkBox.setCompoundDrawablePadding(dp(7));
                     checkBox.setChecked(selectedSnapshot.contains(app.packageName));
                     applyTvFocus(checkBox);
                     appList.addView(checkBox, matchWrap(dp(2)));
@@ -278,9 +278,9 @@ public final class AppSelectionActivity extends LocalizedActivity {
     private Button button(String label) {
         Button button = new Button(this);
         button.setText(label);
-        button.setTextSize(15f);
+        button.setTextSize(14f);
         button.setAllCaps(false);
-        button.setMinHeight(dp(46));
+        button.setMinHeight(dp(40));
         int[][] states = new int[][]{
                 new int[]{android.R.attr.state_focused},
                 new int[]{android.R.attr.state_pressed},

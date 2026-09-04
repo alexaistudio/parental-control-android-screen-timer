@@ -14,7 +14,6 @@ import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
-import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -22,6 +21,7 @@ import android.os.PowerManager;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -80,12 +80,14 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private int overlayFailureCount;
     private long nextOverlayAttemptElapsed;
     private BroadcastReceiver stateReceiver;
-    private BroadcastReceiver usbReceiver;
     private SharedPreferences.OnSharedPreferenceChangeListener preferenceListener;
     private int pinPromptGeneration;
     private long pendingWarningMinutes;
     private String pendingWarningDay;
     private int connectionAttempts;
+    private boolean parentModeActive;
+    private ModeSwitchFrameLayout blockerRoot;
+    private LinearLayout blockerPanel;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -229,6 +231,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         AppLanguage.apply(this);
         boolean hadTimer = timerView != null;
         BlockReason reason = blockerReason;
+        boolean restoreParentMode = parentModeActive;
         long warningMinutes = pendingWarningMinutes;
         String warningDay = pendingWarningDay;
         removeTimer();
@@ -237,6 +240,9 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             pendingWarningMinutes = warningMinutes;
             pendingWarningDay = warningDay;
             showBlocker(reason);
+            if (restoreParentMode && reason != BlockReason.RECOVERY) {
+                activateParentMode(reason);
+            }
         } else if (hadTimer) {
             evaluateNow();
         }
@@ -299,6 +305,18 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 && (keyguardManager == null || !keyguardManager.isKeyguardLocked())
                 && !dreaming;
         interactive = screenActive;
+        if (screenActive && store.isRecoveryModeRequested()) {
+            countedDuringPreviousInterval = false;
+            showBlocker(BlockReason.RECOVERY);
+            if (blockerView != null) {
+                store.clearRecoveryModeRequest();
+            }
+            return;
+        }
+        if (parentModeActive && blockerView != null) {
+            countedDuringPreviousInterval = false;
+            return;
+        }
         if (configurationPresent
                 && screenActive
                 && protectedScreenActive
@@ -403,6 +421,13 @@ public final class LimiterAccessibilityService extends AccessibilityService {
 
     private void showBlocker(BlockReason reason) {
         removeTimer();
+        if (blockerView != null && !blockerView.isAttachedToWindow()) {
+            blockerView = null;
+            blockerRoot = null;
+            blockerPanel = null;
+            blockerReason = null;
+            parentModeActive = false;
+        }
         if (blockerView != null && blockerReason == reason) {
             return;
         }
@@ -413,8 +438,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             return;
         }
 
-        FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.BLACK);
+        ModeSwitchFrameLayout root = new ModeSwitchFrameLayout(this);
+        root.setBackgroundColor(reason == BlockReason.RECOVERY ? 0xff0b3558 : Color.BLACK);
         root.setFocusable(false);
         root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
 
@@ -422,11 +447,17 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setGravity(Gravity.CENTER);
         boolean compact = getResources().getDisplayMetrics().widthPixels < dp(600);
-        int panelPadding = compact ? dp(10) : dp(18);
-        panel.setPadding(panelPadding, dp(12), panelPadding, dp(12));
-        View initialFocus = reason == BlockReason.USAGE_WARNING
-                ? renderUsageWarning(panel)
-                : renderPinPrompt(panel, reason);
+        int panelPadding = compact ? dp(8) : dp(14);
+        panel.setPadding(panelPadding, dp(8), panelPadding, dp(8));
+        View initialFocus;
+        if (reason == BlockReason.USAGE_WARNING) {
+            initialFocus = renderUsageWarning(panel);
+        } else if (reason == BlockReason.RECOVERY) {
+            parentModeActive = true;
+            initialFocus = renderParentActions(panel, reason);
+        } else {
+            initialFocus = renderChildPinPrompt(panel, reason);
+        }
 
         ScrollView panelScroll = new ScrollView(this);
         panelScroll.setFillViewport(true);
@@ -452,6 +483,19 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         );
         root.addView(panelScroll, panelParams);
 
+        if (reason != BlockReason.USAGE_WARNING) {
+            root.setParentModeAction(() -> activateParentMode(reason));
+            View parentHotspot = new View(this);
+            parentHotspot.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            parentHotspot.setOnClickListener(view -> root.recordSecretTap());
+            FrameLayout.LayoutParams hotspotParams = new FrameLayout.LayoutParams(
+                    dp(56),
+                    dp(56),
+                    Gravity.TOP | Gravity.START
+            );
+            root.addView(parentHotspot, hotspotParams);
+        }
+
         LanguageSwitcherView languageSwitcher = new LanguageSwitcherView(this, () -> {
         });
         FrameLayout.LayoutParams languageParams = new FrameLayout.LayoutParams(
@@ -474,6 +518,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         try {
             windowManager.addView(root, params);
             blockerView = root;
+            blockerRoot = root;
+            blockerPanel = panel;
             blockerReason = reason;
             if (initialFocus instanceof PinPadView) {
                 PinPadView pinPad = (PinPadView) initialFocus;
@@ -487,7 +533,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
     }
 
-    private PinPadView renderPinPrompt(LinearLayout panel, BlockReason reason) {
+    private PinPadView renderChildPinPrompt(LinearLayout panel, BlockReason reason) {
         int generation = ++pinPromptGeneration;
         panel.removeAllViews();
         String titleText = reason == BlockReason.TIME_LIMIT
@@ -510,7 +556,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 boolean verified;
                 try {
                     verified = store != null
-                            && store.verifyParentCode(pin, System.currentTimeMillis());
+                            && store.verifyAuthenticatorCode(pin, System.currentTimeMillis());
                 } catch (RuntimeException exception) {
                     Log.e(TAG, "Unable to verify parent code", exception);
                     verified = false;
@@ -523,7 +569,14 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                         return;
                     }
                     if (result) {
-                        renderParentActions(panel, reason);
+                        if (reason == BlockReason.REMOVAL_PROTECTION) {
+                            if (store.grantMaintenanceWindow()) {
+                                removeBlocker();
+                                evaluateNow();
+                            }
+                        } else {
+                            grantExtension(store.getDefaultExtensionMinutes());
+                        }
                     } else {
                         holder[0].showError(getString(R.string.parent_code_invalid));
                     }
@@ -532,6 +585,60 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         });
         panel.addView(holder[0], wrapParams(0));
         holder[0].post(holder[0]::requestInitialFocus);
+        return holder[0];
+    }
+
+    private void activateParentMode(BlockReason reason) {
+        if (blockerRoot == null || blockerPanel == null || reason == BlockReason.USAGE_WARNING) {
+            return;
+        }
+        parentModeActive = true;
+        blockerRoot.setBackgroundColor(0xff0b3558);
+        PinPadView pinPad = renderParentPinPrompt(blockerPanel, reason);
+        pinPad.post(pinPad::requestInitialFocus);
+    }
+
+    private PinPadView renderParentPinPrompt(LinearLayout panel, BlockReason reason) {
+        int generation = ++pinPromptGeneration;
+        panel.removeAllViews();
+        TextView title = overlayText(getString(R.string.parent_mode_title), 22f, Color.WHITE);
+        title.setGravity(Gravity.CENTER);
+        panel.addView(title, wrapParams(dp(6)));
+        TextView instructions = overlayText(
+                getString(R.string.parent_mode_instruction),
+                15f,
+                0xffe3f2fd
+        );
+        instructions.setGravity(Gravity.CENTER);
+        panel.addView(instructions, wrapParams(dp(10)));
+
+        final PinPadView[] holder = new PinPadView[1];
+        holder[0] = new PinPadView(this, pin -> {
+            holder[0].setBusy(true);
+            backgroundExecutor.execute(() -> {
+                boolean verified = false;
+                try {
+                    if (store != null) {
+                        verified = store.verifyPin(pin)
+                                || store.consumeEmergencyCode(pin, System.currentTimeMillis());
+                    }
+                } catch (RuntimeException exception) {
+                    Log.e(TAG, "Unable to verify parent PIN", exception);
+                }
+                boolean result = verified;
+                handler.post(() -> {
+                    if (!connected || blockerView == null || generation != pinPromptGeneration) {
+                        return;
+                    }
+                    if (result) {
+                        renderParentActions(panel, reason);
+                    } else {
+                        holder[0].showError(getString(R.string.parent_pin_invalid));
+                    }
+                });
+            });
+        });
+        panel.addView(holder[0], wrapParams(0));
         return holder[0];
     }
 
@@ -581,7 +688,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
     }
 
-    private void renderParentActions(LinearLayout panel, BlockReason reason) {
+    private View renderParentActions(LinearLayout panel, BlockReason reason) {
         pinPromptGeneration++;
         panel.removeAllViews();
         TextView title = overlayText(getString(R.string.parent_actions_title), 22f, Color.WHITE);
@@ -607,28 +714,38 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             panel.addView(home, buttonParams());
 
             Button back = overlayButton(getString(R.string.back));
-            back.setOnClickListener(view -> renderPinPrompt(panel, reason));
+            back.setOnClickListener(view -> returnToChildMode(reason));
             panel.addView(back, buttonParams());
             allow.post(allow::requestFocus);
-            return;
-        }
-
-        int defaultMinutes = store.getDefaultExtensionMinutes();
-        if (defaultMinutes != ExtensionDurationPolicy.ASK_EVERY_TIME) {
-            grantExtension(defaultMinutes);
-            return;
+            return allow;
         }
 
         title.setText(R.string.extension_prompt);
         Button firstChoice = null;
-        for (int minutes : ExtensionDurationPolicy.CHOICES_MINUTES) {
+        LinearLayout choiceRow = null;
+        for (int index = 0; index < ExtensionDurationPolicy.CHOICES_MINUTES.length; index++) {
+            int minutes = ExtensionDurationPolicy.CHOICES_MINUTES[index];
+            if (index % 2 == 0) {
+                choiceRow = new LinearLayout(this);
+                choiceRow.setOrientation(LinearLayout.HORIZONTAL);
+                LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+                rowParams.bottomMargin = dp(4);
+                panel.addView(choiceRow, rowParams);
+            }
             Button choice = overlayButton(extensionLabel(minutes));
             choice.setOnClickListener(view -> grantExtension(minutes));
-            panel.addView(choice, buttonParams());
+            choiceRow.addView(choice, choiceButtonParams());
             if (firstChoice == null) {
                 firstChoice = choice;
             }
         }
+
+        Button settings = overlayButton(getString(R.string.open_timer_settings));
+        settings.setOnClickListener(view -> openParentSettings());
+        panel.addView(settings, buttonParams());
 
         Button disable = overlayButton(getString(R.string.disable_completely));
         disable.setOnClickListener(view -> {
@@ -641,11 +758,41 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         panel.addView(disable, buttonParams());
 
         Button back = overlayButton(getString(R.string.back));
-        back.setOnClickListener(view -> renderPinPrompt(panel, reason));
+        back.setOnClickListener(view -> returnToChildMode(reason));
         panel.addView(back, buttonParams());
         if (firstChoice != null) {
             firstChoice.post(firstChoice::requestFocus);
         }
+        return firstChoice == null ? back : firstChoice;
+    }
+
+    private void openParentSettings() {
+        if (store == null || !store.grantParentSettingsLaunch(System.currentTimeMillis())) {
+            return;
+        }
+        removeAllOverlays();
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        try {
+            startActivity(intent);
+        } catch (RuntimeException exception) {
+            DiagnosticLog.error(this, TAG, "Unable to open parent settings", exception);
+        }
+    }
+
+    private void returnToChildMode(BlockReason reason) {
+        if (blockerRoot == null || blockerPanel == null) {
+            return;
+        }
+        parentModeActive = false;
+        blockerRoot.setBackgroundColor(Color.BLACK);
+        if (reason == BlockReason.RECOVERY) {
+            removeBlocker();
+            evaluateNow();
+            return;
+        }
+        PinPadView pinPad = renderChildPinPrompt(blockerPanel, reason);
+        pinPad.post(pinPad::requestInitialFocus);
     }
 
     private void grantExtension(int minutes) {
@@ -660,9 +807,16 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     }
 
     private String extensionLabel(int minutes) {
-        return minutes == 60
-                ? getString(R.string.one_hour)
-                : getResources().getQuantityString(
+        if (minutes == 60) {
+            return getString(R.string.one_hour);
+        }
+        if (minutes == 90) {
+            return getString(R.string.ninety_minutes);
+        }
+        if (minutes == 120) {
+            return getString(R.string.two_hours);
+        }
+        return getResources().getQuantityString(
                         R.plurals.minutes_label,
                         minutes,
                         minutes
@@ -679,10 +833,14 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
         long warningMinutes = pendingWarningMinutes;
         String warningDay = pendingWarningDay;
+        boolean restoreParentMode = parentModeActive;
         removeBlocker();
         pendingWarningMinutes = warningMinutes;
         pendingWarningDay = warningDay;
         showBlocker(reason);
+        if (restoreParentMode && reason != BlockReason.RECOVERY) {
+            activateParentMode(reason);
+        }
     }
 
     private void registerReceivers() {
@@ -700,6 +858,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                     interactive = true;
                     lastTickElapsed = SystemClock.elapsedRealtime();
                     evaluateNow();
+                    handler.postDelayed(LimiterAccessibilityService.this::evaluateNow, 300L);
+                    handler.postDelayed(LimiterAccessibilityService.this::evaluateNow, 1_500L);
                 } else if (Intent.ACTION_USER_PRESENT.equals(action)) {
                     interactive = true;
                     lastTickElapsed = SystemClock.elapsedRealtime();
@@ -724,18 +884,6 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         stateFilter.addAction(Intent.ACTION_DREAMING_STOPPED);
         registerSystemReceiver(stateReceiver, stateFilter);
 
-        usbReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (UsbRecoveryReceiver.isRecoveryIntent(intent)) {
-                    UsbRecoveryReceiver.performRecovery(context);
-                }
-            }
-        };
-        IntentFilter usbFilter = new IntentFilter();
-        usbFilter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
-        usbFilter.addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED);
-        registerSystemReceiver(usbReceiver, usbFilter);
     }
 
     private Set<String> loadHomePackages() {
@@ -816,9 +964,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
         preferenceListener = null;
         unregisterSafely(stateReceiver);
-        unregisterSafely(usbReceiver);
         stateReceiver = null;
-        usbReceiver = null;
     }
 
     private void unregisterSafely(BroadcastReceiver receiver) {
@@ -871,16 +1017,85 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             pinPromptGeneration++;
             removeViewSafely(blockerView);
             blockerView = null;
+            if (blockerRoot != null) {
+                blockerRoot.cancelParentModeAction();
+            }
+            blockerRoot = null;
+            blockerPanel = null;
             blockerReason = null;
+            parentModeActive = false;
             pendingWarningMinutes = 0L;
             pendingWarningDay = null;
+        }
+    }
+
+    private final class ModeSwitchFrameLayout extends FrameLayout {
+        private static final long PARENT_HOLD_MILLIS = 8_000L;
+        private static final long TAP_WINDOW_MILLIS = 4_000L;
+        private static final int REQUIRED_TAPS = 7;
+
+        private Runnable parentModeAction;
+        private Runnable pendingHold;
+        private int secretTapCount;
+        private long firstSecretTapElapsed;
+
+        private ModeSwitchFrameLayout(Context context) {
+            super(context);
+        }
+
+        private void setParentModeAction(Runnable action) {
+            parentModeAction = action;
+        }
+
+        private void recordSecretTap() {
+            long now = SystemClock.elapsedRealtime();
+            if (firstSecretTapElapsed == 0L || now - firstSecretTapElapsed > TAP_WINDOW_MILLIS) {
+                firstSecretTapElapsed = now;
+                secretTapCount = 0;
+            }
+            secretTapCount++;
+            if (secretTapCount >= REQUIRED_TAPS) {
+                secretTapCount = 0;
+                firstSecretTapElapsed = 0L;
+                runParentModeAction();
+            }
+        }
+
+        @Override
+        public boolean dispatchKeyEvent(KeyEvent event) {
+            if (event.getKeyCode() != KeyEvent.KEYCODE_BACK) {
+                return super.dispatchKeyEvent(event);
+            }
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                cancelParentModeAction();
+                pendingHold = this::runParentModeAction;
+                handler.postDelayed(pendingHold, PARENT_HOLD_MILLIS);
+            } else if (event.getAction() == KeyEvent.ACTION_UP) {
+                cancelParentModeAction();
+            }
+            return true;
+        }
+
+        private void runParentModeAction() {
+            pendingHold = null;
+            if (parentModeAction != null && !parentModeActive) {
+                parentModeAction.run();
+            }
+        }
+
+        private void cancelParentModeAction() {
+            if (pendingHold != null) {
+                handler.removeCallbacks(pendingHold);
+                pendingHold = null;
+            }
         }
     }
 
     private enum BlockReason {
         TIME_LIMIT,
         REMOVAL_PROTECTION,
-        USAGE_WARNING
+        USAGE_WARNING,
+        RECOVERY
     }
 
     private void removeViewSafely(View view) {
@@ -904,11 +1119,11 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private Button overlayButton(String text) {
         Button button = new Button(this);
         button.setText(text);
-        button.setTextSize(15f);
-        button.setMinHeight(dp(46));
+        button.setTextSize(14f);
+        button.setMinHeight(dp(40));
         button.setSingleLine(false);
         button.setMaxLines(2);
-        button.setPadding(dp(10), dp(4), dp(10), dp(4));
+        button.setPadding(dp(8), dp(2), dp(8), dp(2));
         button.setAllCaps(false);
         int[][] states = new int[][]{
                 new int[]{android.R.attr.state_focused},
@@ -945,7 +1160,17 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
         params.gravity = Gravity.CENTER_HORIZONTAL;
-        params.bottomMargin = dp(10);
+        params.bottomMargin = dp(6);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams choiceButtonParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+        );
+        params.setMargins(dp(2), 0, dp(2), 0);
         return params;
     }
 

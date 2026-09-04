@@ -1,6 +1,5 @@
 package dev.tvtimer.app;
 
-import android.annotation.SuppressLint;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -32,21 +31,6 @@ final class DeviceOwnerProtection {
         } catch (RuntimeException exception) {
             Log.e(TAG, "Unable to enable device-owner uninstall protection", exception);
             return false;
-        }
-    }
-
-    @SuppressLint("ObsoleteSdkInt")
-    @SuppressWarnings("deprecation")
-    static void releaseForUsbRecovery(Context context) {
-        DevicePolicyManager manager = manager(context);
-        if (manager == null || !manager.isDeviceOwnerApp(context.getPackageName())) {
-            return;
-        }
-        try {
-            manager.setUninstallBlocked(admin(context), context.getPackageName(), false);
-            manager.clearDeviceOwnerApp(context.getPackageName());
-        } catch (RuntimeException exception) {
-            Log.w(TAG, "Unable to clear device-owner protection during USB recovery", exception);
         }
     }
 

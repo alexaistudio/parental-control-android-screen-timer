@@ -23,8 +23,7 @@
     <string name="qr_done_setup">QR отсканирован — продолжить настройку</string>
 
     <string name="setup_title">Android Screen Timer — первоначальная настройка</string>
-    <string name="usb_recovery_completed">USB-восстановление выполнено: прежний PIN и настройки удалены, защита выключена.</string>
-    <string name="setup_intro">Задайте резервный PIN и дневное время. Для родительского доступа можно использовать PIN или меняющийся код с телефона.</string>
+    <string name="setup_intro">Задайте PIN и дневное время. После сохранения приложение покажет отдельный одноразовый аварийный код.</string>
     <string name="pin_hint">PIN: 4–8 цифр</string>
     <string name="repeat_pin_hint">Повторите PIN</string>
     <string name="scope_all">Всё устройство и все приложения</string>
@@ -32,7 +31,7 @@
     <string name="choose_apps">Выбрать приложения</string>
     <string name="accessibility_notice">Для работы нужно вручную включить службу специальных возможностей. Она получает только имя активного приложения, не читает текст окон, не использует сеть и показывает таймер поверх изображения.</string>
     <string name="accessibility_consent">Я понимаю назначение службы и разрешаю определять активное приложение для применения лимита</string>
-    <string name="usb_recovery_setup_notice">Аварийный сброс: подключение USB-флешки очищает PIN и выключает защиту. На некоторых устройствах события от USB-клавиатур и приёмников приложению не передаются.</string>
+    <string name="usb_recovery_setup_notice">USB Recovery включён по умолчанию. Только файл Recovery, Recovery.txt или File Recovery в корне флешки откроет родительский режим; обычные USB-устройства и зарядка игнорируются. Функцию можно выключить в настройках.</string>
     <string name="save_and_open_service">Сохранить и открыть включение службы</string>
     <string name="pin_format_error">PIN должен содержать от 4 до 8 цифр</string>
     <string name="pin_mismatch">PIN-коды не совпадают</string>
@@ -43,7 +42,7 @@
     <string name="settings_saved">Настройки сохранены</string>
     <string name="settings_invalid">Проверьте введённые настройки</string>
 
-    <string name="locked_title">Android Screen Timer — код родителя</string>
+    <string name="locked_title">Android Screen Timer — PIN родителя</string>
     <string name="parent_code_invalid">Неверный PIN или код</string>
     <string name="pin_entered_description">Введённый PIN</string>
     <string name="pin_checking">Проверка…</string>
@@ -82,9 +81,10 @@
         <item quantity="other">Каждые %d минуты</item>
     </plurals>
     <string name="usage_warning_example">Ребёнок увидит: «Ты уже смотришь 20 минут. Продолжить?» — «Да, продолжить» или «Нет, закончить».</string>
-    <string name="extension_title">Продление после кода родителя</string>
-    <string name="extension_ask_every_time">Спрашивать каждый раз: 10, 15, 20, 30, 40 минут или 1 час</string>
+    <string name="extension_title">Автопродление после временного кода</string>
     <string name="extension_auto_hour">Сразу продолжать на 1 час</string>
+    <string name="extension_auto_ninety_minutes">Сразу продолжать на 1 час 30 минут</string>
+    <string name="extension_auto_two_hours">Сразу продолжать на 2 часа</string>
     <plurals name="extension_auto_minutes">
         <item quantity="one">Сразу продолжать на %d минуту</item>
         <item quantity="few">Сразу продолжать на %d минуты</item>
@@ -111,11 +111,20 @@
     <string name="new_pin_mismatch">Новые PIN-коды не совпадают</string>
     <string name="settings_saved_pin_failed">Настройки сохранены, но PIN изменить не удалось</string>
     <string name="settings_saved_launcher_failed">Настройки сохранены, но главный экран не применил новый значок</string>
+    <string name="emergency_code_title">Аварийный код</string>
+    <string name="emergency_code_ready">Одноразовый четырёхзначный код сохранён и готов к использованию.</string>
+    <string name="emergency_code_used">Аварийный код уже использован. Создайте и сохраните новый.</string>
+    <string name="create_emergency_code">Создать новый аварийный код</string>
+    <string name="emergency_code_screen_title">Сохраните аварийный код</string>
+    <string name="emergency_code_screen_info">Этот код открывает родительский режим, если постоянный PIN недоступен.</string>
+    <string name="emergency_code_one_time_notice">Код работает только один раз. После использования создайте новый в настройках. Не сообщайте его ребёнку.</string>
+    <string name="emergency_code_saved">Код сохранён</string>
     <string name="updates_title">Обновления</string>
     <string name="installed_version">Установлена версия %1$s</string>
     <string name="check_update">Проверить обновление</string>
     <string name="lock_settings">Заблокировать настройки</string>
-    <string name="usb_recovery_settings_notice">USB-флешка — аварийный ключ: при подключении локальные PIN и настройки удаляются, а блокировка снимается.</string>
+    <string name="usb_recovery_enabled">Разрешить USB Recovery</string>
+    <string name="usb_recovery_settings_notice">Файл Recovery, Recovery.txt или File Recovery в корне флешки, без учёта регистра, открывает синий родительский режим. Настройки не удаляются. Обычная флешка, зарядка, телефон, мышь и клавиатура ничего не отключают.</string>
     <string name="support_title">Поддержать разработку</string>
     <string name="support_info">USDT TRC-20 · сеть TRON. Отсканируйте QR-код или скопируйте адрес.</string>
     <string name="support_qr_description">QR-код адреса поддержки USDT TRC-20 в сети TRON</string>
@@ -175,8 +184,8 @@
     <string name="timer_remaining_description">Оставшееся экранное время</string>
     <string name="time_finished_title">Время закончилось</string>
     <string name="settings_protection_title">Защита настроек</string>
-    <string name="time_finished_instruction">Введите PIN или 6-значный код с телефона</string>
-    <string name="settings_protection_instruction">Для системных настроек нужен PIN или код с телефона</string>
+    <string name="time_finished_instruction">Введите 6-значный код с телефона — добавится время, выбранное родителем</string>
+    <string name="settings_protection_instruction">Введите 6-значный код с телефона</string>
     <string name="usage_pause_title">Небольшая пауза</string>
     <plurals name="usage_warning_message">
         <item quantity="one">Ты уже смотришь %d минуту. Продолжить?</item>
@@ -192,7 +201,13 @@
     <string name="back">Назад</string>
     <string name="extension_prompt">На сколько продолжить?</string>
     <string name="disable_completely">Отключить полностью</string>
+    <string name="open_timer_settings">Открыть настройки таймера</string>
     <string name="one_hour">1 час</string>
+    <string name="ninety_minutes">1 час 30 минут</string>
+    <string name="two_hours">2 часа</string>
+    <string name="parent_mode_title">Режим родителя</string>
+    <string name="parent_mode_instruction">Введите постоянный PIN или одноразовый аварийный код</string>
+    <string name="parent_pin_invalid">Неверный PIN или аварийный код</string>
     <plurals name="minutes_label">
         <item quantity="one">%d минута</item>
         <item quantity="few">%d минуты</item>

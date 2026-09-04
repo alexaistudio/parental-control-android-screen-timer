@@ -275,10 +275,6 @@
                 <action android:name="android.intent.action.MEDIA_MOUNTED" />
                 <data android:scheme="file" />
             </intent-filter>
-            <intent-filter>
-                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
-                <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
-            </intent-filter>
         </receiver>
     </application>
 

@@ -70,6 +70,8 @@ public final class MainActivity extends LocalizedActivity {
     private boolean appSelectionOpen;
     private boolean accessibilitySettingsOpen;
     private boolean showingDiagnostics;
+    private boolean showingEmergencyCode;
+    private boolean emergencyCodeReturnsToSettings;
     private int diagnosticPage;
     private List<String> diagnosticPages;
     private Set<String> selectedPackagesDraft;
@@ -79,6 +81,7 @@ public final class MainActivity extends LocalizedActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         store = new ConfigStore(this);
+        adminUnlocked = store.consumeParentSettingsLaunch(System.currentTimeMillis());
         downloadManager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
         devicePolicyManager = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
         selectedPackagesDraft = store.getSelectedPackages();
@@ -96,7 +99,7 @@ public final class MainActivity extends LocalizedActivity {
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         int horizontalPadding = contentHorizontalPadding();
-        content.setPadding(horizontalPadding, dp(16), horizontalPadding, dp(24));
+        content.setPadding(horizontalPadding, dp(10), horizontalPadding, dp(14));
         scrollView.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -127,6 +130,10 @@ public final class MainActivity extends LocalizedActivity {
 
     @Override
     public void onBackPressed() {
+        if (showingEmergencyCode) {
+            finishEmergencyCodeScreen();
+            return;
+        }
         if (showingDiagnostics) {
             showingDiagnostics = false;
             diagnosticPages = null;
@@ -241,14 +248,42 @@ public final class MainActivity extends LocalizedActivity {
         done.requestFocus();
     }
 
+    private void renderEmergencyCode(String code, boolean returnsToSettings) {
+        clearScreen();
+        showingEmergencyCode = true;
+        emergencyCodeReturnsToSettings = returnsToSettings;
+        addTitle(getString(R.string.emergency_code_screen_title));
+        addParagraph(getString(R.string.emergency_code_screen_info));
+        TextView codeView = textView(code, 32f, 0xffffd54f);
+        codeView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        codeView.setGravity(Gravity.CENTER);
+        codeView.setTextIsSelectable(true);
+        LinearLayout.LayoutParams codeParams = matchWrapParams();
+        codeParams.topMargin = dp(8);
+        codeParams.bottomMargin = dp(8);
+        content.addView(codeView, codeParams);
+        addNotice(getString(R.string.emergency_code_one_time_notice), 0xffffcc80);
+        Button done = addButton(getString(R.string.emergency_code_saved));
+        done.setOnClickListener(view -> finishEmergencyCodeScreen());
+        done.requestFocus();
+    }
+
+    private void finishEmergencyCodeScreen() {
+        boolean openAccessibility = !emergencyCodeReturnsToSettings;
+        showingEmergencyCode = false;
+        emergencyCodeReturnsToSettings = false;
+        adminUnlocked = true;
+        renderSettings();
+        if (openAccessibility) {
+            openAccessibilitySettings();
+        }
+    }
+
     private void renderSetup() {
         clearScreen();
         showingAuthenticatorQr = false;
         selectedPackagesDraft = store.getSelectedPackages();
         addTitle(getString(R.string.setup_title));
-        if (store.hasUsbRecoveryNotice()) {
-            addNotice(getString(R.string.usb_recovery_completed), 0xffffcc80);
-        }
         addParagraph(getString(R.string.setup_intro));
 
         EditText pin = addInput(getString(R.string.pin_hint), true);
@@ -281,7 +316,7 @@ public final class MainActivity extends LocalizedActivity {
         CheckBox accessibilityConsent = new CheckBox(this);
         accessibilityConsent.setText(R.string.accessibility_consent);
         accessibilityConsent.setTextColor(Color.WHITE);
-        accessibilityConsent.setTextSize(17f);
+        accessibilityConsent.setTextSize(15f);
         applyRowFocus(accessibilityConsent);
         addSection(accessibilityConsent);
         addNotice(getString(R.string.usb_recovery_setup_notice), 0xffffcc80);
@@ -311,11 +346,22 @@ public final class MainActivity extends LocalizedActivity {
                 accessibilityConsent.requestFocus();
                 return;
             }
+            String emergencyCandidate;
+            do {
+                emergencyCandidate = EmergencyCode.generate();
+            } while (emergencyCandidate.equals(value));
+            String emergencyCode = emergencyCandidate;
             int generation = screenGeneration;
             setButtonBusy(save, true, getString(R.string.saving));
             backgroundExecutor.execute(() -> {
                 try {
-                    boolean saved = store.configure(value, dailyLimit, scope, selected);
+                    boolean saved = store.configure(
+                            value,
+                            emergencyCode,
+                            dailyLimit,
+                            scope,
+                            selected
+                    );
                     postToScreen(generation, () -> {
                         if (!saved) {
                             setButtonBusy(save, false, getString(R.string.save_and_open_service));
@@ -325,8 +371,7 @@ public final class MainActivity extends LocalizedActivity {
                         DeviceOwnerProtection.ensureUninstallBlocked(this);
                         adminUnlocked = true;
                         Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show();
-                        renderSettings();
-                        openAccessibilitySettings();
+                        renderEmergencyCode(emergencyCode, false);
                     });
                 } catch (RuntimeException exception) {
                     postToScreen(generation, () -> {
@@ -355,7 +400,11 @@ public final class MainActivity extends LocalizedActivity {
             backgroundExecutor.execute(() -> {
                 boolean verified;
                 try {
-                    verified = store.verifyParentCode(enteredPin, System.currentTimeMillis());
+                    verified = store.verifyPin(enteredPin)
+                            || store.consumeEmergencyCode(
+                                    enteredPin,
+                                    System.currentTimeMillis()
+                            );
                 } catch (RuntimeException exception) {
                     verified = false;
                 }
@@ -365,7 +414,7 @@ public final class MainActivity extends LocalizedActivity {
                         adminUnlocked = true;
                         renderSettings();
                     } else {
-                        holder[0].showError(getString(R.string.parent_code_invalid));
+                        holder[0].showError(getString(R.string.parent_pin_invalid));
                     }
                 });
             });
@@ -426,7 +475,7 @@ public final class MainActivity extends LocalizedActivity {
         CheckBox enforcement = new CheckBox(this);
         enforcement.setText(R.string.enable_limit);
         enforcement.setTextColor(Color.WHITE);
-        enforcement.setTextSize(18f);
+        enforcement.setTextSize(15f);
         enforcement.setChecked(store.isEnforcementEnabled());
         applyRowFocus(enforcement);
         addSection(enforcement);
@@ -440,7 +489,7 @@ public final class MainActivity extends LocalizedActivity {
         CheckBox usageWarning = new CheckBox(this);
         usageWarning.setText(R.string.usage_warning_enable);
         usageWarning.setTextColor(Color.WHITE);
-        usageWarning.setTextSize(18f);
+        usageWarning.setTextSize(15f);
         usageWarning.setChecked(storedWarningInterval != UsageWarningPolicy.DISABLED);
         applyRowFocus(usageWarning);
         addSection(usageWarning);
@@ -472,22 +521,10 @@ public final class MainActivity extends LocalizedActivity {
         addSubheading(getString(R.string.extension_title));
         RadioGroup extensionGroup = new RadioGroup(this);
         extensionGroup.setOrientation(LinearLayout.VERTICAL);
-        addTaggedRadio(
-                extensionGroup,
-                getString(R.string.extension_ask_every_time),
-                ExtensionDurationPolicy.ASK_EVERY_TIME,
-                store.getDefaultExtensionMinutes()
-        );
         for (int minutes : ExtensionDurationPolicy.CHOICES_MINUTES) {
             addTaggedRadio(
                     extensionGroup,
-                    minutes == 60
-                            ? getString(R.string.extension_auto_hour)
-                            : getResources().getQuantityString(
-                                    R.plurals.extension_auto_minutes,
-                                    minutes,
-                                    minutes
-                            ),
+                    extensionSettingLabel(minutes),
                     minutes,
                     store.getDefaultExtensionMinutes()
             );
@@ -538,6 +575,32 @@ public final class MainActivity extends LocalizedActivity {
         EditText newPin = addInput(getString(R.string.new_pin_hint), true);
         EditText newPinConfirmation = addInput(getString(R.string.repeat_new_pin_hint), true);
 
+        addSubheading(getString(R.string.emergency_code_title));
+        addParagraph(getString(store.hasEmergencyCode()
+                ? R.string.emergency_code_ready
+                : R.string.emergency_code_used));
+        Button newEmergencyCode = addButton(getString(R.string.create_emergency_code));
+        newEmergencyCode.setOnClickListener(view -> {
+            String generated;
+            do {
+                generated = EmergencyCode.generate();
+            } while (store.verifyPin(generated));
+            if (store.replaceEmergencyCode(generated)) {
+                renderEmergencyCode(generated, true);
+            } else {
+                showError(getString(R.string.settings_save_failed));
+            }
+        });
+
+        CheckBox usbRecovery = new CheckBox(this);
+        usbRecovery.setText(R.string.usb_recovery_enabled);
+        usbRecovery.setTextColor(Color.WHITE);
+        usbRecovery.setTextSize(15f);
+        usbRecovery.setChecked(store.isUsbRecoveryEnabled());
+        applyRowFocus(usbRecovery);
+        addSection(usbRecovery);
+        addNotice(getString(R.string.usb_recovery_settings_notice), 0xffffcc80);
+
         Button save = addButton(getString(R.string.save_settings));
         save.setOnClickListener(view -> {
             long dailyLimit = limitControl.getLimitMillis();
@@ -570,6 +633,7 @@ public final class MainActivity extends LocalizedActivity {
                     launcherGroup,
                     LauncherProfile.DEFAULT
             );
+            boolean usbRecoveryEnabled = usbRecovery.isChecked();
             int generation = screenGeneration;
             setButtonBusy(save, true, getString(R.string.saving));
             backgroundExecutor.execute(() -> {
@@ -581,7 +645,8 @@ public final class MainActivity extends LocalizedActivity {
                             enforcementEnabled,
                             defaultExtensionMinutes,
                             usageWarningIntervalMinutes,
-                            launcherProfile
+                            launcherProfile,
+                            usbRecoveryEnabled
                     );
                     boolean pinSaved = replacementPin.isEmpty() || store.changePin(replacementPin);
                     postToScreen(generation, () -> {
@@ -629,8 +694,6 @@ public final class MainActivity extends LocalizedActivity {
             adminUnlocked = false;
             renderLockedHome();
         });
-        addNotice(getString(R.string.usb_recovery_settings_notice), 0xffffcc80);
-
         addSubheading(getString(R.string.support_title));
         addParagraph(getString(R.string.support_info));
         ImageView supportQr = new ImageView(this);
@@ -1124,7 +1187,7 @@ public final class MainActivity extends LocalizedActivity {
         content.setMinimumHeight(0);
         content.setGravity(Gravity.TOP);
         int horizontalPadding = contentHorizontalPadding();
-        content.setPadding(horizontalPadding, dp(16), horizontalPadding, dp(24));
+        content.setPadding(horizontalPadding, dp(10), horizontalPadding, dp(14));
         serviceStatus = null;
         deviceAdminStatus = null;
         deviceAdminButton = null;
@@ -1134,7 +1197,7 @@ public final class MainActivity extends LocalizedActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
         languageParams.gravity = Gravity.END;
-        languageParams.bottomMargin = dp(8);
+        languageParams.bottomMargin = dp(5);
         content.addView(languageSwitcher, languageParams);
         scrollView.scrollTo(0, 0);
         int generation = screenGeneration;
@@ -1146,37 +1209,37 @@ public final class MainActivity extends LocalizedActivity {
     }
 
     private void addTitle(String text) {
-        TextView title = textView(text, 24f, Color.WHITE);
+        TextView title = textView(text, 21f, Color.WHITE);
         title.setGravity(Gravity.START);
         LinearLayout.LayoutParams params = matchWrapParams();
-        params.bottomMargin = dp(10);
+        params.bottomMargin = dp(6);
         content.addView(title, params);
     }
 
     private TextView addSubheading(String text) {
-        TextView heading = textView(text, 18f, Color.WHITE);
+        TextView heading = textView(text, 16f, Color.WHITE);
         LinearLayout.LayoutParams params = matchWrapParams();
-        params.topMargin = dp(12);
-        params.bottomMargin = dp(4);
+        params.topMargin = dp(8);
+        params.bottomMargin = dp(2);
         content.addView(heading, params);
         return heading;
     }
 
     private TextView addParagraph(String text) {
-        TextView paragraph = textView(text, 15f, 0xffeeeeee);
+        TextView paragraph = textView(text, 14f, 0xffeeeeee);
         LinearLayout.LayoutParams params = matchWrapParams();
-        params.bottomMargin = dp(7);
+        params.bottomMargin = dp(4);
         content.addView(paragraph, params);
         return paragraph;
     }
 
     private void addNotice(String text, int color) {
-        TextView notice = textView(text, 14f, color);
-        notice.setPadding(dp(10), dp(7), dp(10), dp(7));
+        TextView notice = textView(text, 13f, color);
+        notice.setPadding(dp(8), dp(4), dp(8), dp(4));
         notice.setBackgroundColor(0xff263238);
         LinearLayout.LayoutParams params = matchWrapParams();
-        params.topMargin = dp(10);
-        params.bottomMargin = dp(8);
+        params.topMargin = dp(6);
+        params.bottomMargin = dp(5);
         content.addView(notice, params);
     }
 
@@ -1185,12 +1248,12 @@ public final class MainActivity extends LocalizedActivity {
         MinuteLimitControl control = new MinuteLimitControl(initialMinutes);
         LinearLayout container = new LinearLayout(this);
         container.setOrientation(LinearLayout.VERTICAL);
-        container.setPadding(dp(12), dp(8), dp(12), dp(10));
+        container.setPadding(dp(8), dp(4), dp(8), dp(6));
         container.setBackgroundColor(0xff263238);
 
         control.valueView.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams valueParams = matchWrapParams();
-        valueParams.bottomMargin = dp(6);
+        valueParams.bottomMargin = dp(3);
         container.addView(control.valueView, valueParams);
 
         LinearLayout buttons = new LinearLayout(this);
@@ -1208,13 +1271,13 @@ public final class MainActivity extends LocalizedActivity {
     private void addLimitButton(LinearLayout row, String text, Runnable action) {
         Button button = new Button(this);
         button.setText(text);
-        button.setTextSize(15f);
+        button.setTextSize(14f);
         button.setAllCaps(false);
-        button.setMinHeight(dp(44));
+        button.setMinHeight(dp(38));
         applyTvButtonFocus(button);
         button.setOnClickListener(view -> action.run());
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(48), 1f);
-        params.setMargins(dp(3), 0, dp(3), 0);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(40), 1f);
+        params.setMargins(dp(2), 0, dp(2), 0);
         row.addView(button, params);
     }
 
@@ -1223,17 +1286,17 @@ public final class MainActivity extends LocalizedActivity {
         input.setHint(hint);
         input.setHintTextColor(0xff9e9e9e);
         input.setTextColor(Color.WHITE);
-        input.setTextSize(15f);
+        input.setTextSize(14f);
         input.setSingleLine(true);
         input.setInputType(InputType.TYPE_CLASS_NUMBER
                 | (password ? InputType.TYPE_NUMBER_VARIATION_PASSWORD : InputType.TYPE_NUMBER_VARIATION_NORMAL));
         input.setMaxWidth(dp(420));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(50)
+                dp(42)
         );
         params.gravity = Gravity.START;
-        params.bottomMargin = dp(10);
+        params.bottomMargin = dp(6);
         content.addView(input, params);
         return input;
     }
@@ -1243,9 +1306,9 @@ public final class MainActivity extends LocalizedActivity {
         button.setId(View.generateViewId());
         button.setText(text);
         button.setTextColor(Color.WHITE);
-        button.setTextSize(15f);
-        button.setMinHeight(dp(42));
-        button.setPadding(dp(8), 0, dp(8), 0);
+        button.setTextSize(14f);
+        button.setMinHeight(dp(38));
+        button.setPadding(dp(6), 0, dp(6), 0);
         applyRowFocus(button);
         group.addView(button, matchWrapParams());
         return button;
@@ -1290,28 +1353,45 @@ public final class MainActivity extends LocalizedActivity {
     private Button addButton(String text) {
         Button button = new Button(this);
         button.setText(text);
-        button.setTextSize(15f);
-        button.setMinHeight(dp(46));
-        button.setMaxWidth(dp(620));
+        button.setTextSize(14f);
+        button.setMinHeight(dp(40));
+        button.setMaxWidth(dp(560));
         button.setSingleLine(false);
         button.setMaxLines(2);
-        button.setPadding(dp(12), dp(4), dp(12), dp(4));
+        button.setPadding(dp(10), dp(2), dp(10), dp(2));
         button.setAllCaps(false);
         applyTvButtonFocus(button);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        params.topMargin = dp(8);
-        params.bottomMargin = dp(4);
+        params.topMargin = dp(5);
+        params.bottomMargin = dp(2);
         content.addView(button, params);
         return button;
     }
 
     private void addSection(View view) {
         LinearLayout.LayoutParams params = matchWrapParams();
-        params.bottomMargin = dp(8);
+        params.bottomMargin = dp(5);
         content.addView(view, params);
+    }
+
+    private String extensionSettingLabel(int minutes) {
+        if (minutes == 60) {
+            return getString(R.string.extension_auto_hour);
+        }
+        if (minutes == 90) {
+            return getString(R.string.extension_auto_ninety_minutes);
+        }
+        if (minutes == 120) {
+            return getString(R.string.extension_auto_two_hours);
+        }
+        return getResources().getQuantityString(
+                R.plurals.extension_auto_minutes,
+                minutes,
+                minutes
+        );
     }
 
     private TextView textView(String text, float size, int color) {
@@ -1414,7 +1494,7 @@ public final class MainActivity extends LocalizedActivity {
 
         private MinuteLimitControl(long initialMinutes) {
             minutes = LimitMath.adjustDailyMinutes(initialMinutes, 0L);
-            valueView = textView("", 24f, Color.WHITE);
+            valueView = textView("", 21f, Color.WHITE);
             valueView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
             updateText();
         }

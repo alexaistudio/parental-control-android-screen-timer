@@ -2,7 +2,7 @@ package dev.tvtimer.app;
 
 final class ExtensionDurationPolicy {
     static final int ASK_EVERY_TIME = 0;
-    static final int[] CHOICES_MINUTES = {10, 15, 20, 30, 40, 60};
+    static final int[] CHOICES_MINUTES = {10, 15, 20, 30, 40, 60, 90, 120};
 
     private ExtensionDurationPolicy() {
     }

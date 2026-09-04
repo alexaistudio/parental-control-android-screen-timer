@@ -16,8 +16,10 @@ public final class ExtensionDurationPolicyTest {
         assertTrue(ExtensionDurationPolicy.isSupported(30));
         assertTrue(ExtensionDurationPolicy.isSupported(40));
         assertTrue(ExtensionDurationPolicy.isSupported(60));
+        assertTrue(ExtensionDurationPolicy.isSupported(90));
+        assertTrue(ExtensionDurationPolicy.isSupported(120));
         assertFalse(ExtensionDurationPolicy.isSupported(5));
-        assertFalse(ExtensionDurationPolicy.isSupported(120));
+        assertFalse(ExtensionDurationPolicy.isSupported(180));
     }
 
     @Test

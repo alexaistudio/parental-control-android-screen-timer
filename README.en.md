@@ -44,12 +44,12 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - ⏱️ **One daily limit** for the whole device or only selected apps such as YouTube and games.
 - 🔐 **A phone code works for up to 5 minutes**, making it practical to enter with a remote or touchscreen, and then it expires. A separate backup PIN remains available.
 - 👨‍👩‍👧‍👦 **Several parents can connect** by scanning the same private QR setup on more than one phone.
-- ➕ **Add extra time immediately** — 10, 15, 20, 30, 40, or 60 minutes, automatically or by choosing after every parent code.
+- ➕ **A temporary code adds exactly the preset time** — from 10 minutes to 2 hours. The permanent PIN opens blue parent mode with manual 10, 15, 20, 30, 40, 60, 90, or 120-minute choices.
 - 🔔 **Simple viewing reminders** every 10, 20, or 30 minutes ask the child whether to continue or finish.
 - 🥷 **Ten names and icons**: Android Screen Timer, Calculator, Media Service, Clock, Weather, Notes, Calendar, Files, Gallery, or Help.
 - 🖼️ **Recognize selected apps immediately** from their real installed icons.
 - 🛡️ **A child cannot simply open settings and remove the limiter** — Android settings and the package installer require a parent code; Device Owner enables Android-level uninstall blocking.
-- 🔌 **USB emergency recovery** gives a parent a physical way to clear local protection and settings on devices with USB host support.
+- 🔌 **Safer USB recovery** — ordinary drives, charging, and peripherals disable nothing. Only a `Recovery` file opens parent mode without deleting settings, and USB Recovery can be disabled completely.
 - 📴 **No account and no tracking** — no ads, analytics, telemetry, cloud storage, or remote TOTP processing.
 - 📲 **Install from a phone without Bugjaeger** — the separate Parent Installer finds the target on the local network, pairs with Android's system code, installs its embedded blocker APK, and verifies screen control.
 - 🧾 **A failed operation never loses the device response** — Parent Installer persistently records commands, complete responses, and stack traces; the target IP/port and installation result are pinned at the top, while the full log can be copied or saved as TXT.
@@ -71,11 +71,14 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - The app picker shows every installed app's real icon next to its name and package ID.
 - Touchscreen or remote limit adjustment with `−15`, `−1`, `+1`, and `+15` buttons.
 - A small remaining-time counter over the active controlled app.
-- Optional automatic extra time or a choice of 10, 15, 20, 30, 40, or 60 minutes after successful parent verification.
+- A six-digit temporary code automatically adds the parent's preset 10–120 minutes. The permanent PIN changes the same blocker to blue parent mode with manual 10, 15, 20, 30, 40, 60, 90, or 120-minute choices.
+- Hold Back for eight seconds on a remote, or tap the top-left corner seven times on a touchscreen, to switch the existing blocker into parent mode. No second overlay can become hidden underneath it.
+- First-time setup creates a one-time four-digit emergency code. Only its PBKDF2 hash is stored; successful use removes it, and three failures block further attempts for 30 minutes. A new code can be created in settings.
 - Optional child reminders every 10, 20, or 30 minutes of actual viewing.
 - Usage pauses while the screen is off or a screensaver is active and is persisted every five seconds.
 - Android settings and the package installer are covered by a parent-code overlay.
 - Optional Device Admin and Device Owner protection.
+- USB Recovery reacts only to a case-insensitive `Recovery` or `Recovery.txt` file in the root of mounted removable storage. It opens parent mode without clearing settings and can be disabled with a checkbox.
 - Ten built-in launcher profiles with localized names, separate icons, and TV banners.
 - Manual secure update checking through GitHub Releases with SHA-256, package ID, version, and signing-certificate verification before the installer opens.
 - No accounts, advertising, analytics, telemetry, or cloud service. Network access is used only after the parent selects “Check for updates”.
@@ -86,18 +89,18 @@ Minimum supported version: Android 6.0 / API 23. The project targets Android SDK
 
 Without root or Device Owner mode, a third-party Android app cannot guarantee that it will block its own uninstall. In regular mode, Android Screen Timer protects system settings and the installer with the PIN/phone-code screen, while Device Admin adds an extra system deactivation step. Device Owner provides the real Android-level package uninstall block. Safe mode, factory reset, and manufacturer-specific behavior must still be tested on the target device.
 
-On devices with USB host support, the guaranteed emergency path is a USB flash drive: connecting one clears the local configuration and requests removal of Device Admin protection. USB keyboard, game-controller, and wireless-receiver events depend on the firmware. Leaving a flash drive connected may trigger recovery again when Android remounts it.
+USB Recovery is an additional path, not a universal Android guarantee, because removable-root access depends on firmware. Put an empty `Recovery`, `Recovery.txt`, or `File Recovery` file in the drive root; case and file size do not matter. Recognizing it opens parent mode without clearing the PIN, limits, selected apps, or Device Owner. On devices without USB, use the permanent PIN or one-time emergency code.
 
 ## Installation
 
 Every release contains two signed files:
 
-- `AndroidScreenTimer-1.4.3.apk` — the blocker for a TV, tablet, or phone;
-- `AndroidScreenTimer-Parent-1.4.3.apk` — the Parent Installer for an Android phone; it already embeds the first APK.
+- `AndroidScreenTimer-1.4.4.apk` — the blocker for a TV, tablet, or phone;
+- `AndroidScreenTimer-Parent-1.4.4.apk` — the Parent Installer for an Android phone; it already embeds the first APK.
 
 ### Option 1 — install from a phone
 
-1. Install `AndroidScreenTimer-Parent-1.4.3.apk` on the parent's phone. Bugjaeger, a computer, and root are not required.
+1. Install `AndroidScreenTimer-Parent-1.4.4.apk` on the parent's phone. Bugjaeger, a computer, and root are not required.
 2. Put the phone and target device on the same normal Wi‑Fi network without client isolation.
 3. On a target **TV / Google TV**, open `Settings → System` or `Device preferences → About`, then press `Build`, `Build number`, or `Android TV OS build` seven times. Go back to `Developer options`.
 4. On a target **phone / tablet**, open `Settings → About phone/tablet → Build number`, press it seven times, then open `System → Developer options`.
@@ -113,11 +116,11 @@ Do not mix the methods: `USB debugging` does not enable Wi-Fi ADB. If Wireless d
 
 This is a separate USB/local route. A normal phone ↔ TV cable usually cannot work because both ports act as USB hosts. Use a USB flash drive or a computer to which the target really connects as an ADB device.
 
-1. Download `AndroidScreenTimer-1.4.3.apk` from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
+1. Download `AndroidScreenTimer-1.4.4.apk` from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
 2. Install it from a USB drive, browser, or through ADB:
 
    ```powershell
-   adb install -r AndroidScreenTimer-1.4.3.apk
+   adb install -r AndroidScreenTimer-1.4.4.apk
    ```
 
 3. Open Android Screen Timer, select `EN`, and scan the first QR code with an authenticator app on a parent's phone.
@@ -137,7 +140,7 @@ adb shell dpm set-device-owner dev.tvtimer.app/.TimerDeviceAdminReceiver
 adb shell dpm list-owners
 ```
 
-Open Android Screen Timer and verify that the settings page reports Android-level uninstall blocking. On devices with USB host support, a USB flash drive remains the emergency key that clears the configuration, releases the uninstall block, and removes Device Owner ownership.
+Open Android Screen Timer and verify that the settings page reports Android-level uninstall blocking. USB Recovery does not release Device Owner: the `Recovery` file only opens parent mode without destroying protection or settings.
 
 Launcher disguise is selected after parent authentication in Android Screen Timer settings. Android does not let an installed APK choose an arbitrary name or icon during installation, so the app includes ten safe built-in profiles. The package remains visible in Android's system app list; some launchers may need a Home-screen restart before the new icon appears.
 

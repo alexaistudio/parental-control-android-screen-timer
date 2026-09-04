@@ -3,10 +3,7 @@ package dev.tvtimer.app;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.ComponentName;
-import android.app.admin.DevicePolicyManager;
 import android.net.Uri;
-import android.os.Environment;
 import android.util.Log;
 
 import java.io.File;
@@ -16,63 +13,48 @@ public final class UsbRecoveryReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (isRecoveryIntent(intent)) {
-            performRecovery(context);
+        ConfigStore store = new ConfigStore(context);
+        if (!store.isUsbRecoveryEnabled()) {
+            return;
+        }
+        File recoveryFile = findRecoveryFile(intent);
+        if (recoveryFile == null) {
+            return;
+        }
+        if (store.requestRecoveryMode()) {
+            DiagnosticLog.info(
+                    context,
+                    TAG,
+                    "Recovery file detected; parent mode requested"
+            );
         }
     }
 
-    static boolean isRecoveryIntent(Intent intent) {
+    static File findRecoveryFile(Intent intent) {
         if (intent == null) {
-            return false;
+            return null;
         }
         String action = intent.getAction();
-        if (UsbRecoveryPolicy.shouldRecover(action, false)) {
-            return true;
-        }
         if (!Intent.ACTION_MEDIA_MOUNTED.equals(action)) {
-            return false;
+            return null;
         }
         Uri data = intent.getData();
         if (data == null || data.getPath() == null) {
-            return false;
+            return null;
         }
         try {
-            boolean removable = Environment.isExternalStorageRemovable(new File(data.getPath()));
-            return UsbRecoveryPolicy.shouldRecover(action, removable);
-        } catch (IllegalArgumentException | SecurityException exception) {
-            Log.w(TAG, "Unable to classify mounted storage; recovery was not triggered");
-            return false;
-        }
-    }
-
-    static void performRecovery(Context context) {
-        ConfigStore store = new ConfigStore(context);
-        if (!store.isConfigured()) {
-            return;
-        }
-        if (store.resetForUsbRecovery()) {
-            DeviceOwnerProtection.releaseForUsbRecovery(context);
-            removeDeviceAdmin(context);
-            Log.i(TAG, "USB recovery cleared the local PIN and disabled enforcement");
-        } else {
-            Log.e(TAG, "USB recovery could not persist the reset");
-        }
-    }
-
-    private static void removeDeviceAdmin(Context context) {
-        DevicePolicyManager manager = (DevicePolicyManager) context.getSystemService(
-                Context.DEVICE_POLICY_SERVICE
-        );
-        if (manager == null) {
-            return;
-        }
-        ComponentName component = new ComponentName(context, TimerDeviceAdminReceiver.class);
-        try {
-            if (manager.isAdminActive(component)) {
-                manager.removeActiveAdmin(component);
+            File[] files = new File(data.getPath()).listFiles();
+            if (files == null) {
+                return null;
             }
-        } catch (RuntimeException exception) {
-            Log.w(TAG, "Unable to remove device-admin protection during USB recovery", exception);
+            for (File file : files) {
+                if (file.isFile() && RecoveryFilePolicy.isRecoveryFileName(file.getName())) {
+                    return UsbRecoveryPolicy.shouldOpenRecovery(action, true) ? file : null;
+                }
+            }
+        } catch (SecurityException exception) {
+            Log.w(TAG, "Unable to inspect mounted storage for Recovery file", exception);
         }
+        return null;
     }
 }

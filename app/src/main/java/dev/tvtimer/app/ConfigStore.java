@@ -22,7 +22,8 @@ public final class ConfigStore {
     private static final String KEY_USAGE_DAY = "usage_day";
     private static final String KEY_USAGE_MILLIS = "usage_ms";
     private static final String KEY_BONUS_MILLIS = "bonus_ms";
-    private static final String KEY_USB_RECOVERY = "usb_recovery";
+    private static final String KEY_RECOVERY_REQUESTED = "recovery_requested";
+    private static final String KEY_USB_RECOVERY_ENABLED = "usb_recovery_enabled";
     private static final String KEY_MAINTENANCE_UNTIL = "maintenance_until_ms";
     private static final String KEY_AUTHENTICATOR_SECRET = "authenticator_secret";
     private static final String KEY_DEFAULT_EXTENSION_MINUTES = "default_extension_minutes";
@@ -31,10 +32,17 @@ public final class ConfigStore {
     private static final String KEY_USAGE_WARNING_DAY = "usage_warning_day";
     private static final String KEY_LAST_USAGE_WARNING_MINUTES = "last_usage_warning_minutes";
     private static final String KEY_LANGUAGE = "language";
+    private static final String KEY_EMERGENCY_SALT = "emergency_salt";
+    private static final String KEY_EMERGENCY_HASH = "emergency_hash";
+    private static final String KEY_EMERGENCY_ITERATIONS = "emergency_iterations";
+    private static final String KEY_EMERGENCY_FAILURES = "emergency_failures";
+    private static final String KEY_EMERGENCY_BLOCKED_UNTIL = "emergency_blocked_until";
+    private static final String KEY_PARENT_SETTINGS_GRANT_UNTIL = "parent_settings_grant_until";
 
     public static final long DEFAULT_LIMIT_MILLIS = 60L * 60L * 1_000L;
     public static final long MAINTENANCE_WINDOW_MILLIS = 2L * 60L * 1_000L;
     public static final int DEFAULT_EXTENSION_MINUTES = 15;
+    public static final long EMERGENCY_LOCK_MILLIS = 30L * 60L * 1_000L;
 
     private final SharedPreferences preferences;
 
@@ -76,6 +84,7 @@ public final class ConfigStore {
 
     public boolean configure(
             String pin,
+            String emergencyCode,
             long dailyLimitMillis,
             String scope,
             Set<String> selectedPackages
@@ -85,16 +94,26 @@ public final class ConfigStore {
                 ? Collections.emptySet()
                 : selectedPackages;
         PinHasher.Record pinRecord = PinHasher.create(pin);
+        if (!EmergencyCode.isValid(emergencyCode)) {
+            throw new IllegalArgumentException("Emergency code must contain four digits");
+        }
+        PinHasher.Record emergencyRecord = PinHasher.create(emergencyCode);
         return preferences.edit()
                 .putBoolean(KEY_CONFIGURED, true)
                 .putBoolean(KEY_ENFORCEMENT_ENABLED, true)
                 .putString(KEY_PIN_SALT, pinRecord.getSaltHex())
                 .putString(KEY_PIN_HASH, pinRecord.getHashHex())
                 .putInt(KEY_PIN_ITERATIONS, pinRecord.getIterations())
+                .putString(KEY_EMERGENCY_SALT, emergencyRecord.getSaltHex())
+                .putString(KEY_EMERGENCY_HASH, emergencyRecord.getHashHex())
+                .putInt(KEY_EMERGENCY_ITERATIONS, emergencyRecord.getIterations())
+                .putInt(KEY_EMERGENCY_FAILURES, 0)
+                .putLong(KEY_EMERGENCY_BLOCKED_UNTIL, 0L)
                 .putLong(KEY_DAILY_LIMIT, dailyLimitMillis)
                 .putString(KEY_SCOPE, scope)
                 .putStringSet(KEY_SELECTED_PACKAGES, new HashSet<>(safeSelectedPackages))
-                .putBoolean(KEY_USB_RECOVERY, false)
+                .putBoolean(KEY_RECOVERY_REQUESTED, false)
+                .putBoolean(KEY_USB_RECOVERY_ENABLED, true)
                 .putInt(KEY_DEFAULT_EXTENSION_MINUTES, DEFAULT_EXTENSION_MINUTES)
                 .putInt(KEY_USAGE_WARNING_INTERVAL_MINUTES, UsageWarningPolicy.DISABLED)
                 .putString(KEY_LAUNCHER_PROFILE, LauncherProfile.DEFAULT)
@@ -108,7 +127,8 @@ public final class ConfigStore {
             boolean enforcementEnabled,
             int defaultExtensionMinutes,
             int usageWarningIntervalMinutes,
-            String launcherProfile
+            String launcherProfile,
+            boolean usbRecoveryEnabled
     ) {
         validateSettings(dailyLimitMillis, scope, selectedPackages);
         ExtensionDurationPolicy.requireSupported(defaultExtensionMinutes);
@@ -117,7 +137,7 @@ public final class ConfigStore {
         Set<String> safeSelectedPackages = selectedPackages == null
                 ? Collections.emptySet()
                 : selectedPackages;
-        return preferences.edit()
+        SharedPreferences.Editor editor = preferences.edit()
                 .putLong(KEY_DAILY_LIMIT, dailyLimitMillis)
                 .putString(KEY_SCOPE, scope)
                 .putStringSet(KEY_SELECTED_PACKAGES, new HashSet<>(safeSelectedPackages))
@@ -125,7 +145,11 @@ public final class ConfigStore {
                 .putInt(KEY_DEFAULT_EXTENSION_MINUTES, defaultExtensionMinutes)
                 .putInt(KEY_USAGE_WARNING_INTERVAL_MINUTES, usageWarningIntervalMinutes)
                 .putString(KEY_LAUNCHER_PROFILE, launcherProfile)
-                .commit();
+                .putBoolean(KEY_USB_RECOVERY_ENABLED, usbRecoveryEnabled);
+        if (!usbRecoveryEnabled) {
+            editor.putBoolean(KEY_RECOVERY_REQUESTED, false);
+        }
+        return editor.commit();
     }
 
     public int getDefaultExtensionMinutes() {
@@ -133,7 +157,10 @@ public final class ConfigStore {
                 KEY_DEFAULT_EXTENSION_MINUTES,
                 DEFAULT_EXTENSION_MINUTES
         );
-        return ExtensionDurationPolicy.isSupported(value) ? value : DEFAULT_EXTENSION_MINUTES;
+        return value != ExtensionDurationPolicy.ASK_EVERY_TIME
+                && ExtensionDurationPolicy.isSupported(value)
+                ? value
+                : DEFAULT_EXTENSION_MINUTES;
     }
 
     public int getUsageWarningIntervalMinutes() {
@@ -203,6 +230,73 @@ public final class ConfigStore {
         }
         String secret = preferences.getString(KEY_AUTHENTICATOR_SECRET, null);
         return TotpAuthenticator.verify(code, secret, nowMillis);
+    }
+
+    public boolean verifyAuthenticatorCode(String code, long nowMillis) {
+        String secret = preferences.getString(KEY_AUTHENTICATOR_SECRET, null);
+        return TotpAuthenticator.verify(code, secret, nowMillis);
+    }
+
+    public synchronized boolean consumeEmergencyCode(String code, long nowMillis) {
+        if (!EmergencyCode.isValid(code)
+                || nowMillis < preferences.getLong(KEY_EMERGENCY_BLOCKED_UNTIL, 0L)) {
+            return false;
+        }
+        boolean verified = PinHasher.verify(
+                code,
+                preferences.getString(KEY_EMERGENCY_SALT, null),
+                preferences.getString(KEY_EMERGENCY_HASH, null),
+                preferences.getInt(KEY_EMERGENCY_ITERATIONS, PinHasher.CURRENT_ITERATIONS)
+        );
+        if (verified) {
+            return preferences.edit()
+                    .remove(KEY_EMERGENCY_SALT)
+                    .remove(KEY_EMERGENCY_HASH)
+                    .remove(KEY_EMERGENCY_ITERATIONS)
+                    .putInt(KEY_EMERGENCY_FAILURES, 0)
+                    .putLong(KEY_EMERGENCY_BLOCKED_UNTIL, 0L)
+                    .commit();
+        }
+        int failures = preferences.getInt(KEY_EMERGENCY_FAILURES, 0) + 1;
+        SharedPreferences.Editor editor = preferences.edit();
+        if (failures >= 3) {
+            editor.putInt(KEY_EMERGENCY_FAILURES, 0)
+                    .putLong(KEY_EMERGENCY_BLOCKED_UNTIL, nowMillis + EMERGENCY_LOCK_MILLIS);
+        } else {
+            editor.putInt(KEY_EMERGENCY_FAILURES, failures);
+        }
+        editor.commit();
+        return false;
+    }
+
+    public boolean replaceEmergencyCode(String emergencyCode) {
+        if (!EmergencyCode.isValid(emergencyCode)) {
+            throw new IllegalArgumentException("Emergency code must contain four digits");
+        }
+        PinHasher.Record record = PinHasher.create(emergencyCode);
+        return preferences.edit()
+                .putString(KEY_EMERGENCY_SALT, record.getSaltHex())
+                .putString(KEY_EMERGENCY_HASH, record.getHashHex())
+                .putInt(KEY_EMERGENCY_ITERATIONS, record.getIterations())
+                .putInt(KEY_EMERGENCY_FAILURES, 0)
+                .putLong(KEY_EMERGENCY_BLOCKED_UNTIL, 0L)
+                .commit();
+    }
+
+    public boolean hasEmergencyCode() {
+        return preferences.contains(KEY_EMERGENCY_HASH);
+    }
+
+    public boolean grantParentSettingsLaunch(long nowMillis) {
+        return preferences.edit()
+                .putLong(KEY_PARENT_SETTINGS_GRANT_UNTIL, nowMillis + 30_000L)
+                .commit();
+    }
+
+    public synchronized boolean consumeParentSettingsLaunch(long nowMillis) {
+        long allowedUntil = preferences.getLong(KEY_PARENT_SETTINGS_GRANT_UNTIL, 0L);
+        preferences.edit().remove(KEY_PARENT_SETTINGS_GRANT_UNTIL).commit();
+        return nowMillis <= allowedUntil;
     }
 
     public boolean changePin(String newPin) {
@@ -282,15 +376,23 @@ public final class ConfigStore {
         return nowMillis < preferences.getLong(KEY_MAINTENANCE_UNTIL, 0L);
     }
 
-    public boolean resetForUsbRecovery() {
-        return preferences.edit()
-                .clear()
-                .putBoolean(KEY_USB_RECOVERY, true)
-                .commit();
+    public boolean requestRecoveryMode() {
+        if (!isUsbRecoveryEnabled()) {
+            return false;
+        }
+        return preferences.edit().putBoolean(KEY_RECOVERY_REQUESTED, true).commit();
     }
 
-    public boolean hasUsbRecoveryNotice() {
-        return preferences.getBoolean(KEY_USB_RECOVERY, false);
+    public boolean isUsbRecoveryEnabled() {
+        return preferences.getBoolean(KEY_USB_RECOVERY_ENABLED, true);
+    }
+
+    public boolean isRecoveryModeRequested() {
+        return preferences.getBoolean(KEY_RECOVERY_REQUESTED, false);
+    }
+
+    public boolean clearRecoveryModeRequest() {
+        return preferences.edit().putBoolean(KEY_RECOVERY_REQUESTED, false).commit();
     }
 
     public void registerListener(SharedPreferences.OnSharedPreferenceChangeListener listener) {
@@ -309,6 +411,8 @@ public final class ConfigStore {
                 || KEY_SCOPE.equals(key)
                 || KEY_SELECTED_PACKAGES.equals(key)
                 || KEY_MAINTENANCE_UNTIL.equals(key)
+                || KEY_RECOVERY_REQUESTED.equals(key)
+                || KEY_USB_RECOVERY_ENABLED.equals(key)
                 || KEY_DEFAULT_EXTENSION_MINUTES.equals(key)
                 || KEY_USAGE_WARNING_INTERVAL_MINUTES.equals(key)
                 || KEY_AUTHENTICATOR_SECRET.equals(key)
