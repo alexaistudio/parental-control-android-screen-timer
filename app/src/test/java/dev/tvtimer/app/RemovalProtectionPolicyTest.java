@@ -52,4 +52,19 @@ public final class RemovalProtectionPolicyTest {
         assertTrue(RemovalProtectionPolicy.isProtectionPackage("com.google.android.permissioncontroller"));
         assertFalse(RemovalProtectionPolicy.isProtectionPackage("com.google.android.youtube.tv"));
     }
+
+    @Test
+    public void waitsForAStableSensitiveScreenAndHonorsMaintenance() {
+        assertFalse(RemovalProtectionPolicy.shouldBlock(true, 1_100L, 1_400L, false));
+        assertTrue(RemovalProtectionPolicy.shouldBlock(true, 1_400L, 1_400L, false));
+        assertFalse(RemovalProtectionPolicy.shouldBlock(false, 2_000L, 1_400L, false));
+        assertFalse(RemovalProtectionPolicy.shouldBlock(true, 2_000L, 1_400L, true));
+    }
+
+    @Test
+    public void dismissesProtectionOnlyForTheHomeNavigationReason() {
+        assertTrue(RemovalProtectionPolicy.isHomeNavigationReason("homekey"));
+        assertFalse(RemovalProtectionPolicy.isHomeNavigationReason("recentapps"));
+        assertFalse(RemovalProtectionPolicy.isHomeNavigationReason(null));
+    }
 }

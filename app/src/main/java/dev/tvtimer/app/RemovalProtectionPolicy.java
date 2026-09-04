@@ -3,6 +3,7 @@ package dev.tvtimer.app;
 import java.util.Locale;
 
 final class RemovalProtectionPolicy {
+    private static final String HOME_NAVIGATION_REASON = "homekey";
     private RemovalProtectionPolicy() {
     }
 
@@ -41,6 +42,17 @@ final class RemovalProtectionPolicy {
         return value.equals("android")
                 || isSettingsPackage(value)
                 || isInstallerPackage(value);
+    }
+
+    static boolean shouldBlock(boolean sensitiveScreenActive, long nowElapsed,
+                               long eligibleAtElapsed, boolean maintenanceAllowed) {
+        return sensitiveScreenActive
+                && nowElapsed >= eligibleAtElapsed
+                && !maintenanceAllowed;
+    }
+
+    static boolean isHomeNavigationReason(String reason) {
+        return HOME_NAVIGATION_REASON.equals(reason);
     }
 
     private static boolean isSettingsPackage(String value) {

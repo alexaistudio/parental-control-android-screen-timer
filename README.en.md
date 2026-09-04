@@ -49,6 +49,7 @@ Set the rules once. Android Screen Timer counts real viewing time on a TV, table
 - 🥷 **Ten names and icons**: Android Screen Timer, Calculator, Media Service, Clock, Weather, Notes, Calendar, Files, Gallery, or Help.
 - 🖼️ **Recognize selected apps immediately** from their real installed icons.
 - 🛡️ **A child cannot simply open settings and remove the limiter** — Android settings and the package installer require a parent code; Device Owner enables Android-level uninstall blocking.
+- ✅ **Protection stays out of the way when a parent exits** — Back returns directly to the device Home screen; the overlay appears only for a genuinely open sensitive system page and cannot remain frozen on `Checking…`.
 - 🔌 **Safer USB recovery** — ordinary drives, charging, and peripherals disable nothing. Only a `Recovery` file opens parent mode without deleting settings, and USB Recovery can be disabled completely.
 - 🕵️ **The hidden entrance stays under parent control** — holding Back and seven corner taps can be disabled completely with their own checkbox, independently of USB Recovery.
 - 📴 **No account and no tracking** — no ads, analytics, telemetry, cloud storage, or remote TOTP processing.
@@ -97,12 +98,12 @@ USB Recovery is an additional path, not a universal Android guarantee, because r
 
 Every release contains two signed files:
 
-- `AndroidScreenTimer-1.4.6.apk` — the blocker for a TV, tablet, or phone;
-- `AndroidScreenTimer-Parent-1.4.6.apk` — the Parent Installer for an Android phone; it already embeds the first APK.
+- `AndroidScreenTimer-1.4.7.apk` — the blocker for a TV, tablet, or phone;
+- `AndroidScreenTimer-Parent-1.4.7.apk` — the Parent Installer for an Android phone; it already embeds the first APK.
 
 ### Option 1 — install from a phone
 
-1. Install `AndroidScreenTimer-Parent-1.4.6.apk` on the parent's phone. Bugjaeger, a computer, and root are not required.
+1. Install `AndroidScreenTimer-Parent-1.4.7.apk` on the parent's phone. Bugjaeger, a computer, and root are not required.
 2. Put the phone and target device on the same normal Wi‑Fi network without client isolation.
 3. On a target **TV / Google TV**, open `Settings → System` or `Device preferences → About`, then press `Build`, `Build number`, or `Android TV OS build` seven times. Go back to `Developer options`.
 4. On a target **phone / tablet**, open `Settings → About phone/tablet → Build number`, press it seven times, then open `System → Developer options`.
@@ -118,11 +119,11 @@ Do not mix the methods: `USB debugging` does not enable Wi-Fi ADB. If Wireless d
 
 This is a separate USB/local route. A normal phone ↔ TV cable usually cannot work because both ports act as USB hosts. Use a USB flash drive or a computer to which the target really connects as an ADB device.
 
-1. Download `AndroidScreenTimer-1.4.6.apk` from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
+1. Download `AndroidScreenTimer-1.4.7.apk` from [GitHub Releases](https://github.com/alexaistudio/parental-control-android-screen-timer/releases).
 2. Install it from a USB drive, browser, or through ADB:
 
    ```powershell
-   adb install -r AndroidScreenTimer-1.4.6.apk
+   adb install -r AndroidScreenTimer-1.4.7.apk
    ```
 
 3. Open Android Screen Timer, select `EN`, and scan the first QR code with an authenticator app on a parent's phone.

@@ -13,6 +13,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 public final class PinPadView extends LinearLayout {
+    private static final long VERIFICATION_TIMEOUT_MILLIS = 15_000L;
     public interface Listener {
         void onPinSubmitted(String pin);
     }
@@ -23,6 +24,11 @@ public final class PinPadView extends LinearLayout {
     private final Listener listener;
     private final GridLayout keys;
     private boolean busy;
+    private final Runnable verificationTimeout = () -> {
+        if (busy) {
+            showError(getContext().getString(R.string.pin_verification_timeout));
+        }
+    };
 
     public PinPadView(Context context) {
         this(context, pin -> {
@@ -83,12 +89,20 @@ public final class PinPadView extends LinearLayout {
 
     public void setBusy(boolean busy) {
         this.busy = busy;
+        removeCallbacks(verificationTimeout);
         for (int index = 0; index < keys.getChildCount(); index++) {
             keys.getChildAt(index).setEnabled(!busy);
         }
         if (busy) {
             message.setText(R.string.pin_checking);
+            postDelayed(verificationTimeout, VERIFICATION_TIMEOUT_MILLIS);
         }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        removeCallbacks(verificationTimeout);
+        super.onDetachedFromWindow();
     }
 
     public void clearPin() {

@@ -42,6 +42,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private static final String TAG = "ScreenTimerService";
     private static final long TICK_MILLIS = 1_000L;
     private static final long PERSIST_INTERVAL_MILLIS = 5_000L;
+    private static final long PROTECTION_STABILITY_MILLIS = 400L;
+    private static final String SYSTEM_DIALOG_REASON_KEY = "reason";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor();
@@ -66,6 +68,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private boolean configurationPresent;
     private boolean enforcementEnabled;
     private boolean protectedScreenActive;
+    private long protectionEligibleAtElapsed;
     private String targetScope = AppScope.ALL;
     private Set<String> targetPackages = Collections.emptySet();
     private Set<String> homePackages = Collections.emptySet();
@@ -174,7 +177,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             return;
         }
         int type = event.getEventType();
-        if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+        if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                && type != AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
             return;
         }
         CharSequence packageName = event.getPackageName();
@@ -196,7 +200,25 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             }
         }
         if (protectionWasActive != protectedScreenActive) {
-            evaluateNow();
+            if (protectedScreenActive) {
+                protectionEligibleAtElapsed = SystemClock.elapsedRealtime()
+                        + PROTECTION_STABILITY_MILLIS;
+                DiagnosticLog.info(
+                        this,
+                        TAG,
+                        "Sensitive screen detected; protection pending for package="
+                                + nextPackage + ", class=" + nextClass
+                );
+                handler.postDelayed(this::evaluateNow, PROTECTION_STABILITY_MILLIS);
+            } else {
+                protectionEligibleAtElapsed = 0L;
+                DiagnosticLog.info(
+                        this,
+                        TAG,
+                        "Sensitive screen cleared"
+                );
+                evaluateNow();
+            }
         }
         if (!launchablePackages.isEmpty()
                 && !launchablePackages.contains(nextPackage)
@@ -280,6 +302,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         configurationPresent = store.isConfigured();
         if (!configurationPresent) {
             protectedScreenActive = false;
+            protectionEligibleAtElapsed = 0L;
         }
         enforcementEnabled = store.isEnforcementEnabled();
         targetScope = store.getScope();
@@ -327,8 +350,12 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
         if (configurationPresent
                 && screenActive
-                && protectedScreenActive
-                && !store.isMaintenanceAllowed(System.currentTimeMillis())) {
+                && RemovalProtectionPolicy.shouldBlock(
+                        protectedScreenActive,
+                        nowElapsed,
+                        protectionEligibleAtElapsed,
+                        store.isMaintenanceAllowed(System.currentTimeMillis())
+                )) {
             countedDuringPreviousInterval = false;
             showBlocker(BlockReason.REMOVAL_PROTECTION);
             return;
@@ -403,11 +430,14 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             params.gravity = Gravity.TOP | Gravity.END;
             params.x = dp(22);
             params.y = dp(22);
+            timerView = view;
             try {
                 windowManager.addView(view, params);
-                timerView = view;
                 recordOverlaySuccess();
             } catch (RuntimeException exception) {
+                if (timerView == view) {
+                    timerView = null;
+                }
                 recordOverlayFailure("timer", exception);
                 return;
             }
@@ -523,12 +553,12 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 PixelFormat.OPAQUE
         );
         params.gravity = Gravity.TOP | Gravity.START;
+        blockerView = root;
+        blockerRoot = root;
+        blockerPanel = panel;
+        blockerReason = reason;
         try {
             windowManager.addView(root, params);
-            blockerView = root;
-            blockerRoot = root;
-            blockerPanel = panel;
-            blockerReason = reason;
             if (initialFocus instanceof PinPadView) {
                 PinPadView pinPad = (PinPadView) initialFocus;
                 pinPad.post(pinPad::requestInitialFocus);
@@ -536,7 +566,16 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 initialFocus.post(initialFocus::requestFocus);
             }
             recordOverlaySuccess();
+            DiagnosticLog.info(this, TAG, "Blocker shown; reason=" + reason);
         } catch (RuntimeException exception) {
+            root.cancelParentModeAction();
+            if (blockerView == root) {
+                blockerView = null;
+                blockerRoot = null;
+                blockerPanel = null;
+                blockerReason = null;
+                parentModeActive = false;
+            }
             recordOverlayFailure("blocker", exception);
         }
     }
@@ -574,6 +613,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                     if (!connected
                             || blockerView == null
                             || generation != pinPromptGeneration) {
+                        recoverStalePinPrompt(holder[0], reason, generation);
                         return;
                     }
                     if (result) {
@@ -636,6 +676,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 boolean result = verified;
                 handler.post(() -> {
                     if (!connected || blockerView == null || generation != pinPromptGeneration) {
+                        recoverStalePinPrompt(holder[0], reason, generation);
                         return;
                     }
                     if (result) {
@@ -648,6 +689,27 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         });
         panel.addView(holder[0], wrapParams(0));
         return holder[0];
+    }
+
+    private void recoverStalePinPrompt(
+            PinPadView pinPad,
+            BlockReason reason,
+            int generation
+    ) {
+        DiagnosticLog.warning(
+                this,
+                TAG,
+                "Discarded stale PIN result; reason=" + reason
+                        + ", generation=" + generation
+                        + ", currentGeneration=" + pinPromptGeneration,
+                null
+        );
+        View staleRoot = pinPad == null ? null : pinPad.getRootView();
+        if (staleRoot != null
+                && staleRoot != blockerView
+                && staleRoot.isAttachedToWindow()) {
+            removeViewSafely(staleRoot);
+        }
     }
 
     private View renderUsageWarning(LinearLayout panel) {
@@ -716,6 +778,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             Button home = overlayButton(getString(R.string.return_home));
             home.setOnClickListener(view -> {
                 protectedScreenActive = false;
+                protectionEligibleAtElapsed = 0L;
                 removeBlocker();
                 performGlobalAction(GLOBAL_ACTION_HOME);
             });
@@ -868,8 +931,33 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         stateReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                evaluateNow();
                 String action = intent.getAction();
+                String systemDialogReason = Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action)
+                        ? intent.getStringExtra(SYSTEM_DIALOG_REASON_KEY)
+                        : null;
+                if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action)) {
+                    DiagnosticLog.info(
+                            LimiterAccessibilityService.this,
+                            TAG,
+                            "System dialogs closed; reason=" + systemDialogReason
+                    );
+                }
+                if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action)
+                        && RemovalProtectionPolicy.isHomeNavigationReason(systemDialogReason)
+                        && blockerReason == BlockReason.REMOVAL_PROTECTION) {
+                    DiagnosticLog.info(
+                            LimiterAccessibilityService.this,
+                            TAG,
+                            "System navigation closed the protected screen"
+                    );
+                    protectedScreenActive = false;
+                    protectionEligibleAtElapsed = 0L;
+                    countedDuringPreviousInterval = false;
+                    lastTickElapsed = SystemClock.elapsedRealtime();
+                    removeBlocker();
+                    return;
+                }
+                evaluateNow();
                 if (Intent.ACTION_SCREEN_OFF.equals(action)) {
                     interactive = false;
                     countedDuringPreviousInterval = false;
@@ -903,6 +991,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         stateFilter.addAction(Intent.ACTION_USER_PRESENT);
         stateFilter.addAction(Intent.ACTION_DREAMING_STARTED);
         stateFilter.addAction(Intent.ACTION_DREAMING_STOPPED);
+        stateFilter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         registerSystemReceiver(stateReceiver, stateFilter);
 
     }
@@ -1035,6 +1124,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
 
     private void removeBlocker() {
         if (blockerView != null) {
+            BlockReason removedReason = blockerReason;
             pinPromptGeneration++;
             removeViewSafely(blockerView);
             blockerView = null;
@@ -1047,6 +1137,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             parentModeActive = false;
             pendingWarningMinutes = 0L;
             pendingWarningDay = null;
+            DiagnosticLog.info(this, TAG, "Blocker removed; reason=" + removedReason);
         }
     }
 

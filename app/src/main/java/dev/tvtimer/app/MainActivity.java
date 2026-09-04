@@ -153,10 +153,28 @@ public final class MainActivity extends LocalizedActivity {
         }
         if (store != null && store.isConfigured() && adminUnlocked) {
             adminUnlocked = false;
-            renderLockedHome();
+            exitToHome();
+            return;
+        }
+        if (store != null && store.isConfigured()) {
+            exitToHome();
             return;
         }
         super.onBackPressed();
+    }
+
+    private void exitToHome() {
+        DiagnosticLog.info(this, TAG, "Leaving app through Back; opening device home screen");
+        Intent home = new Intent(Intent.ACTION_MAIN)
+                .addCategory(Intent.CATEGORY_HOME)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        try {
+            startActivity(home);
+        } catch (RuntimeException exception) {
+            DiagnosticLog.warning(this, TAG, "Unable to open device home screen", exception);
+        } finally {
+            finish();
+        }
     }
 
     @Override

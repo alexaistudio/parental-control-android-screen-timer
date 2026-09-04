@@ -46,6 +46,7 @@
     <string name="parent_code_invalid">Неверный PIN или код</string>
     <string name="pin_entered_description">Введённый PIN</string>
     <string name="pin_checking">Проверка…</string>
+    <string name="pin_verification_timeout">Проверка не завершилась. Попробуйте ещё раз.</string>
     <string name="pin_enter_digits">Введите от 4 до 8 цифр</string>
 
     <string name="settings_title">Настройки Android Screen Timer</string>
