@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108" role="img" aria-label="Android Screen Timer">
+  <rect width="108" height="108" rx="24" fill="#263238"/>
+  <path fill="#FFFFFF" d="M24,28h60c4.4,0 8,3.6 8,8v38c0,4.4 -3.6,8 -8,8H24c-4.4,0 -8,-3.6 -8,-8V36c0,-4.4 3.6,-8 8,-8zM25,37v36h58V37z"/>
+  <path fill="#80CBC4" d="M54,42c-8.3,0 -15,6.7 -15,15s6.7,15 15,15 15,-6.7 15,-15 -6.7,-15 -15,-15zM51,47h6v12l8,5 -3,4 -11,-7z"/>
+</svg>

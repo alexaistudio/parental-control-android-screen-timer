@@ -1,5 +1,7 @@
 # История версий
 
+<p align="center"><img src="https://raw.githubusercontent.com/alexaistudio/parental-control-android-screen-timer/main/docs/assets/app-icon.svg" alt="Android Screen Timer" width="112" height="112"></p>
+
 ## 1.4.9 — 2026-09-05
 
 - Исправлена потеря ссылки на ещё не присоединённое защитное окно: приложение больше не создаёт второе окно только из-за `isAttachedToWindow=false`. При удалении окна состояние очищается до вызова Window Manager; повторный вход в расчёт защиты исключён.
