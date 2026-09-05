@@ -65,9 +65,12 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private boolean dreaming;
     private boolean countedDuringPreviousInterval;
     private boolean connected;
+    private boolean evaluating;
+    private String evaluatedDay;
     private boolean configurationPresent;
     private boolean enforcementEnabled;
     private boolean protectedScreenActive;
+    private boolean leaveSettingsAfterWake;
     private long protectionEligibleAtElapsed;
     private boolean systemSettingsProtectionEnabled = true;
     private String targetScope = AppScope.ALL;
@@ -174,7 +177,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (event == null) {
+        if (event == null || !connected
+                || (powerManager != null && !powerManager.isInteractive()) || dreaming) {
             return;
         }
         int type = event.getEventType();
@@ -265,6 +269,10 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         AppLanguage.apply(this);
+        if (powerManager == null || !powerManager.isInteractive() || dreaming) {
+            removeAllOverlays();
+            return;
+        }
         boolean hadTimer = timerView != null;
         BlockReason reason = blockerReason;
         boolean restoreParentMode = parentModeActive;
@@ -322,11 +330,33 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     }
 
     private void evaluateNow() {
+        if (evaluating) {
+            return;
+        }
+        evaluating = true;
+        try {
+            evaluateRuntime();
+        } finally {
+            evaluating = false;
+        }
+    }
+
+    private void evaluateRuntime() {
         if (!connected || store == null) {
             return;
         }
         long nowElapsed = SystemClock.elapsedRealtime();
         String day = DayKey.localDay(System.currentTimeMillis());
+        if (!day.equals(evaluatedDay)) {
+            // Never write yesterday's pending usage back after initializing today's budget.
+            pendingUsageMillis = 0L;
+            pendingUsageDay = day;
+            countedDuringPreviousInterval = false;
+            lastTickElapsed = nowElapsed;
+            evaluatedDay = day;
+            store.getDayState(day);
+            DiagnosticLog.info(this, TAG, "Local budget day initialized: " + day);
+        }
         long elapsed = LimitMath.elapsedDelta(lastTickElapsed, nowElapsed);
         if (countedDuringPreviousInterval && elapsed > 0L) {
             if (pendingUsageDay != null && !pendingUsageDay.equals(day)) {
@@ -346,6 +376,11 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 && (keyguardManager == null || !keyguardManager.isKeyguardLocked())
                 && !dreaming;
         interactive = screenActive;
+        if (!screenActive) {
+            countedDuringPreviousInterval = false;
+            removeAllOverlays();
+            return;
+        }
         if (screenActive && store.isRecoveryModeRequested()) {
             countedDuringPreviousInterval = false;
             showBlocker(BlockReason.RECOVERY);
@@ -468,14 +503,12 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     }
 
     private void showBlocker(BlockReason reason) {
-        removeTimer();
-        if (blockerView != null && !blockerView.isAttachedToWindow()) {
-            blockerView = null;
-            blockerRoot = null;
-            blockerPanel = null;
-            blockerReason = null;
-            parentModeActive = false;
+        if (!connected || powerManager == null || !powerManager.isInteractive() || dreaming) {
+            return;
         }
+        removeTimer();
+        // addView registers a window before attachment. Never discard its ownership
+        // just because the first traversal (or a configuration transition) is pending.
         if (blockerView != null && blockerReason == reason) {
             return;
         }
@@ -579,6 +612,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             DiagnosticLog.info(this, TAG, "Blocker shown; reason=" + reason);
         } catch (RuntimeException exception) {
             root.cancelParentModeAction();
+            removeViewSafely(root);
             if (blockerView == root) {
                 blockerView = null;
                 blockerRoot = null;
@@ -642,8 +676,24 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             });
         });
         panel.addView(holder[0], wrapParams(0));
+        if (reason == BlockReason.REMOVAL_PROTECTION) {
+            Button home = overlayButton(getString(R.string.return_home));
+            home.setOnClickListener(view -> leaveProtectedSettings());
+            panel.addView(home, buttonParams());
+        }
         holder[0].post(holder[0]::requestInitialFocus);
         return holder[0];
+    }
+
+    private void leaveProtectedSettings() {
+        if (performGlobalAction(GLOBAL_ACTION_HOME)) {
+            protectedScreenActive = false;
+            protectionEligibleAtElapsed = 0L;
+            activePackage = null;
+            countedDuringPreviousInterval = false;
+            removeBlocker();
+            DiagnosticLog.info(this, TAG, "Left protected settings through Home");
+        }
     }
 
     private void activateParentMode(BlockReason reason) {
@@ -967,14 +1017,19 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                     removeBlocker();
                     return;
                 }
-                evaluateNow();
                 if (Intent.ACTION_SCREEN_OFF.equals(action)) {
+                    DiagnosticLog.info(LimiterAccessibilityService.this, TAG, "Screen off; clearing window state");
                     interactive = false;
+                    leaveSettingsAfterWake |= protectedScreenActive;
+                    protectedScreenActive = false;
+                    protectionEligibleAtElapsed = 0L;
                     countedDuringPreviousInterval = false;
                     flushPendingUsage();
                     removeAllOverlays();
                 } else if (Intent.ACTION_SCREEN_ON.equals(action)) {
+                    DiagnosticLog.info(LimiterAccessibilityService.this, TAG, "Screen on; re-evaluating budget");
                     interactive = true;
+                    leaveSettingsAfterWakeIfNeeded();
                     lastTickElapsed = SystemClock.elapsedRealtime();
                     evaluateNow();
                     handler.postDelayed(LimiterAccessibilityService.this::evaluateNow, 300L);
@@ -985,11 +1040,15 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                     evaluateNow();
                 } else if (Intent.ACTION_DREAMING_STARTED.equals(action)) {
                     dreaming = true;
+                    leaveSettingsAfterWake |= protectedScreenActive;
+                    protectedScreenActive = false;
+                    protectionEligibleAtElapsed = 0L;
                     countedDuringPreviousInterval = false;
                     flushPendingUsage();
                     removeAllOverlays();
                 } else if (Intent.ACTION_DREAMING_STOPPED.equals(action)) {
                     dreaming = false;
+                    leaveSettingsAfterWakeIfNeeded();
                     lastTickElapsed = SystemClock.elapsedRealtime();
                     evaluateNow();
                 }
@@ -1004,6 +1063,20 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         stateFilter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         registerSystemReceiver(stateReceiver, stateFilter);
 
+    }
+
+    private void leaveSettingsAfterWakeIfNeeded() {
+        if (leaveSettingsAfterWake) {
+            leaveSettingsAfterWake = false;
+            // Sleeping must neither keep a stale PIN window nor grant access to Settings.
+            if (performGlobalAction(GLOBAL_ACTION_HOME)) {
+                activePackage = null;
+                protectedScreenActive = false;
+                protectionEligibleAtElapsed = 0L;
+            } else {
+                protectedScreenActive = true;
+            }
+        }
     }
 
     private Set<String> loadHomePackages() {
@@ -1127,8 +1200,9 @@ public final class LimiterAccessibilityService extends AccessibilityService {
 
     private void removeTimer() {
         if (timerView != null) {
-            removeViewSafely(timerView);
+            View removed = timerView;
             timerView = null;
+            removeViewSafely(removed);
         }
     }
 
@@ -1136,7 +1210,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         if (blockerView != null) {
             BlockReason removedReason = blockerReason;
             pinPromptGeneration++;
-            removeViewSafely(blockerView);
+            View removed = blockerView;
             blockerView = null;
             if (blockerRoot != null) {
                 blockerRoot.cancelParentModeAction();
@@ -1147,6 +1221,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             parentModeActive = false;
             pendingWarningMinutes = 0L;
             pendingWarningDay = null;
+            removeViewSafely(removed);
             DiagnosticLog.info(this, TAG, "Blocker removed; reason=" + removedReason);
         }
     }
@@ -1193,7 +1268,13 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 pendingHold = this::runParentModeAction;
                 handler.postDelayed(pendingHold, PARENT_HOLD_MILLIS);
             } else if (event.getAction() == KeyEvent.ACTION_UP) {
+                boolean shortPress = pendingHold != null;
                 cancelParentModeAction();
+                if (shortPress && blockerReason == BlockReason.REMOVAL_PROTECTION
+                        && !parentModeActive) {
+                    // Back means leave Settings, never authorize changes to Settings.
+                    leaveProtectedSettings();
+                }
             }
             return true;
         }

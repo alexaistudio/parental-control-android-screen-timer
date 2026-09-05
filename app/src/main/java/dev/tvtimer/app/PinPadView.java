@@ -26,6 +26,7 @@ public final class PinPadView extends LinearLayout {
     private boolean busy;
     private final Runnable verificationTimeout = () -> {
         if (busy) {
+            DiagnosticLog.warning(getContext(), "PinPad", "Verification timed out; restoring keypad", null);
             showError(getContext().getString(R.string.pin_verification_timeout));
         }
     };
