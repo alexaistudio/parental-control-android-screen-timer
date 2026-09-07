@@ -26,7 +26,8 @@ public final class ConfigStorePolicyTest {
         assertTrue(ConfigStore.isParentModeGesturePreference("parent_mode_gesture_enabled"));
 
         assertFalse(ConfigStore.affectsRuntimeConfiguration("usage_ms"));
-        assertFalse(ConfigStore.affectsRuntimeConfiguration("bonus_ms"));
+        assertTrue(ConfigStore.affectsRuntimeConfiguration("bonus_ms"));
+        assertTrue(ConfigStore.affectsRuntimeConfiguration("remote_notice_id"));
         assertFalse(ConfigStore.affectsRuntimeConfiguration("pin_hash"));
         assertFalse(ConfigStore.isLanguagePreference("daily_limit_ms"));
         assertFalse(ConfigStore.isParentModeGesturePreference("usb_recovery_enabled"));

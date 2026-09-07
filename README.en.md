@@ -58,8 +58,8 @@ The [latest release](https://github.com/alexaistudio/parental-control-android-sc
 
 | Where it goes | File to download |
 | --- | --- |
-| Your child's TV, tablet, or phone | **AndroidScreenTimer-1.4.9.apk** — the screen-time limiter |
-| A parent's Android phone, to install the limiter on another device | **AndroidScreenTimer-Parent-1.4.9.apk** — the installer with the limiter included |
+| Your child's TV, tablet, or phone | **AndroidScreenTimer-1.5.0.apk** — the screen-time limiter |
+| A parent's Android phone, to install the limiter on another device | **AndroidScreenTimer-Parent-1.5.0.apk** — the installer with the limiter included |
 
 **Install directly:** put the limiter on your child's device, open it, and complete setup:
 

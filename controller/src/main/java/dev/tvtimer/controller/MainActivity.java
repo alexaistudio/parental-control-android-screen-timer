@@ -5,6 +5,8 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.view.View;
 import android.widget.Button;
@@ -23,6 +25,17 @@ public final class MainActivity extends Activity {
     private final DeviceRegistry devices = new DeviceRegistry();
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final AtomicBoolean busy = new AtomicBoolean(false);
+    private final AtomicBoolean remoteBusy = new AtomicBoolean(false);
+    private final Handler remoteRefreshHandler = new Handler(Looper.getMainLooper());
+    private final Runnable remoteRefresh = new Runnable() {
+        @Override
+        public void run() {
+            if (remotePanel != null && remotePanel.getVisibility() == View.VISIBLE) {
+                refreshRemoteState(false);
+                remoteRefreshHandler.postDelayed(this, 5_000L);
+            }
+        }
+    };
 
     private AdbClient adbClient;
     private AdbDiscovery discovery;
@@ -41,6 +54,12 @@ public final class MainActivity extends Activity {
     private CheckBox accessibilityCheck;
     private CheckBox deviceOwnerCheck;
     private CheckBox disableDebugCheck;
+    private View remotePanel;
+    private EditText remoteCodeField;
+    private EditText remoteMinutesField;
+    private EditText remoteCommentField;
+    private TextView remoteRemainingView;
+    private TextView remoteDetailsView;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -76,6 +95,14 @@ public final class MainActivity extends Activity {
         accessibilityCheck = findViewById(R.id.checkAccessibility);
         deviceOwnerCheck = findViewById(R.id.checkDeviceOwner);
         disableDebugCheck = findViewById(R.id.checkDisableDebug);
+        remotePanel = findViewById(R.id.panelRemoteControl);
+        remoteCodeField = findViewById(R.id.editRemoteCode);
+        remoteMinutesField = findViewById(R.id.editRemoteMinutes);
+        remoteCommentField = findViewById(R.id.editRemoteComment);
+        remoteRemainingView = findViewById(R.id.textRemoteRemaining);
+        remoteDetailsView = findViewById(R.id.textRemoteDetails);
+        remoteCodeField.setInputType(InputType.TYPE_CLASS_NUMBER
+                | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
     }
 
     private void bindActions() {
@@ -107,6 +134,9 @@ public final class MainActivity extends Activity {
                     + endpointForLog(connectPortField));
             confirmInstall();
         });
+        findViewById(R.id.buttonRemoteRefresh).setOnClickListener(view -> refreshRemoteState(true));
+        findViewById(R.id.buttonRemoteAdd).setOnClickListener(view -> adjustRemoteTime(true));
+        findViewById(R.id.buttonRemoteSubtract).setOnClickListener(view -> adjustRemoteTime(false));
     }
 
     private void switchLanguage(String language) {
@@ -140,6 +170,7 @@ public final class MainActivity extends Activity {
         }
         ControllerLog.info("Discovery/UI", "Network discovery requested by user");
         adbClient.disconnect();
+        setRemoteConnected(false);
         installButton.setEnabled(false);
         devices.clear();
         deviceList.removeAllViews();
@@ -305,6 +336,7 @@ public final class MainActivity extends Activity {
                     endOperation();
                     installButton.setEnabled(true);
                     setStatus(getString(R.string.status_connected, label));
+                    setRemoteConnected(true);
                 });
             } catch (Exception exception) {
                 runOnUiThread(() -> showError(exception));
@@ -407,6 +439,116 @@ public final class MainActivity extends Activity {
         }
         setStatus(getString(R.string.status_complete, notes.toString()));
         installButton.setEnabled(!result.debuggingDisabled);
+        if (result.debuggingDisabled) {
+            setRemoteConnected(false);
+        }
+    }
+
+    private void setRemoteConnected(boolean connected) {
+        remoteRefreshHandler.removeCallbacks(remoteRefresh);
+        remotePanel.setVisibility(connected ? View.VISIBLE : View.GONE);
+        if (connected) {
+            remoteRemainingView.setText(R.string.remote_not_refreshed);
+            remoteDetailsView.setText("");
+            remoteRefreshHandler.postDelayed(remoteRefresh, 5_000L);
+        }
+    }
+
+    private void refreshRemoteState(boolean userInitiated) {
+        if (remotePanel.getVisibility() != View.VISIBLE || remoteBusy.get()) {
+            return;
+        }
+        String code = remoteCodeField.getText().toString().trim();
+        if (!code.matches("[0-9]{4,8}")) {
+            if (userInitiated) {
+                remoteRemainingView.setText(R.string.remote_not_refreshed);
+            }
+            return;
+        }
+        if (!remoteBusy.compareAndSet(false, true)) {
+            return;
+        }
+        worker.execute(() -> {
+            try {
+                AdbClient.TimerState state = adbClient.readTimerState(code);
+                runOnUiThread(() -> {
+                    remoteBusy.set(false);
+                    renderRemoteState(state);
+                });
+            } catch (Exception exception) {
+                runOnUiThread(() -> {
+                    remoteBusy.set(false);
+                    showRemoteError(exception);
+                });
+            }
+        });
+    }
+
+    private void adjustRemoteTime(boolean add) {
+        if (remotePanel.getVisibility() != View.VISIBLE || !remoteBusy.compareAndSet(false, true)) {
+            return;
+        }
+        String code = remoteCodeField.getText().toString().trim();
+        int minutes = parseRemoteMinutes();
+        if (!code.matches("[0-9]{4,8}") || minutes <= 0) {
+            remoteBusy.set(false);
+            remoteRemainingView.setText(R.string.remote_not_refreshed);
+            return;
+        }
+        int signedMinutes = add ? minutes : -minutes;
+        String comment = remoteCommentField.getText().toString();
+        worker.execute(() -> {
+            try {
+                AdbClient.TimerState state = adbClient.adjustTimer(code, signedMinutes, comment);
+                runOnUiThread(() -> {
+                    remoteBusy.set(false);
+                    renderRemoteState(state);
+                    setStatus(R.string.remote_updated);
+                });
+            } catch (Exception exception) {
+                runOnUiThread(() -> {
+                    remoteBusy.set(false);
+                    showRemoteError(exception);
+                });
+            }
+        });
+    }
+
+    private int parseRemoteMinutes() {
+        try {
+            int value = Integer.parseInt(remoteMinutesField.getText().toString().trim());
+            return value >= 1 && value <= 1_440 ? value : -1;
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
+    }
+
+    private void renderRemoteState(AdbClient.TimerState state) {
+        remoteRemainingView.setText(getString(R.string.remote_remaining,
+                formatDuration(state.getRemainingMillis())));
+        String bonus = (state.getBonusMillis() >= 0L ? "+" : "−")
+                + formatDuration(Math.abs(state.getBonusMillis()));
+        remoteDetailsView.setText(getString(
+                R.string.remote_details,
+                formatDuration(state.getUsedMillis()),
+                bonus,
+                state.isEnforcementEnabled() ? getString(R.string.remote_limit_on)
+                        : getString(R.string.remote_limit_off)
+        ));
+    }
+
+    private void showRemoteError(Exception exception) {
+        String message = exception.getMessage();
+        remoteDetailsView.setText(message == null || message.isBlank()
+                ? exception.getClass().getSimpleName()
+                : message);
+    }
+
+    private String formatDuration(long millis) {
+        long totalSeconds = Math.max(0L, millis) / 1_000L;
+        long hours = totalSeconds / 3_600L;
+        long minutes = (totalSeconds % 3_600L) / 60L;
+        return String.format(java.util.Locale.getDefault(), "%02d:%02d", hours, minutes);
     }
 
     private boolean beginOperation() {
@@ -484,7 +626,22 @@ public final class MainActivity extends Activity {
             discovery.stop();
         }
         adbClient.disconnect();
+        remoteRefreshHandler.removeCallbacks(remoteRefresh);
         worker.shutdownNow();
         super.onDestroy();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (remotePanel != null && remotePanel.getVisibility() == View.VISIBLE) {
+            remoteRefreshHandler.postDelayed(remoteRefresh, 5_000L);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        remoteRefreshHandler.removeCallbacks(remoteRefresh);
+        super.onPause();
     }
 }

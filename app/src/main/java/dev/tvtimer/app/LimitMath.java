@@ -18,11 +18,15 @@ public final class LimitMath {
     public static long remaining(long dailyLimitMillis, long bonusMillis, long usedMillis) {
         long allowance;
         try {
-            allowance = Math.addExact(Math.max(0L, dailyLimitMillis), Math.max(0L, bonusMillis));
+            allowance = Math.addExact(Math.max(0L, dailyLimitMillis), bonusMillis);
         } catch (ArithmeticException exception) {
-            allowance = Long.MAX_VALUE;
+            allowance = bonusMillis > 0L ? Long.MAX_VALUE : 0L;
         }
-        return Math.max(0L, allowance - Math.max(0L, usedMillis));
+        if (allowance <= 0L) {
+            return 0L;
+        }
+        long used = Math.max(0L, usedMillis);
+        return allowance <= used ? 0L : allowance - used;
     }
 
     public static long adjustDailyMinutes(long currentMinutes, long deltaMinutes) {

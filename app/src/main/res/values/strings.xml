@@ -189,8 +189,8 @@
     <string name="timer_remaining_description">Оставшееся экранное время</string>
     <string name="time_finished_title">Время закончилось</string>
     <string name="settings_protection_title">Защита настроек</string>
-    <string name="time_finished_instruction">Введите 6-значный код с телефона — добавится время, выбранное родителем</string>
-    <string name="settings_protection_instruction">Введите 6-значный код с телефона</string>
+    <string name="time_finished_instruction">Введите постоянный PIN, аварийный или временный код с телефона</string>
+    <string name="settings_protection_instruction">Введите постоянный PIN, аварийный или временный код с телефона</string>
     <string name="usage_pause_title">Небольшая пауза</string>
     <plurals name="usage_warning_message">
         <item quantity="one">Ты уже смотришь %d минуту. Продолжить?</item>
@@ -211,8 +211,8 @@
     <string name="ninety_minutes">1 час 30 минут</string>
     <string name="two_hours">2 часа</string>
     <string name="parent_mode_title">Режим родителя</string>
-    <string name="parent_mode_instruction">Введите постоянный PIN или одноразовый аварийный код</string>
-    <string name="parent_pin_invalid">Неверный PIN или аварийный код</string>
+    <string name="parent_mode_instruction">Введите постоянный PIN, одноразовый аварийный или временный код с телефона</string>
+    <string name="parent_pin_invalid">Неверный PIN или код</string>
     <plurals name="minutes_label">
         <item quantity="one">%d минута</item>
         <item quantity="few">%d минуты</item>

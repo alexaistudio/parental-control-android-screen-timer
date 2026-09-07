@@ -16,6 +16,8 @@ public final class LimitMathTest {
     @Test
     public void remainingIncludesBonusAndNeverBecomesNegative() {
         assertEquals(1_500L, LimitMath.remaining(1_000L, 1_000L, 500L));
+        assertEquals(250L, LimitMath.remaining(1_000L, -500L, 250L));
+        assertEquals(0L, LimitMath.remaining(1_000L, -1_500L, 0L));
         assertEquals(0L, LimitMath.remaining(1_000L, 0L, 2_000L));
         assertEquals(Long.MAX_VALUE, LimitMath.remaining(Long.MAX_VALUE, 1L, 0L));
     }

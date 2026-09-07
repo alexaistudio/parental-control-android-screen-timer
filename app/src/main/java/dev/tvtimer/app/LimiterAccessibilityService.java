@@ -14,6 +14,7 @@ import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
+import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -60,6 +61,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private WindowManager windowManager;
     private PowerManager powerManager;
     private KeyguardManager keyguardManager;
+    private AudioManager audioManager;
     private String activePackage;
     private boolean interactive;
     private boolean dreaming;
@@ -96,6 +98,9 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private boolean parentModeGestureEnabled = true;
     private ModeSwitchFrameLayout blockerRoot;
     private LinearLayout blockerPanel;
+    private View adjustmentNoticeView;
+    private long shownAdjustmentNoticeId;
+    private Runnable dismissAdjustmentNotice;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -128,6 +133,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
             powerManager = (PowerManager) getSystemService(POWER_SERVICE);
             keyguardManager = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+            audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
             homePackages = loadHomePackages();
             launchablePackages = loadLaunchablePackages();
             interactive = powerManager != null && powerManager.isInteractive();
@@ -434,6 +440,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         if (remaining <= 0L) {
             countedDuringPreviousInterval = false;
             showBlocker(BlockReason.TIME_LIMIT);
+            showRemoteAdjustmentNoticeIfNeeded();
         } else {
             long warningMinutes = store.getDueUsageWarningMinutes(day, used);
             if (warningMinutes > 0L) {
@@ -442,11 +449,13 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             } else {
                 countedDuringPreviousInterval = true;
                 showTimer(remaining);
+                showRemoteAdjustmentNoticeIfNeeded();
             }
         }
     }
 
     private void showTimer(long remainingMillis) {
+        restoreBlockerVolume();
         removeBlocker();
         if (timerView == null) {
             if (!canAttemptOverlay()) {
@@ -602,6 +611,9 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         blockerReason = reason;
         try {
             windowManager.addView(root, params);
+            if (reason != BlockReason.USAGE_WARNING) {
+                muteForBlocker();
+            }
             if (initialFocus instanceof PinPadView) {
                 PinPadView pinPad = (PinPadView) initialFocus;
                 pinPad.post(pinPad::requestInitialFocus);
@@ -647,7 +659,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 boolean verified;
                 try {
                     verified = store != null
-                            && store.verifyAuthenticatorCode(pin, System.currentTimeMillis());
+                            && store.verifyAnyAccessCode(pin, System.currentTimeMillis());
                 } catch (RuntimeException exception) {
                     Log.e(TAG, "Unable to verify parent code", exception);
                     verified = false;
@@ -727,8 +739,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 boolean verified = false;
                 try {
                     if (store != null) {
-                        verified = store.verifyPin(pin)
-                                || store.consumeEmergencyCode(pin, System.currentTimeMillis());
+                        verified = store.verifyAnyAccessCode(pin, System.currentTimeMillis());
                     }
                 } catch (RuntimeException exception) {
                     Log.e(TAG, "Unable to verify parent PIN", exception);
@@ -1196,6 +1207,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private void removeAllOverlays() {
         removeTimer();
         removeBlocker();
+        removeAdjustmentNotice();
+        restoreBlockerVolume();
     }
 
     private void removeTimer() {
@@ -1223,6 +1236,111 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             pendingWarningDay = null;
             removeViewSafely(removed);
             DiagnosticLog.info(this, TAG, "Blocker removed; reason=" + removedReason);
+        }
+    }
+
+    private void muteForBlocker() {
+        if (audioManager == null || store == null) {
+            return;
+        }
+        try {
+            boolean newlyMuted = store.beginBlockerMute(
+                    audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            );
+            if (newlyMuted || audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) != 0) {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0);
+            }
+        } catch (RuntimeException exception) {
+            DiagnosticLog.warning(this, TAG, "Unable to mute media for blocker", exception);
+        }
+    }
+
+    private void restoreBlockerVolume() {
+        if (audioManager == null || store == null) {
+            return;
+        }
+        try {
+            int previousVolume = store.endBlockerMute();
+            if (previousVolume >= 0) {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, previousVolume, 0);
+            }
+        } catch (RuntimeException exception) {
+            DiagnosticLog.warning(this, TAG, "Unable to restore media after blocker", exception);
+        }
+    }
+
+    private void showRemoteAdjustmentNoticeIfNeeded() {
+        if (store == null || windowManager == null) {
+            return;
+        }
+        ConfigStore.RemoteAdjustment adjustment = store.getRemoteAdjustment(
+                System.currentTimeMillis()
+        );
+        if (adjustment == null || adjustment.getId() == shownAdjustmentNoticeId) {
+            return;
+        }
+        removeAdjustmentNotice();
+        int minutes = adjustment.getMinutes();
+        if (minutes == 0) {
+            return;
+        }
+        LinearLayout notice = new LinearLayout(this);
+        notice.setOrientation(LinearLayout.VERTICAL);
+        notice.setGravity(Gravity.CENTER);
+        notice.setPadding(dp(22), dp(10), dp(22), dp(10));
+        GradientDrawable background = new GradientDrawable();
+        boolean penalty = minutes < 0;
+        background.setColor(penalty ? 0xee7f1d1d : 0xee1b6e35);
+        background.setCornerRadius(dp(10));
+        notice.setBackground(background);
+
+        TextView title = overlayText(
+                (penalty ? "ШТРАФ −" : "+") + Math.abs(minutes) + " МИНУТ",
+                24f,
+                Color.WHITE
+        );
+        title.setGravity(Gravity.CENTER);
+        notice.addView(title);
+        if (!adjustment.getComment().isBlank()) {
+            TextView comment = overlayText(adjustment.getComment(), 15f, 0xfff5f5f5);
+            comment.setGravity(Gravity.CENTER);
+            notice.addView(comment);
+        }
+        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+        );
+        params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        params.y = dp(34);
+        adjustmentNoticeView = notice;
+        shownAdjustmentNoticeId = adjustment.getId();
+        try {
+            windowManager.addView(notice, params);
+            long delay = Math.max(0L, adjustment.getUntilMillis() - System.currentTimeMillis());
+            dismissAdjustmentNotice = this::removeAdjustmentNotice;
+            handler.postDelayed(dismissAdjustmentNotice, delay);
+        } catch (RuntimeException exception) {
+            if (adjustmentNoticeView == notice) {
+                adjustmentNoticeView = null;
+            }
+            DiagnosticLog.warning(this, TAG, "Unable to show remote adjustment notice", exception);
+        }
+    }
+
+    private void removeAdjustmentNotice() {
+        if (dismissAdjustmentNotice != null) {
+            handler.removeCallbacks(dismissAdjustmentNotice);
+            dismissAdjustmentNotice = null;
+        }
+        if (adjustmentNoticeView != null) {
+            View removed = adjustmentNoticeView;
+            adjustmentNoticeView = null;
+            removeViewSafely(removed);
         }
     }
 

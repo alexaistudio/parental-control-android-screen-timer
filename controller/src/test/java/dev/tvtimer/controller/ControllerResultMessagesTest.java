@@ -1,6 +1,7 @@
 package dev.tvtimer.controller;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
@@ -24,5 +25,25 @@ public final class ControllerResultMessagesTest {
         assertTrue(message.contains("FAILURE: CONNECT"));
         assertTrue(message.contains("target=192.168.31.55:37123"));
         assertTrue(message.contains("IllegalStateException: refused"));
+    }
+
+    @Test
+    public void parsesTimerStateReturnedByTheTvContentProvider() {
+        AdbClient.TimerState state = AdbClient.TimerState.parse(
+                "Result: Bundle[{ok=true, usedMillis=120000, bonusMillis=-300000, "
+                        + "remainingMillis=180000, dailyLimitMillis=600000, "
+                        + "enforcementEnabled=true}]"
+        );
+
+        assertEquals(120000L, state.getUsedMillis());
+        assertEquals(-300000L, state.getBonusMillis());
+        assertEquals(180000L, state.getRemainingMillis());
+        assertTrue(state.isEnforcementEnabled());
+    }
+
+    @Test
+    public void quotesRemoteCommentsWithoutAllowingShellCommands() {
+        assertEquals("'bad'\"'\"'; reboot; '\"'\"''",
+                AdbClient.shellQuote("bad'; reboot; '"));
     }
 }

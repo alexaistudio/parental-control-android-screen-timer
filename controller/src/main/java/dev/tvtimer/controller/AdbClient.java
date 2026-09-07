@@ -15,6 +15,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import io.github.muntashirakon.adb.AdbStream;
 
@@ -26,6 +28,7 @@ final class AdbClient {
             "dev.tvtimer.app/dev.tvtimer.app.TimerDeviceAdminReceiver";
     private static final String ASSET_APK = "android-screen-timer.apk";
     private static final String END_MARKER = "__AST_COMMAND_DONE__";
+    private static final String REMOTE_URI = "content://dev.tvtimer.app.parentcontrol";
 
     interface ProgressListener {
         void onProgress(int percent);
@@ -159,6 +162,8 @@ final class AdbClient {
         String targetHost = connectedHost;
         int targetPort = connectedPort;
         try {
+            boolean wasInstalled = runShell("pm path " + BLOCKER_PACKAGE)
+                    .contains("package:");
             File apk = materializeEmbeddedApk();
             String packageManagerResponse;
             try {
@@ -217,7 +222,11 @@ final class AdbClient {
                 throw new IllegalStateException("Android did not report the installed package");
             }
 
-            runShell("am start -n " + BLOCKER_PACKAGE + "/.MainActivity");
+            // Opening settings over a child’s video is appropriate only after the first install.
+            // An in-place update preserves the current foreground app (for example, YouTube).
+            if (!wasInstalled) {
+                runShell("am start -n " + BLOCKER_PACKAGE + "/.MainActivity");
+            }
 
             String manufacturer = cleanProperty(runShell("getprop ro.product.manufacturer"));
             String model = cleanProperty(runShell("getprop ro.product.model"));
@@ -272,6 +281,84 @@ final class AdbClient {
         }
         connectedHost = null;
         connectedPort = -1;
+    }
+
+    synchronized TimerState readTimerState(String code) throws Exception {
+        requireParentCode(code);
+        return TimerState.parse(runShell("content call --uri " + REMOTE_URI
+                + " --method state --es code " + shellQuote(code)));
+    }
+
+    synchronized TimerState adjustTimer(String code, int minutes, String comment) throws Exception {
+        requireParentCode(code);
+        if (minutes == 0 || Math.abs((long) minutes) > 1_440L) {
+            throw new IllegalArgumentException("Enter from 1 to 1440 minutes");
+        }
+        return TimerState.parse(runShell("content call --uri " + REMOTE_URI
+                + " --method adjust --ei minutes " + minutes
+                + " --es comment " + shellQuote(comment == null ? "" : comment)
+                + " --es code " + shellQuote(code)));
+    }
+
+    private static void requireParentCode(String code) {
+        if (code == null || !code.matches("[0-9]{4,8}")) {
+            throw new IllegalArgumentException("Enter a 4–8 digit parent code");
+        }
+    }
+
+    static String shellQuote(String value) {
+        return "'" + value.replace("'", "'\"'\"'") + "'";
+    }
+
+    static final class TimerState {
+        private static final Pattern LONG_VALUE = Pattern.compile(
+                "(dailyLimitMillis|usedMillis|bonusMillis|remainingMillis)=(-?\\d+)"
+        );
+        private static final Pattern ENABLED_VALUE = Pattern.compile("enforcementEnabled=(true|false)");
+        private final long usedMillis;
+        private final long bonusMillis;
+        private final long remainingMillis;
+        private final boolean enforcementEnabled;
+
+        private TimerState(long usedMillis, long bonusMillis, long remainingMillis,
+                           boolean enforcementEnabled) {
+            this.usedMillis = usedMillis;
+            this.bonusMillis = bonusMillis;
+            this.remainingMillis = remainingMillis;
+            this.enforcementEnabled = enforcementEnabled;
+        }
+
+        static TimerState parse(String response) {
+            if (response == null || !response.contains("ok=true")) {
+                throw new IllegalStateException("TV rejected the request: " + cleanProperty(response));
+            }
+            long daily = -1L;
+            long used = -1L;
+            long bonus = 0L;
+            long remaining = -1L;
+            Matcher matcher = LONG_VALUE.matcher(response);
+            while (matcher.find()) {
+                long value = Long.parseLong(matcher.group(2));
+                switch (matcher.group(1)) {
+                    case "dailyLimitMillis": daily = value; break;
+                    case "usedMillis": used = value; break;
+                    case "bonusMillis": bonus = value; break;
+                    case "remainingMillis": remaining = value; break;
+                    default: break;
+                }
+            }
+            Matcher enabled = ENABLED_VALUE.matcher(response);
+            if (daily < 0L || used < 0L || remaining < 0L || !enabled.find()) {
+                throw new IllegalStateException("TV returned an incomplete timer state");
+            }
+            return new TimerState(used, bonus, remaining,
+                    Boolean.parseBoolean(enabled.group(1)));
+        }
+
+        long getRemainingMillis() { return remainingMillis; }
+        long getUsedMillis() { return usedMillis; }
+        long getBonusMillis() { return bonusMillis; }
+        boolean isEnforcementEnabled() { return enforcementEnabled; }
     }
 
     private File materializeEmbeddedApk() throws Exception {
@@ -429,7 +516,10 @@ final class AdbClient {
     }
 
     private String runShell(String command) throws Exception {
-        long requestId = ControllerLog.request("ADB/Shell", command);
+        String safeCommand = command.contains(REMOTE_URI)
+                ? "content call " + REMOTE_URI + " <parent-control arguments redacted>"
+                : command;
+        long requestId = ControllerLog.request("ADB/Shell", safeCommand);
         try (AdbStream stream = manager.openStream(
                 "shell:" + command + "; echo " + END_MARKER)) {
             String response = readResponse(stream, 20, TimeUnit.SECONDS, END_MARKER);

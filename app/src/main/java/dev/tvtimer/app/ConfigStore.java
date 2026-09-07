@@ -41,6 +41,12 @@ public final class ConfigStore {
     private static final String KEY_EMERGENCY_FAILURES = "emergency_failures";
     private static final String KEY_EMERGENCY_BLOCKED_UNTIL = "emergency_blocked_until";
     private static final String KEY_PARENT_SETTINGS_GRANT_UNTIL = "parent_settings_grant_until";
+    private static final String KEY_REMOTE_NOTICE_ID = "remote_notice_id";
+    private static final String KEY_REMOTE_NOTICE_MINUTES = "remote_notice_minutes";
+    private static final String KEY_REMOTE_NOTICE_COMMENT = "remote_notice_comment";
+    private static final String KEY_REMOTE_NOTICE_UNTIL = "remote_notice_until";
+    private static final String KEY_BLOCKER_AUDIO_MUTED = "blocker_audio_muted";
+    private static final String KEY_BLOCKER_AUDIO_VOLUME = "blocker_audio_volume";
 
     public static final long DEFAULT_LIMIT_MILLIS = 60L * 60L * 1_000L;
     public static final long MAINTENANCE_WINDOW_MILLIS = 2L * 60L * 1_000L;
@@ -244,6 +250,11 @@ public final class ConfigStore {
         return TotpAuthenticator.verify(code, secret, nowMillis);
     }
 
+    /** Accepts every code that may be entered on a lock screen. Emergency codes remain one-time. */
+    public boolean verifyAnyAccessCode(String code, long nowMillis) {
+        return verifyParentCode(code, nowMillis) || consumeEmergencyCode(code, nowMillis);
+    }
+
     public boolean verifyAuthenticatorCode(String code, long nowMillis) {
         String secret = preferences.getString(KEY_AUTHENTICATOR_SECRET, null);
         return TotpAuthenticator.verify(code, secret, nowMillis);
@@ -370,6 +381,77 @@ public final class ConfigStore {
         return true;
     }
 
+    public synchronized RemoteAdjustment applyRemoteAdjustment(
+            String dayKey,
+            int minutes,
+            String comment,
+            long nowMillis
+    ) {
+        if (minutes == 0 || Math.abs((long) minutes) > 1_440L) {
+            throw new IllegalArgumentException("Adjustment must be between -1440 and 1440 minutes");
+        }
+        ensureDay(dayKey);
+        long delta = minutes * 60_000L;
+        long current = preferences.getLong(KEY_BONUS_MILLIS, 0L);
+        long updated;
+        try {
+            updated = Math.addExact(current, delta);
+        } catch (ArithmeticException exception) {
+            updated = delta > 0L ? Long.MAX_VALUE : Long.MIN_VALUE + 1L;
+        }
+        long id = preferences.getLong(KEY_REMOTE_NOTICE_ID, 0L) + 1L;
+        String safeComment = comment == null ? "" : comment.trim();
+        if (safeComment.length() > 120) {
+            safeComment = safeComment.substring(0, 120);
+        }
+        long until = nowMillis + 5_000L;
+        if (!preferences.edit()
+                .putLong(KEY_BONUS_MILLIS, updated)
+                .putLong(KEY_REMOTE_NOTICE_ID, id)
+                .putInt(KEY_REMOTE_NOTICE_MINUTES, minutes)
+                .putString(KEY_REMOTE_NOTICE_COMMENT, safeComment)
+                .putLong(KEY_REMOTE_NOTICE_UNTIL, until)
+                .commit()) {
+            throw new IllegalStateException("Unable to save remote adjustment");
+        }
+        return new RemoteAdjustment(id, minutes, safeComment, until);
+    }
+
+    public RemoteAdjustment getRemoteAdjustment(long nowMillis) {
+        long until = preferences.getLong(KEY_REMOTE_NOTICE_UNTIL, 0L);
+        if (nowMillis >= until) {
+            return null;
+        }
+        return new RemoteAdjustment(
+                preferences.getLong(KEY_REMOTE_NOTICE_ID, 0L),
+                preferences.getInt(KEY_REMOTE_NOTICE_MINUTES, 0),
+                preferences.getString(KEY_REMOTE_NOTICE_COMMENT, ""),
+                until
+        );
+    }
+
+    public boolean beginBlockerMute(int currentMusicVolume) {
+        if (preferences.getBoolean(KEY_BLOCKER_AUDIO_MUTED, false)) {
+            return false;
+        }
+        return preferences.edit()
+                .putBoolean(KEY_BLOCKER_AUDIO_MUTED, true)
+                .putInt(KEY_BLOCKER_AUDIO_VOLUME, Math.max(0, currentMusicVolume))
+                .commit();
+    }
+
+    public int endBlockerMute() {
+        if (!preferences.getBoolean(KEY_BLOCKER_AUDIO_MUTED, false)) {
+            return -1;
+        }
+        int previousVolume = preferences.getInt(KEY_BLOCKER_AUDIO_VOLUME, -1);
+        preferences.edit()
+                .remove(KEY_BLOCKER_AUDIO_VOLUME)
+                .putBoolean(KEY_BLOCKER_AUDIO_MUTED, false)
+                .commit();
+        return previousVolume;
+    }
+
     public boolean setEnforcementEnabled(boolean enabled) {
         preferences.edit().putBoolean(KEY_ENFORCEMENT_ENABLED, enabled).apply();
         return true;
@@ -438,6 +520,11 @@ public final class ConfigStore {
                 || KEY_DEFAULT_EXTENSION_MINUTES.equals(key)
                 || KEY_USAGE_WARNING_INTERVAL_MINUTES.equals(key)
                 || KEY_AUTHENTICATOR_SECRET.equals(key)
+                || KEY_BONUS_MILLIS.equals(key)
+                || KEY_REMOTE_NOTICE_ID.equals(key)
+                || KEY_REMOTE_NOTICE_MINUTES.equals(key)
+                || KEY_REMOTE_NOTICE_COMMENT.equals(key)
+                || KEY_REMOTE_NOTICE_UNTIL.equals(key)
                 || KEY_LANGUAGE.equals(key);
     }
 
@@ -493,5 +580,24 @@ public final class ConfigStore {
         public long getBonusMillis() {
             return bonusMillis;
         }
+    }
+
+    public static final class RemoteAdjustment {
+        private final long id;
+        private final int minutes;
+        private final String comment;
+        private final long untilMillis;
+
+        RemoteAdjustment(long id, int minutes, String comment, long untilMillis) {
+            this.id = id;
+            this.minutes = minutes;
+            this.comment = comment == null ? "" : comment;
+            this.untilMillis = untilMillis;
+        }
+
+        public long getId() { return id; }
+        public int getMinutes() { return minutes; }
+        public String getComment() { return comment; }
+        public long getUntilMillis() { return untilMillis; }
     }
 }

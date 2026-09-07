@@ -122,6 +122,113 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/panelRemoteControl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/panel_background"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/remote_control_title"
+                android:textColor="@color/controller_text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:text="@string/remote_control_hint"
+                android:textColor="@color/controller_muted"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/editRemoteCode"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:autofillHints=""
+                android:hint="@string/remote_code"
+                android:inputType="numberPassword"
+                android:maxLength="8"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/textRemoteRemaining"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/remote_not_refreshed"
+                android:textColor="@color/controller_text"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/textRemoteDetails"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:textColor="@color/controller_muted"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/buttonRemoteRefresh"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/remote_refresh"
+                android:textAllCaps="false" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/editRemoteMinutes"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:autofillHints=""
+                    android:hint="@string/remote_minutes"
+                    android:inputType="number"
+                    android:maxLines="1"
+                    android:text="5" />
+
+                <Button
+                    android:id="@+id/buttonRemoteSubtract"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_marginLeft="8dp"
+                    android:layout_weight="1"
+                    android:text="@string/remote_subtract"
+                    android:textAllCaps="false" />
+
+                <Button
+                    android:id="@+id/buttonRemoteAdd"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_marginLeft="8dp"
+                    android:layout_weight="1"
+                    android:text="@string/remote_add"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/editRemoteComment"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:autofillHints=""
+                android:hint="@string/remote_comment"
+                android:inputType="textCapSentences"
+                android:maxLength="120"
+                android:maxLines="1" />
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
@@ -288,7 +395,7 @@
                 android:id="@+id/checkDisableDebug"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:checked="true"
+                android:checked="false"
                 android:text="@string/disable_debug_after" />
 
             <Button

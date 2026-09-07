@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Parent Installer</string>
+    <string name="remote_control_title">TV time</string>
+    <string name="remote_control_hint">Uses the connected Wi-Fi ADB session. The code is not saved; the remaining time refreshes every 5 seconds.</string>
+    <string name="remote_code">Permanent PIN or temporary code (4–8 digits)</string>
+    <string name="remote_not_refreshed">Enter a code and tap Refresh</string>
+    <string name="remote_refresh">Refresh remaining time</string>
+    <string name="remote_minutes">Minutes</string>
+    <string name="remote_subtract">− Remove</string>
+    <string name="remote_add">+ Add</string>
+    <string name="remote_comment">Message on the TV screen (optional)</string>
+    <string name="remote_remaining">Remaining: %1$s</string>
+    <string name="remote_details">Used: %1$s · Bonus: %2$s · Limit: %3$s</string>
+    <string name="remote_limit_off">Limit is off</string>
+    <string name="remote_limit_on">Limit is on</string>
+    <string name="remote_updated">TV updated</string>
     <string name="header_subtitle">Finds your Android device, installs Android Screen Timer, and helps enable protection — no separate ADB app required.</string>
     <string name="wifi_path_title">Wi-Fi — install directly from this phone</string>
     <string name="step_one_summary">The main method for Android 11+: enable Wireless debugging on the target. Pair once, then connect and tap INSTALL.</string>
@@ -21,7 +35,7 @@
     <string name="step_three_title">3. Install and configure</string>
     <string name="configure_accessibility">Enable screen control after installation</string>
     <string name="configure_device_owner">Try maximum uninstall protection (new/reset device without accounts only)</string>
-    <string name="disable_debug_after">Turn off wireless debugging after successful installation</string>
+    <string name="disable_debug_after">Turn off wireless debugging after installation (remote control will stop working)</string>
     <string name="install">INSTALL Android Screen Timer</string>
     <string name="status_title">Progress</string>
     <string name="status_ready">Ready to scan. No data is sent to the internet.</string>

@@ -181,8 +181,8 @@
     <string name="timer_remaining_description">Remaining screen time</string>
     <string name="time_finished_title">Time is up</string>
     <string name="settings_protection_title">Settings protection</string>
-    <string name="time_finished_instruction">Enter the 6-digit phone code to add the time selected by the parent</string>
-    <string name="settings_protection_instruction">Enter the 6-digit code from a phone</string>
+    <string name="time_finished_instruction">Enter the permanent PIN, emergency code, or temporary code from the phone</string>
+    <string name="settings_protection_instruction">Enter the permanent PIN, emergency code, or temporary code from the phone</string>
     <string name="usage_pause_title">A quick pause</string>
     <plurals name="usage_warning_message">
         <item quantity="one">You have been watching for %d minute. Keep watching?</item>
@@ -201,8 +201,8 @@
     <string name="ninety_minutes">1 hour 30 minutes</string>
     <string name="two_hours">2 hours</string>
     <string name="parent_mode_title">Parent mode</string>
-    <string name="parent_mode_instruction">Enter the permanent PIN or one-time emergency code</string>
-    <string name="parent_pin_invalid">Incorrect PIN or emergency code</string>
+    <string name="parent_mode_instruction">Enter the permanent PIN, one-time emergency code, or temporary code from the phone</string>
+    <string name="parent_pin_invalid">Incorrect PIN or code</string>
     <plurals name="minutes_label">
         <item quantity="one">%d minute</item>
         <item quantity="other">%d minutes</item>
