@@ -591,8 +591,14 @@ final class AdbClient {
                 ? "content call " + REMOTE_URI + " <parent-control arguments redacted>"
                 : command;
         long requestId = ControllerLog.request("ADB/Shell", safeCommand);
-        try (AdbStream stream = manager.openStream(
-                "shell:" + command + "; echo " + END_MARKER)) {
+        // libadb-android 3.1.1 overflows while opening destinations longer than
+        // roughly 104 bytes. Open only the short interactive shell destination,
+        // then write the actual command through that stream.
+        try (AdbStream stream = manager.openStream("shell:")) {
+            OutputStream output = stream.openOutputStream();
+            output.write((command + "; echo " + END_MARKER + "\n")
+                    .getBytes(StandardCharsets.UTF_8));
+            output.flush();
             String response = readResponse(stream, 20, TimeUnit.SECONDS, END_MARKER);
             String cleaned = response.replace(END_MARKER, "").trim();
             ControllerLog.response("ADB/Shell", requestId, cleaned);
