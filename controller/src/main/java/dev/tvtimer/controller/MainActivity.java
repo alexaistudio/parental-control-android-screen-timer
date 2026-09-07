@@ -10,10 +10,13 @@ import android.os.Looper;
 import android.text.InputType;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import java.util.List;
@@ -55,11 +58,16 @@ public final class MainActivity extends Activity {
     private CheckBox deviceOwnerCheck;
     private CheckBox disableDebugCheck;
     private View remotePanel;
-    private EditText remoteCodeField;
     private EditText remoteMinutesField;
     private EditText remoteCommentField;
     private TextView remoteRemainingView;
     private TextView remoteDetailsView;
+    private EditText globalLimitField;
+    private EditText appLimitField;
+    private Spinner appsSpinner;
+    private View appLimitsPanel;
+    private View manualPanel;
+    private ArrayAdapter<AdbClient.AppTimerState> appsAdapter;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -96,13 +104,25 @@ public final class MainActivity extends Activity {
         deviceOwnerCheck = findViewById(R.id.checkDeviceOwner);
         disableDebugCheck = findViewById(R.id.checkDisableDebug);
         remotePanel = findViewById(R.id.panelRemoteControl);
-        remoteCodeField = findViewById(R.id.editRemoteCode);
         remoteMinutesField = findViewById(R.id.editRemoteMinutes);
         remoteCommentField = findViewById(R.id.editRemoteComment);
         remoteRemainingView = findViewById(R.id.textRemoteRemaining);
         remoteDetailsView = findViewById(R.id.textRemoteDetails);
-        remoteCodeField.setInputType(InputType.TYPE_CLASS_NUMBER
-                | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        globalLimitField = findViewById(R.id.editGlobalLimit);
+        appLimitField = findViewById(R.id.editAppLimit);
+        appsSpinner = findViewById(R.id.spinnerApps);
+        appLimitsPanel = findViewById(R.id.panelAppLimits);
+        manualPanel = findViewById(R.id.panelManualConnection);
+        appsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item);
+        appsSpinner.setAdapter(appsAdapter);
+        appsSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                AdbClient.AppTimerState app = appsAdapter.getItem(position);
+                appLimitField.setText(app != null && app.limitMillis > 0L
+                        ? String.valueOf(app.limitMillis / 60_000L) : "");
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) { appLimitField.setText(""); }
+        });
     }
 
     private void bindActions() {
@@ -137,6 +157,13 @@ public final class MainActivity extends Activity {
         findViewById(R.id.buttonRemoteRefresh).setOnClickListener(view -> refreshRemoteState(true));
         findViewById(R.id.buttonRemoteAdd).setOnClickListener(view -> adjustRemoteTime(true));
         findViewById(R.id.buttonRemoteSubtract).setOnClickListener(view -> adjustRemoteTime(false));
+        findViewById(R.id.buttonAdvancedConnection).setOnClickListener(view ->
+                manualPanel.setVisibility(manualPanel.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
+        ((CheckBox) findViewById(R.id.checkAppLimits)).setOnCheckedChangeListener((button, checked) ->
+                appLimitsPanel.setVisibility(checked ? View.VISIBLE : View.GONE));
+        findViewById(R.id.buttonSaveGlobalLimit).setOnClickListener(view -> changeLimit("global"));
+        findViewById(R.id.buttonSaveAppLimit).setOnClickListener(view -> changeLimit("app"));
+        findViewById(R.id.buttonRemoveAppLimit).setOnClickListener(view -> changeLimit("remove"));
     }
 
     private void switchLanguage(String language) {
@@ -450,6 +477,7 @@ public final class MainActivity extends Activity {
         if (connected) {
             remoteRemainingView.setText(R.string.remote_not_refreshed);
             remoteDetailsView.setText("");
+            refreshRemoteState(false);
             remoteRefreshHandler.postDelayed(remoteRefresh, 5_000L);
         }
     }
@@ -458,19 +486,12 @@ public final class MainActivity extends Activity {
         if (remotePanel.getVisibility() != View.VISIBLE || remoteBusy.get()) {
             return;
         }
-        String code = remoteCodeField.getText().toString().trim();
-        if (!code.matches("[0-9]{4,8}")) {
-            if (userInitiated) {
-                remoteRemainingView.setText(R.string.remote_not_refreshed);
-            }
-            return;
-        }
         if (!remoteBusy.compareAndSet(false, true)) {
             return;
         }
         worker.execute(() -> {
             try {
-                AdbClient.TimerState state = adbClient.readTimerState(code);
+                AdbClient.TimerState state = adbClient.readTimerState();
                 runOnUiThread(() -> {
                     remoteBusy.set(false);
                     renderRemoteState(state);
@@ -488,9 +509,8 @@ public final class MainActivity extends Activity {
         if (remotePanel.getVisibility() != View.VISIBLE || !remoteBusy.compareAndSet(false, true)) {
             return;
         }
-        String code = remoteCodeField.getText().toString().trim();
         int minutes = parseRemoteMinutes();
-        if (!code.matches("[0-9]{4,8}") || minutes <= 0) {
+        if (minutes <= 0) {
             remoteBusy.set(false);
             remoteRemainingView.setText(R.string.remote_not_refreshed);
             return;
@@ -499,7 +519,7 @@ public final class MainActivity extends Activity {
         String comment = remoteCommentField.getText().toString();
         worker.execute(() -> {
             try {
-                AdbClient.TimerState state = adbClient.adjustTimer(code, signedMinutes, comment);
+                AdbClient.TimerState state = adbClient.adjustTimer(signedMinutes, comment);
                 runOnUiThread(() -> {
                     remoteBusy.set(false);
                     renderRemoteState(state);
@@ -535,6 +555,46 @@ public final class MainActivity extends Activity {
                 state.isEnforcementEnabled() ? getString(R.string.remote_limit_on)
                         : getString(R.string.remote_limit_off)
         ));
+        globalLimitField.setText(String.valueOf(state.getDailyLimitMillis() / 60_000L));
+        AdbClient.AppTimerState selected = (AdbClient.AppTimerState) appsSpinner.getSelectedItem();
+        String selectedPackage = selected == null ? null : selected.packageName;
+        appsAdapter.clear();
+        appsAdapter.addAll(state.getApps());
+        appsAdapter.notifyDataSetChanged();
+        for (int index = 0; index < appsAdapter.getCount(); index++) {
+            AdbClient.AppTimerState app = appsAdapter.getItem(index);
+            if (app != null && app.packageName.equals(selectedPackage)) appsSpinner.setSelection(index);
+        }
+        AdbClient.AppTimerState current = (AdbClient.AppTimerState) appsSpinner.getSelectedItem();
+        if (current != null) appLimitField.setText(current.limitMillis > 0L
+                ? String.valueOf(current.limitMillis / 60_000L) : "");
+    }
+
+    private void changeLimit(String action) {
+        if (!remoteBusy.compareAndSet(false, true)) return;
+        AdbClient.AppTimerState app = (AdbClient.AppTimerState) appsSpinner.getSelectedItem();
+        int minutes = parseMinutes("global".equals(action) ? globalLimitField : appLimitField);
+        if (("app".equals(action) && (app == null || minutes < 1))
+                || ("global".equals(action) && minutes < 1)
+                || ("remove".equals(action) && app == null)) {
+            remoteBusy.set(false); return;
+        }
+        worker.execute(() -> {
+            try {
+                AdbClient.TimerState state = "global".equals(action)
+                        ? adbClient.setGlobalLimit(minutes)
+                        : "app".equals(action) ? adbClient.setAppLimit(app.packageName, minutes)
+                        : adbClient.removeAppLimit(app.packageName);
+                runOnUiThread(() -> { remoteBusy.set(false); renderRemoteState(state); setStatus(R.string.remote_updated); });
+            } catch (Exception exception) {
+                runOnUiThread(() -> { remoteBusy.set(false); showRemoteError(exception); });
+            }
+        });
+    }
+
+    private int parseMinutes(EditText field) {
+        try { int value = Integer.parseInt(field.getText().toString().trim()); return value <= 1440 ? value : -1; }
+        catch (NumberFormatException ignored) { return -1; }
     }
 
     private void showRemoteError(Exception exception) {

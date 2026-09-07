@@ -2,9 +2,9 @@
 <resources>
     <string name="app_name">Parent Installer</string>
     <string name="remote_control_title">TV time</string>
-    <string name="remote_control_hint">Uses the connected Wi-Fi ADB session. The code is not saved; the remaining time refreshes every 5 seconds.</string>
+    <string name="remote_control_hint">Works at any time through the selected TV. The remaining time refreshes every 5 seconds.</string>
     <string name="remote_code">Permanent PIN or temporary code (4–8 digits)</string>
-    <string name="remote_not_refreshed">Enter a code and tap Refresh</string>
+    <string name="remote_not_refreshed">Loading remaining time…</string>
     <string name="remote_refresh">Refresh remaining time</string>
     <string name="remote_minutes">Minutes</string>
     <string name="remote_subtract">− Remove</string>
@@ -15,6 +15,12 @@
     <string name="remote_limit_off">Limit is off</string>
     <string name="remote_limit_on">Limit is on</string>
     <string name="remote_updated">TV updated</string>
+    <string name="global_limit_title">Total time for all apps</string>
+    <string name="app_limits_title">Set a separate app limit</string>
+    <string name="minutes_per_day">Minutes per day</string>
+    <string name="save">Save</string>
+    <string name="remove">Remove limit</string>
+    <string name="advanced_connection">Advanced connection / pairing</string>
     <string name="header_subtitle">Finds your Android device, installs Android Screen Timer, and helps enable protection — no separate ADB app required.</string>
     <string name="wifi_path_title">Wi-Fi — install directly from this phone</string>
     <string name="step_one_summary">The main method for Android 11+: enable Wireless debugging on the target. Pair once, then connect and tap INSTALL.</string>

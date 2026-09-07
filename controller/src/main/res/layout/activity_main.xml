@@ -146,16 +146,6 @@
                 android:textColor="@color/controller_muted"
                 android:textSize="14sp" />
 
-            <EditText
-                android:id="@+id/editRemoteCode"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:autofillHints=""
-                android:hint="@string/remote_code"
-                android:inputType="numberPassword"
-                android:maxLength="8"
-                android:maxLines="1" />
-
             <TextView
                 android:id="@+id/textRemoteRemaining"
                 android:layout_width="match_parent"
@@ -181,6 +171,75 @@
                 android:layout_marginTop="8dp"
                 android:text="@string/remote_refresh"
                 android:textAllCaps="false" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/global_limit_title"
+                android:textColor="@color/controller_text"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <EditText
+                    android:id="@+id/editGlobalLimit"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:hint="@string/minutes_per_day"
+                    android:inputType="number" />
+                <Button
+                    android:id="@+id/buttonSaveGlobalLimit"
+                    android:layout_width="wrap_content"
+                    android:layout_height="50dp"
+                    android:text="@string/save"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+
+            <CheckBox
+                android:id="@+id/checkAppLimits"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/app_limits_title" />
+
+            <LinearLayout
+                android:id="@+id/panelAppLimits"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+                <Spinner
+                    android:id="@+id/spinnerApps"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <EditText
+                        android:id="@+id/editAppLimit"
+                        android:layout_width="0dp"
+                        android:layout_height="50dp"
+                        android:layout_weight="1"
+                        android:hint="@string/minutes_per_day"
+                        android:inputType="number" />
+                    <Button
+                        android:id="@+id/buttonSaveAppLimit"
+                        android:layout_width="wrap_content"
+                        android:layout_height="50dp"
+                        android:text="@string/save"
+                        android:textAllCaps="false" />
+                    <Button
+                        android:id="@+id/buttonRemoveAppLimit"
+                        android:layout_width="wrap_content"
+                        android:layout_height="50dp"
+                        android:text="@string/remove"
+                        android:textAllCaps="false" />
+                </LinearLayout>
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -228,12 +287,22 @@
                 android:maxLines="1" />
         </LinearLayout>
 
+        <Button
+            android:id="@+id/buttonAdvancedConnection"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:text="@string/advanced_connection"
+            android:textAllCaps="false" />
+
         <LinearLayout
+            android:id="@+id/panelManualConnection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:background="@drawable/panel_background"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:visibility="gone">
 
             <TextView
                 android:layout_width="match_parent"

@@ -34,7 +34,9 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -66,6 +68,8 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private boolean interactive;
     private boolean dreaming;
     private boolean countedDuringPreviousInterval;
+    private boolean countedGlobalDuringPreviousInterval;
+    private String countedPackageDuringPreviousInterval;
     private boolean connected;
     private boolean evaluating;
     private String evaluatedDay;
@@ -77,11 +81,13 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     private boolean systemSettingsProtectionEnabled = true;
     private String targetScope = AppScope.ALL;
     private Set<String> targetPackages = Collections.emptySet();
+    private Map<String, Long> appLimitsMillis = Collections.emptyMap();
     private Set<String> homePackages = Collections.emptySet();
     private Set<String> launchablePackages = Collections.emptySet();
     private long dailyLimitMillis = ConfigStore.DEFAULT_LIMIT_MILLIS;
     private long lastTickElapsed = -1L;
     private long pendingUsageMillis;
+    private final Map<String, Long> pendingAppUsageMillis = new HashMap<>();
     private String pendingUsageDay;
     private TextView timerView;
     private View blockerView;
@@ -330,6 +336,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         enforcementEnabled = store.isEnforcementEnabled();
         targetScope = store.getScope();
         targetPackages = store.getSelectedPackages();
+        appLimitsMillis = store.getAppLimitsMillis();
         dailyLimitMillis = store.getDailyLimitMillis();
         parentModeGestureEnabled = store.isParentModeGestureEnabled();
         systemSettingsProtectionEnabled = store.isSystemSettingsProtectionEnabled();
@@ -356,6 +363,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         if (!day.equals(evaluatedDay)) {
             // Never write yesterday's pending usage back after initializing today's budget.
             pendingUsageMillis = 0L;
+            pendingAppUsageMillis.clear();
             pendingUsageDay = day;
             countedDuringPreviousInterval = false;
             lastTickElapsed = nowElapsed;
@@ -369,11 +377,23 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 flushPendingUsage();
             }
             pendingUsageDay = day;
-            pendingUsageMillis += elapsed;
+            if (countedGlobalDuringPreviousInterval) {
+                pendingUsageMillis += elapsed;
+            }
+            if (countedPackageDuringPreviousInterval != null) {
+                Long prior = pendingAppUsageMillis.get(countedPackageDuringPreviousInterval);
+                long previous = prior == null ? 0L : prior;
+                pendingAppUsageMillis.put(countedPackageDuringPreviousInterval,
+                        previous > Long.MAX_VALUE - elapsed ? Long.MAX_VALUE : previous + elapsed);
+            }
         }
         lastTickElapsed = nowElapsed;
 
-        if (pendingUsageMillis >= PERSIST_INTERVAL_MILLIS) {
+        boolean appUsageReady = false;
+        for (Long value : pendingAppUsageMillis.values()) {
+            if (value != null && value >= PERSIST_INTERVAL_MILLIS) { appUsageReady = true; break; }
+        }
+        if (pendingUsageMillis >= PERSIST_INTERVAL_MILLIS || appUsageReady) {
             flushPendingUsage();
         }
 
@@ -411,7 +431,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             showBlocker(BlockReason.REMOVAL_PROTECTION);
             return;
         }
-        boolean targetActive = enforcementEnabled
+        boolean globalTargetActive = enforcementEnabled
                 && interactive
                 && !homePackages.contains(activePackage)
                 && AppScope.isTarget(
@@ -420,17 +440,27 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                         getPackageName(),
                         targetPackages
                 );
+        Long appLimit = appLimitsMillis.get(activePackage);
+        boolean appTargetActive = enforcementEnabled && interactive && appLimit != null;
+        boolean targetActive = globalTargetActive || appTargetActive;
 
         ConfigStore.DayState dayState = store.getDayState(day);
         long inMemoryUsage = day.equals(pendingUsageDay) ? pendingUsageMillis : 0L;
         long used = dayState.getUsedMillis() > Long.MAX_VALUE - inMemoryUsage
                 ? Long.MAX_VALUE
                 : dayState.getUsedMillis() + inMemoryUsage;
-        long remaining = LimitMath.remaining(
+        long globalRemaining = globalTargetActive ? LimitMath.remaining(
                 dailyLimitMillis,
                 dayState.getBonusMillis(),
                 used
-        );
+        ) : Long.MAX_VALUE;
+        long storedAppUsed = dayState.getAppUsedMillis(activePackage);
+        Long pendingValue = pendingAppUsageMillis.get(activePackage);
+        long pendingAppUsed = pendingValue == null ? 0L : pendingValue;
+        long appUsed = storedAppUsed > Long.MAX_VALUE - pendingAppUsed
+                ? Long.MAX_VALUE : storedAppUsed + pendingAppUsed;
+        long appRemaining = appTargetActive ? Math.max(0L, appLimit - appUsed) : Long.MAX_VALUE;
+        long remaining = Math.min(globalRemaining, appRemaining);
 
         if (!targetActive) {
             countedDuringPreviousInterval = false;
@@ -442,12 +472,15 @@ public final class LimiterAccessibilityService extends AccessibilityService {
             showBlocker(BlockReason.TIME_LIMIT);
             showRemoteAdjustmentNoticeIfNeeded();
         } else {
-            long warningMinutes = store.getDueUsageWarningMinutes(day, used);
+            long warningMinutes = globalTargetActive
+                    ? store.getDueUsageWarningMinutes(day, used) : 0L;
             if (warningMinutes > 0L) {
                 countedDuringPreviousInterval = false;
                 showUsageWarning(warningMinutes, day);
             } else {
                 countedDuringPreviousInterval = true;
+                countedGlobalDuringPreviousInterval = globalTargetActive;
+                countedPackageDuringPreviousInterval = activePackage;
                 showTimer(remaining);
                 showRemoteAdjustmentNoticeIfNeeded();
             }
@@ -1135,12 +1168,15 @@ public final class LimiterAccessibilityService extends AccessibilityService {
     }
 
     private void flushPendingUsage() {
-        if (store != null && pendingUsageMillis > 0L && pendingUsageDay != null) {
-            if (!store.addUsage(pendingUsageDay, pendingUsageMillis)) {
+        if (store != null && pendingUsageDay != null
+                && (pendingUsageMillis > 0L || !pendingAppUsageMillis.isEmpty())) {
+            if (!store.addUsage(pendingUsageDay, pendingUsageMillis,
+                    new HashMap<>(pendingAppUsageMillis))) {
                 Log.e(TAG, "Unable to persist elapsed usage");
                 return;
             }
             pendingUsageMillis = 0L;
+            pendingAppUsageMillis.clear();
         }
     }
 

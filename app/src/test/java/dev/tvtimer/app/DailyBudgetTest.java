@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public final class DailyBudgetTest {
     @Test
@@ -23,6 +24,23 @@ public final class DailyBudgetTest {
         assertEquals(0L, today.getBonusMillis());
         morning.addUsage("2026-09-05", 12_000L);
         assertEquals(12_000L, new ConfigStore(context).getDayState("2026-09-05").getUsedMillis());
+    }
+
+    @Test
+    public void appLimitsAndUsageAreIndependentAndPersisted() {
+        Context context = memoryContext();
+        ConfigStore store = new ConfigStore(context);
+        store.setAppLimitMillis("com.google.android.youtube.tv", 900_000L);
+        Map<String, Long> usage = new HashMap<>();
+        usage.put("com.google.android.youtube.tv", 120_000L);
+        assertTrue(store.addUsage("2026-09-07", 120_000L, usage));
+
+        ConfigStore recreated = new ConfigStore(context);
+        assertEquals(900_000L, (long) recreated.getAppLimitsMillis()
+                .get("com.google.android.youtube.tv"));
+        assertEquals(120_000L, recreated.getDayState("2026-09-07")
+                .getAppUsedMillis("com.google.android.youtube.tv"));
+        assertEquals(120_000L, recreated.getDayState("2026-09-07").getUsedMillis());
     }
 
     private static Context memoryContext() {

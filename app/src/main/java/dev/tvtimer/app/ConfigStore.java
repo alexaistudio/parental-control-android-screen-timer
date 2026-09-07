@@ -5,7 +5,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 @SuppressLint("ApplySharedPref")
@@ -47,6 +49,8 @@ public final class ConfigStore {
     private static final String KEY_REMOTE_NOTICE_UNTIL = "remote_notice_until";
     private static final String KEY_BLOCKER_AUDIO_MUTED = "blocker_audio_muted";
     private static final String KEY_BLOCKER_AUDIO_VOLUME = "blocker_audio_volume";
+    private static final String KEY_APP_LIMITS = "app_limits";
+    private static final String KEY_APP_USAGE = "app_usage";
 
     public static final long DEFAULT_LIMIT_MILLIS = 60L * 60L * 1_000L;
     public static final long MAINTENANCE_WINDOW_MILLIS = 2L * 60L * 1_000L;
@@ -360,16 +364,73 @@ public final class ConfigStore {
         ensureDay(dayKey);
         return new DayState(
                 preferences.getLong(KEY_USAGE_MILLIS, 0L),
-                preferences.getLong(KEY_BONUS_MILLIS, 0L)
+                preferences.getLong(KEY_BONUS_MILLIS, 0L),
+                decodeLongMap(preferences.getString(KEY_APP_USAGE, ""))
         );
     }
 
     public synchronized boolean addUsage(String dayKey, long deltaMillis) {
+        return addUsage(dayKey, deltaMillis, Collections.emptyMap());
+    }
+
+    public synchronized boolean addUsage(
+            String dayKey,
+            long globalDeltaMillis,
+            Map<String, Long> appDeltasMillis
+    ) {
         ensureDay(dayKey);
         long current = preferences.getLong(KEY_USAGE_MILLIS, 0L);
-        long safeDelta = Math.max(0L, deltaMillis);
+        long safeDelta = Math.max(0L, globalDeltaMillis);
         long updated = current > Long.MAX_VALUE - safeDelta ? Long.MAX_VALUE : current + safeDelta;
-        return preferences.edit().putLong(KEY_USAGE_MILLIS, updated).commit();
+        Map<String, Long> appUsage = decodeLongMap(preferences.getString(KEY_APP_USAGE, ""));
+        if (appDeltasMillis != null) {
+            for (Map.Entry<String, Long> entry : appDeltasMillis.entrySet()) {
+                String packageName = entry.getKey();
+                long delta = entry.getValue() == null ? 0L : Math.max(0L, entry.getValue());
+                if (!isValidPackageName(packageName) || delta == 0L) {
+                    continue;
+                }
+                Long prior = appUsage.get(packageName);
+                long previous = prior == null ? 0L : prior;
+                appUsage.put(packageName,
+                        previous > Long.MAX_VALUE - delta ? Long.MAX_VALUE : previous + delta);
+            }
+        }
+        return preferences.edit()
+                .putLong(KEY_USAGE_MILLIS, updated)
+                .putString(KEY_APP_USAGE, encodeLongMap(appUsage))
+                .commit();
+    }
+
+    public Map<String, Long> getAppLimitsMillis() {
+        return decodeLongMap(preferences.getString(KEY_APP_LIMITS, ""));
+    }
+
+    public boolean setAppLimitMillis(String packageName, long limitMillis) {
+        if (!isValidPackageName(packageName)
+                || limitMillis < 60_000L
+                || limitMillis > 24L * 60L * 60L * 1_000L) {
+            throw new IllegalArgumentException("Invalid application limit");
+        }
+        Map<String, Long> limits = getAppLimitsMillis();
+        limits.put(packageName, limitMillis);
+        return preferences.edit().putString(KEY_APP_LIMITS, encodeLongMap(limits)).commit();
+    }
+
+    public boolean removeAppLimit(String packageName) {
+        Map<String, Long> limits = getAppLimitsMillis();
+        if (!limits.containsKey(packageName)) {
+            return true;
+        }
+        limits.remove(packageName);
+        return preferences.edit().putString(KEY_APP_LIMITS, encodeLongMap(limits)).commit();
+    }
+
+    public boolean setDailyLimitMillis(long limitMillis) {
+        if (limitMillis < 60_000L || limitMillis > 24L * 60L * 60L * 1_000L) {
+            throw new IllegalArgumentException("Invalid daily limit");
+        }
+        return preferences.edit().putLong(KEY_DAILY_LIMIT, limitMillis).commit();
     }
 
     public synchronized boolean addBonus(String dayKey, long bonusMillis) {
@@ -525,6 +586,7 @@ public final class ConfigStore {
                 || KEY_REMOTE_NOTICE_MINUTES.equals(key)
                 || KEY_REMOTE_NOTICE_COMMENT.equals(key)
                 || KEY_REMOTE_NOTICE_UNTIL.equals(key)
+                || KEY_APP_LIMITS.equals(key)
                 || KEY_LANGUAGE.equals(key);
     }
 
@@ -543,8 +605,51 @@ public final class ConfigStore {
                     .putString(KEY_USAGE_DAY, dayKey)
                     .putLong(KEY_USAGE_MILLIS, 0L)
                     .putLong(KEY_BONUS_MILLIS, 0L)
+                    .putString(KEY_APP_USAGE, "")
                     .apply();
         }
+    }
+
+    private static boolean isValidPackageName(String packageName) {
+        return packageName != null
+                && packageName.length() <= 255
+                && packageName.matches("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+");
+    }
+
+    private static Map<String, Long> decodeLongMap(String encoded) {
+        Map<String, Long> values = new HashMap<>();
+        if (encoded == null || encoded.isBlank()) {
+            return values;
+        }
+        for (String item : encoded.split(";")) {
+            int separator = item.lastIndexOf('=');
+            if (separator <= 0 || separator == item.length() - 1) {
+                continue;
+            }
+            String key = item.substring(0, separator);
+            try {
+                long value = Long.parseLong(item.substring(separator + 1));
+                if (isValidPackageName(key) && value >= 0L) {
+                    values.put(key, value);
+                }
+            } catch (NumberFormatException ignored) {
+                // Ignore a damaged individual record without losing the rest.
+            }
+        }
+        return values;
+    }
+
+    private static String encodeLongMap(Map<String, Long> values) {
+        StringBuilder encoded = new StringBuilder();
+        java.util.List<String> keys = new java.util.ArrayList<>(values.keySet());
+        Collections.sort(keys);
+        for (String key : keys) {
+            Long value = values.get(key);
+            if (!isValidPackageName(key) || value == null || value < 0L) continue;
+            if (encoded.length() > 0) encoded.append(';');
+            encoded.append(key).append('=').append(value);
+        }
+        return encoded.toString();
     }
 
     private static void validateSettings(
@@ -567,10 +672,12 @@ public final class ConfigStore {
     public static final class DayState {
         private final long usedMillis;
         private final long bonusMillis;
+        private final Map<String, Long> appUsageMillis;
 
-        DayState(long usedMillis, long bonusMillis) {
+        DayState(long usedMillis, long bonusMillis, Map<String, Long> appUsageMillis) {
             this.usedMillis = usedMillis;
             this.bonusMillis = bonusMillis;
+            this.appUsageMillis = Collections.unmodifiableMap(new HashMap<>(appUsageMillis));
         }
 
         public long getUsedMillis() {
@@ -579,6 +686,15 @@ public final class ConfigStore {
 
         public long getBonusMillis() {
             return bonusMillis;
+        }
+
+        public long getAppUsedMillis(String packageName) {
+            Long value = appUsageMillis.get(packageName);
+            return value == null ? 0L : value;
+        }
+
+        public Map<String, Long> getAppUsageMillis() {
+            return appUsageMillis;
         }
     }
 

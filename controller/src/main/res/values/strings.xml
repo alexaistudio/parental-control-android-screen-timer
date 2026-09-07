@@ -2,9 +2,9 @@
 <resources>
     <string name="app_name">Родительский установщик</string>
     <string name="remote_control_title">Время на ТВ</string>
-    <string name="remote_control_hint">Работает через уже подключённый Wi‑Fi ADB. Код не сохраняется; обновление — каждые 5 секунд.</string>
+    <string name="remote_control_hint">Работает в любой момент через выбранный ТВ. Обновление — каждые 5 секунд.</string>
     <string name="remote_code">Постоянный PIN или временный код (4–8 цифр)</string>
-    <string name="remote_not_refreshed">Введите код и нажмите «Обновить»</string>
+    <string name="remote_not_refreshed">Получаю остаток времени…</string>
     <string name="remote_refresh">Обновить остаток</string>
     <string name="remote_minutes">Минуты</string>
     <string name="remote_subtract">− Убрать</string>
@@ -15,6 +15,12 @@
     <string name="remote_limit_off">Лимит выключен</string>
     <string name="remote_limit_on">Лимит включён</string>
     <string name="remote_updated">ТВ обновлён</string>
+    <string name="global_limit_title">Общее время на все приложения</string>
+    <string name="app_limits_title">Задать отдельный лимит приложению</string>
+    <string name="minutes_per_day">Минут в день</string>
+    <string name="save">Сохранить</string>
+    <string name="remove">Убрать лимит</string>
+    <string name="advanced_connection">Дополнительное подключение / сопряжение</string>
     <string name="header_subtitle">Находит ваше Android-устройство, устанавливает Android Screen Timer и помогает включить защиту — без отдельного ADB-приложения.</string>
     <string name="wifi_path_title">Wi‑Fi — установить прямо с этого телефона</string>
     <string name="step_one_summary">Основной способ для Android 11+: включите «Беспроводную отладку» на целевом устройстве. Сначала выполните сопряжение, затем подключение и INSTALL.</string>
@@ -42,7 +48,7 @@
     <string name="status_scanning">Ищу Android-устройства…</string>
     <string name="status_none">Устройство не объявило ADB в сети, порт 5555 тоже не найден. Откройте на цели «Беспроводная отладка». IP и порт с её главного экрана введите как порт подключения; отдельный порт из окна шестизначного кода — как порт сопряжения.</string>
     <string name="status_found">Найдено устройств: %1$d. Выберите нужное.</string>
-    <string name="status_selected">Выбрано: %1$s. Если устройство ещё не сопряжено, введите код; иначе нажмите «Подключить».</string>
+    <string name="status_selected">Подключаюсь к выбранному устройству: %1$s…</string>
     <string name="status_pairing">Сопрягаюсь с %1$s… Не закрывайте окно с кодом на целевом устройстве.</string>
     <string name="status_connecting">Подключаюсь к %1$s:%2$d… Подтвердите ключ на целевом устройстве, если появится запрос.</string>
     <string name="status_connected">Подключено: %1$s</string>
@@ -51,7 +57,7 @@
     <string name="status_configuring">APK установлен. Настраиваю контроль экрана…</string>
     <string name="status_complete">Готово. Android Screen Timer установлен и открыт на целевом устройстве.%1$s</string>
     <string name="status_error">Ошибка: %1$s</string>
-    <string name="found_device">%1$s\n%2$s</string>
+    <string name="found_device">Android TV / устройство: %1$s\n%2$s\nНажмите, чтобы подключиться</string>
     <string name="select_device">Выбрать</string>
     <string name="paired_rescan">Сопряжение выполнено. Нажмите «Найти по Wi‑Fi / сети», если порт подключения ещё не появился.</string>
     <string name="invalid_host">Введите IP-адрес устройства.</string>

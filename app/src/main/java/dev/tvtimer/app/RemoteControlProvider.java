@@ -2,67 +2,71 @@ package dev.tvtimer.app;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.Intent;
+import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.Process;
+import android.util.Base64;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-/**
- * A tiny ADB-facing control surface for the paired parent phone. Every call is
- * authenticated with a parent PIN or current authenticator code.
- */
+/** A control surface available only to the local ADB shell/root identity. */
 public final class RemoteControlProvider extends ContentProvider {
     public static final String AUTHORITY = "dev.tvtimer.app.parentcontrol";
     public static final Uri URI = Uri.parse("content://" + AUTHORITY);
-    public static final String METHOD_STATE = "state";
-    public static final String METHOD_ADJUST = "adjust";
-    public static final String EXTRA_CODE = "code";
-    public static final String EXTRA_MINUTES = "minutes";
-    public static final String EXTRA_COMMENT = "comment";
-
     private ConfigStore store;
 
-    @Override
-    public boolean onCreate() {
-        store = new ConfigStore(getContext());
-        return true;
-    }
+    @Override public boolean onCreate() { store = new ConfigStore(getContext()); return true; }
 
-    @Override
-    public Bundle call(String method, String arg, Bundle extras) {
+    @Override public Bundle call(String method, String arg, Bundle extras) {
+        int uid = Binder.getCallingUid();
+        if (uid != Process.SHELL_UID && uid != Process.ROOT_UID && uid != Process.myUid())
+            return failure("ADB authorization is required");
+        if (!store.isConfigured()) return failure("Timer has not been configured on the TV");
         Bundle request = extras == null ? Bundle.EMPTY : extras;
-        String code = request.getString(EXTRA_CODE, "").trim();
         long now = System.currentTimeMillis();
-        if (!store.isConfigured()) {
-            return failure("Timer has not been configured on the TV");
-        }
-        if (!store.verifyParentCode(code, now)) {
-            return failure("Incorrect parent code");
-        }
         String day = DayKey.localDay(now);
-        if (METHOD_STATE.equals(method)) {
-            return state(day);
-        }
-        if (METHOD_ADJUST.equals(method)) {
-            if (!request.containsKey(EXTRA_MINUTES)) {
-                return failure("minutes is required");
-            }
-            try {
-                int minutes = request.getInt(EXTRA_MINUTES);
-                ConfigStore.RemoteAdjustment adjustment = store.applyRemoteAdjustment(
-                        day,
-                        minutes,
-                        request.getString(EXTRA_COMMENT, ""),
-                        now
-                );
+        try {
+            if ("state".equals(method)) return state(day);
+            if ("adjust".equals(method)) {
+                int minutes = requiredMinutes(request, false);
+                ConfigStore.RemoteAdjustment adjustment = store.applyRemoteAdjustment(day, minutes,
+                        request.getString("comment", ""), now);
                 Bundle result = state(day);
                 result.putLong("noticeId", adjustment.getId());
                 result.putInt("changedMinutes", adjustment.getMinutes());
                 return result;
-            } catch (IllegalArgumentException exception) {
-                return failure(exception.getMessage());
             }
-        }
-        return failure("Unknown method");
+            if ("setGlobalLimit".equals(method)) {
+                store.setDailyLimitMillis(requiredMinutes(request, true) * 60_000L);
+                return state(day);
+            }
+            if ("setAppLimit".equals(method)) {
+                store.setAppLimitMillis(request.getString("package", "").trim(),
+                        requiredMinutes(request, true) * 60_000L);
+                return state(day);
+            }
+            if ("removeAppLimit".equals(method)) {
+                store.removeAppLimit(request.getString("package", "").trim());
+                return state(day);
+            }
+            return failure("Unknown method");
+        } catch (IllegalArgumentException exception) { return failure(exception.getMessage()); }
+    }
+
+    private int requiredMinutes(Bundle request, boolean positive) {
+        if (!request.containsKey("minutes")) throw new IllegalArgumentException("minutes is required");
+        int value = request.getInt("minutes");
+        if (value == 0 || Math.abs((long) value) > 1440L || (positive && value < 1))
+            throw new IllegalArgumentException("minutes must be from 1 to 1440");
+        return value;
     }
 
     private Bundle state(String day) {
@@ -72,27 +76,51 @@ public final class RemoteControlProvider extends ContentProvider {
         result.putLong("dailyLimitMillis", store.getDailyLimitMillis());
         result.putLong("usedMillis", dayState.getUsedMillis());
         result.putLong("bonusMillis", dayState.getBonusMillis());
-        result.putLong("remainingMillis", LimitMath.remaining(
-                store.getDailyLimitMillis(),
-                dayState.getBonusMillis(),
-                dayState.getUsedMillis()
-        ));
+        result.putLong("remainingMillis", LimitMath.remaining(store.getDailyLimitMillis(), dayState.getBonusMillis(), dayState.getUsedMillis()));
         result.putBoolean("enforcementEnabled", store.isEnforcementEnabled());
+        result.putString("appsPayload", buildAppsPayload(dayState));
         return result;
+    }
+
+    private String buildAppsPayload(ConfigStore.DayState dayState) {
+        Map<String, String> labels = new HashMap<>();
+        collectApps(Intent.CATEGORY_LEANBACK_LAUNCHER, labels);
+        collectApps(Intent.CATEGORY_LAUNCHER, labels);
+        Map<String, Long> limits = store.getAppLimitsMillis();
+        for (String packageName : limits.keySet()) {
+            if (!labels.containsKey(packageName)) labels.put(packageName, packageName);
+        }
+        List<String> packages = new ArrayList<>(labels.keySet());
+        Collections.sort(packages, (left, right) ->
+                String.CASE_INSENSITIVE_ORDER.compare(labels.get(left), labels.get(right)));
+        StringBuilder payload = new StringBuilder();
+        for (String packageName : packages) {
+            String label = labels.get(packageName).replace('\t', ' ').replace('\n', ' ');
+            payload.append(packageName).append('\t').append(label).append('\t')
+                    .append(limits.containsKey(packageName) ? limits.get(packageName) : 0L).append('\t')
+                    .append(dayState.getAppUsedMillis(packageName)).append('\n');
+        }
+        return Base64.encodeToString(payload.toString().getBytes(StandardCharsets.UTF_8), Base64.URL_SAFE | Base64.NO_WRAP);
+    }
+
+    private void collectApps(String category, Map<String, String> destination) {
+        Intent intent = new Intent(Intent.ACTION_MAIN).addCategory(category);
+        for (ResolveInfo info : getContext().getPackageManager().queryIntentActivities(intent, 0)) {
+            if (info.activityInfo == null) continue;
+            String packageName = info.activityInfo.packageName;
+            CharSequence label = info.loadLabel(getContext().getPackageManager());
+            if (!destination.containsKey(packageName))
+                destination.put(packageName, label == null ? packageName : label.toString());
+        }
     }
 
     private Bundle failure(String message) {
-        Bundle result = new Bundle();
-        result.putBoolean("ok", false);
-        result.putString("error", message == null ? "Request failed" : message);
-        return result;
+        Bundle result = new Bundle(); result.putBoolean("ok", false);
+        result.putString("error", message == null ? "Request failed" : message); return result;
     }
-
     @Override public String getType(Uri uri) { return null; }
-    @Override public Cursor query(Uri uri, String[] projection, String selection,
-                                  String[] selectionArgs, String sortOrder) { return null; }
+    @Override public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) { return null; }
     @Override public Uri insert(Uri uri, ContentValues values) { return null; }
     @Override public int delete(Uri uri, String selection, String[] selectionArgs) { return 0; }
-    @Override public int update(Uri uri, ContentValues values, String selection,
-                                String[] selectionArgs) { return 0; }
+    @Override public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) { return 0; }
 }

@@ -3,12 +3,16 @@ package dev.tvtimer.controller;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.os.Build;
+import android.util.Base64;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -283,27 +287,48 @@ final class AdbClient {
         connectedPort = -1;
     }
 
-    synchronized TimerState readTimerState(String code) throws Exception {
-        requireParentCode(code);
-        return TimerState.parse(runShell("content call --uri " + REMOTE_URI
-                + " --method state --es code " + shellQuote(code)));
+    synchronized TimerState readTimerState() throws Exception {
+        ensureControlConnection();
+        return TimerState.parse(runShell("content call --uri " + REMOTE_URI + " --method state"));
     }
 
-    synchronized TimerState adjustTimer(String code, int minutes, String comment) throws Exception {
-        requireParentCode(code);
+    synchronized TimerState adjustTimer(int minutes, String comment) throws Exception {
         if (minutes == 0 || Math.abs((long) minutes) > 1_440L) {
             throw new IllegalArgumentException("Enter from 1 to 1440 minutes");
         }
+        ensureControlConnection();
         return TimerState.parse(runShell("content call --uri " + REMOTE_URI
-                + " --method adjust --ei minutes " + minutes
-                + " --es comment " + shellQuote(comment == null ? "" : comment)
-                + " --es code " + shellQuote(code)));
+                + " --method adjust --extra " + shellQuote("minutes:i:" + minutes)
+                + " --extra " + shellQuote("comment:s:" + (comment == null ? "" : comment))));
     }
 
-    private static void requireParentCode(String code) {
-        if (code == null || !code.matches("[0-9]{4,8}")) {
-            throw new IllegalArgumentException("Enter a 4–8 digit parent code");
-        }
+    synchronized TimerState setGlobalLimit(int minutes) throws Exception {
+        return callWithMinutes("setGlobalLimit", minutes, null);
+    }
+
+    synchronized TimerState setAppLimit(String packageName, int minutes) throws Exception {
+        return callWithMinutes("setAppLimit", minutes, packageName);
+    }
+
+    synchronized TimerState removeAppLimit(String packageName) throws Exception {
+        ensureControlConnection();
+        return TimerState.parse(runShell("content call --uri " + REMOTE_URI
+                + " --method removeAppLimit --extra " + shellQuote("package:s:" + packageName)));
+    }
+
+    private TimerState callWithMinutes(String method, int minutes, String packageName) throws Exception {
+        if (minutes < 1 || minutes > 1440) throw new IllegalArgumentException("Enter from 1 to 1440 minutes");
+        ensureControlConnection();
+        String command = "content call --uri " + REMOTE_URI + " --method " + method
+                + " --extra " + shellQuote("minutes:i:" + minutes);
+        if (packageName != null) command += " --extra " + shellQuote("package:s:" + packageName);
+        return TimerState.parse(runShell(command));
+    }
+
+    private void ensureControlConnection() throws Exception {
+        if (manager.isConnected()) return;
+        if (connectedHost == null || connectedPort < 1 || !manager.connect(connectedHost, connectedPort))
+            throw new IllegalStateException("TV is no longer available over Wi-Fi ADB");
     }
 
     static String shellQuote(String value) {
@@ -315,17 +340,22 @@ final class AdbClient {
                 "(dailyLimitMillis|usedMillis|bonusMillis|remainingMillis)=(-?\\d+)"
         );
         private static final Pattern ENABLED_VALUE = Pattern.compile("enforcementEnabled=(true|false)");
+        private static final Pattern APPS_VALUE = Pattern.compile("appsPayload=([^,} ]*)");
+        private final long dailyLimitMillis;
         private final long usedMillis;
         private final long bonusMillis;
         private final long remainingMillis;
         private final boolean enforcementEnabled;
+        private final List<AppTimerState> apps;
 
-        private TimerState(long usedMillis, long bonusMillis, long remainingMillis,
-                           boolean enforcementEnabled) {
+        private TimerState(long dailyLimitMillis, long usedMillis, long bonusMillis,
+                           long remainingMillis, boolean enforcementEnabled, List<AppTimerState> apps) {
+            this.dailyLimitMillis = dailyLimitMillis;
             this.usedMillis = usedMillis;
             this.bonusMillis = bonusMillis;
             this.remainingMillis = remainingMillis;
             this.enforcementEnabled = enforcementEnabled;
+            this.apps = apps;
         }
 
         static TimerState parse(String response) {
@@ -351,14 +381,36 @@ final class AdbClient {
             if (daily < 0L || used < 0L || remaining < 0L || !enabled.find()) {
                 throw new IllegalStateException("TV returned an incomplete timer state");
             }
-            return new TimerState(used, bonus, remaining,
-                    Boolean.parseBoolean(enabled.group(1)));
+            List<AppTimerState> apps = new ArrayList<>();
+            Matcher appsMatcher = APPS_VALUE.matcher(response);
+            if (appsMatcher.find() && !appsMatcher.group(1).isEmpty()) {
+                String decoded = new String(Base64.decode(appsMatcher.group(1), Base64.URL_SAFE), StandardCharsets.UTF_8);
+                for (String line : decoded.split("\\n")) {
+                    String[] values = line.split("\\t", -1);
+                    if (values.length == 4) apps.add(new AppTimerState(values[0], values[1],
+                            Long.parseLong(values[2]), Long.parseLong(values[3])));
+                }
+            }
+            return new TimerState(daily, used, bonus, remaining,
+                    Boolean.parseBoolean(enabled.group(1)), Collections.unmodifiableList(apps));
         }
 
+        long getDailyLimitMillis() { return dailyLimitMillis; }
         long getRemainingMillis() { return remainingMillis; }
         long getUsedMillis() { return usedMillis; }
         long getBonusMillis() { return bonusMillis; }
         boolean isEnforcementEnabled() { return enforcementEnabled; }
+        List<AppTimerState> getApps() { return apps; }
+    }
+
+    static final class AppTimerState {
+        final String packageName, label;
+        final long limitMillis, usedMillis;
+        AppTimerState(String packageName, String label, long limitMillis, long usedMillis) {
+            this.packageName = packageName; this.label = label;
+            this.limitMillis = limitMillis; this.usedMillis = usedMillis;
+        }
+        @Override public String toString() { return label; }
     }
 
     private File materializeEmbeddedApk() throws Exception {
