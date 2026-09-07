@@ -283,7 +283,7 @@
                 android:autofillHints=""
                 android:hint="@string/remote_comment"
                 android:inputType="textCapSentences"
-                android:maxLength="120"
+                android:maxLength="32"
                 android:maxLines="1" />
         </LinearLayout>
 

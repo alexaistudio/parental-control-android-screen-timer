@@ -297,9 +297,11 @@ final class AdbClient {
             throw new IllegalArgumentException("Enter from 1 to 1440 minutes");
         }
         ensureControlConnection();
-        return TimerState.parse(runShell("content call --uri " + REMOTE_URI
-                + " --method adjust --extra " + shellQuote("minutes:i:" + minutes)
-                + " --extra " + shellQuote("comment:s:" + (comment == null ? "" : comment))));
+        String command = "content call --uri " + REMOTE_URI
+                + " --method adjust --extra " + shellQuote("minutes:i:" + minutes);
+        String safeComment = compactComment(comment);
+        if (!safeComment.isEmpty()) command += " --extra " + shellQuote("comment:s:" + safeComment);
+        return TimerState.parse(runShell(command));
     }
 
     synchronized TimerState setGlobalLimit(int minutes) throws Exception {
@@ -333,6 +335,23 @@ final class AdbClient {
 
     static String shellQuote(String value) {
         return "'" + value.replace("'", "'\"'\"'") + "'";
+    }
+
+    /** libadb has a small OPEN-command frame on some parent phones. */
+    static String compactComment(String comment) {
+        if (comment == null || comment.isBlank()) return "";
+        StringBuilder result = new StringBuilder();
+        int bytes = 0;
+        for (int offset = 0; offset < comment.length();) {
+            int codePoint = comment.codePointAt(offset);
+            String character = new String(Character.toChars(codePoint));
+            int characterBytes = character.getBytes(StandardCharsets.UTF_8).length;
+            if (bytes + characterBytes > 64) break;
+            result.append(character);
+            bytes += characterBytes;
+            offset += Character.charCount(codePoint);
+        }
+        return result.toString();
     }
 
     static final class TimerState {

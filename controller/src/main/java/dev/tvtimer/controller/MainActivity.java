@@ -558,9 +558,11 @@ public final class MainActivity extends Activity {
         globalLimitField.setText(String.valueOf(state.getDailyLimitMillis() / 60_000L));
         AdbClient.AppTimerState selected = (AdbClient.AppTimerState) appsSpinner.getSelectedItem();
         String selectedPackage = selected == null ? null : selected.packageName;
-        appsAdapter.clear();
-        appsAdapter.addAll(state.getApps());
-        appsAdapter.notifyDataSetChanged();
+        if (!state.getApps().isEmpty()) {
+            appsAdapter.clear();
+            appsAdapter.addAll(state.getApps());
+            appsAdapter.notifyDataSetChanged();
+        }
         for (int index = 0; index < appsAdapter.getCount(); index++) {
             AdbClient.AppTimerState app = appsAdapter.getItem(index);
             if (app != null && app.packageName.equals(selectedPackage)) appsSpinner.setSelection(index);

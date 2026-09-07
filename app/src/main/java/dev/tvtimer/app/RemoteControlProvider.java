@@ -34,28 +34,28 @@ public final class RemoteControlProvider extends ContentProvider {
         long now = System.currentTimeMillis();
         String day = DayKey.localDay(now);
         try {
-            if ("state".equals(method)) return state(day);
+            if ("state".equals(method)) return state(day, true);
             if ("adjust".equals(method)) {
                 int minutes = requiredMinutes(request, false);
                 ConfigStore.RemoteAdjustment adjustment = store.applyRemoteAdjustment(day, minutes,
                         request.getString("comment", ""), now);
-                Bundle result = state(day);
+                Bundle result = state(day, false);
                 result.putLong("noticeId", adjustment.getId());
                 result.putInt("changedMinutes", adjustment.getMinutes());
                 return result;
             }
             if ("setGlobalLimit".equals(method)) {
                 store.setDailyLimitMillis(requiredMinutes(request, true) * 60_000L);
-                return state(day);
+                return state(day, false);
             }
             if ("setAppLimit".equals(method)) {
                 store.setAppLimitMillis(request.getString("package", "").trim(),
                         requiredMinutes(request, true) * 60_000L);
-                return state(day);
+                return state(day, false);
             }
             if ("removeAppLimit".equals(method)) {
                 store.removeAppLimit(request.getString("package", "").trim());
-                return state(day);
+                return state(day, false);
             }
             return failure("Unknown method");
         } catch (IllegalArgumentException exception) { return failure(exception.getMessage()); }
@@ -69,7 +69,7 @@ public final class RemoteControlProvider extends ContentProvider {
         return value;
     }
 
-    private Bundle state(String day) {
+    private Bundle state(String day, boolean includeApps) {
         ConfigStore.DayState dayState = store.getDayState(day);
         Bundle result = new Bundle();
         result.putBoolean("ok", true);
@@ -78,7 +78,7 @@ public final class RemoteControlProvider extends ContentProvider {
         result.putLong("bonusMillis", dayState.getBonusMillis());
         result.putLong("remainingMillis", LimitMath.remaining(store.getDailyLimitMillis(), dayState.getBonusMillis(), dayState.getUsedMillis()));
         result.putBoolean("enforcementEnabled", store.isEnforcementEnabled());
-        result.putString("appsPayload", buildAppsPayload(dayState));
+        if (includeApps) result.putString("appsPayload", buildAppsPayload(dayState));
         return result;
     }
 

@@ -46,4 +46,12 @@ public final class ControllerResultMessagesTest {
         assertEquals("'bad'\"'\"'; reboot; '\"'\"''",
                 AdbClient.shellQuote("bad'; reboot; '"));
     }
+
+    @Test
+    public void keepsRussianCommentInsideTheAdbOpenFrameBudget() {
+        String comment = AdbClient.compactComment(
+                "за плохое поведение и очень длинное объяснение, которое не должно ломать ADB");
+        assertEquals("за плохое поведение и очень длинно", comment);
+        assertTrue(comment.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 64);
+    }
 }
