@@ -1,6 +1,7 @@
 package dev.tvtimer.app;
 
 import android.app.DownloadManager;
+import android.app.AlertDialog;
 import android.app.admin.DevicePolicyManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -9,6 +10,7 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.database.Cursor;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -38,7 +40,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -76,6 +80,8 @@ public final class MainActivity extends LocalizedActivity {
     private List<String> diagnosticPages;
     private Set<String> selectedPackagesDraft;
     private TextView appSelectionSummary;
+    private final Map<String, MinuteLimitControl> appLimitControls = new LinkedHashMap<>();
+    private final Map<String, CheckBox> appLimitEnabledChecks = new LinkedHashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -544,7 +550,6 @@ public final class MainActivity extends LocalizedActivity {
         ));
         addNotice(getString(R.string.usage_warning_example), 0xffb2dfdb);
 
-        addSubheading(getString(R.string.extension_title));
         RadioGroup extensionGroup = new RadioGroup(this);
         extensionGroup.setOrientation(LinearLayout.VERTICAL);
         for (int minutes : ExtensionDurationPolicy.CHOICES_MINUTES) {
@@ -555,9 +560,12 @@ public final class MainActivity extends LocalizedActivity {
                     store.getDefaultExtensionMinutes()
             );
         }
+        extensionGroup.setVisibility(View.GONE);
+        Button extensionChoice = addButton(getString(R.string.extension_title));
+        extensionChoice.setOnClickListener(view -> extensionGroup.setVisibility(
+                extensionGroup.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
         addSection(extensionGroup);
 
-        addSubheading(getString(R.string.launcher_title));
         RadioGroup launcherGroup = new RadioGroup(this);
         launcherGroup.setOrientation(LinearLayout.VERTICAL);
         addTaggedRadio(launcherGroup, getString(R.string.launcher_timer), LauncherProfile.DEFAULT, store.getLauncherProfile());
@@ -570,8 +578,12 @@ public final class MainActivity extends LocalizedActivity {
         addTaggedRadio(launcherGroup, getString(R.string.launcher_files), LauncherProfile.FILES, store.getLauncherProfile());
         addTaggedRadio(launcherGroup, getString(R.string.launcher_gallery), LauncherProfile.GALLERY, store.getLauncherProfile());
         addTaggedRadio(launcherGroup, getString(R.string.launcher_help), LauncherProfile.HELP, store.getLauncherProfile());
+        launcherGroup.setVisibility(View.GONE);
+        Button launcherChoice = addButton(getString(R.string.launcher_title));
+        launcherChoice.setOnClickListener(view -> launcherGroup.setVisibility(
+                launcherGroup.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
         addSection(launcherGroup);
-        addNotice(getString(R.string.launcher_notice), 0xffb2dfdb);
+
 
         RadioGroup scopeGroup = new RadioGroup(this);
         scopeGroup.setOrientation(LinearLayout.VERTICAL);
@@ -596,6 +608,49 @@ public final class MainActivity extends LocalizedActivity {
             chooseApps.setVisibility(visible ? View.VISIBLE : View.GONE);
             appSelectionSummary.setVisibility(visible ? View.VISIBLE : View.GONE);
         });
+
+        addSubheading(getString(R.string.app_limits_title));
+        Map<String, Long> appLimits = store.getAppLimitsMillis();
+        appLimitControls.clear();
+        appLimitEnabledChecks.clear();
+        LinearLayout applicationLimits = new LinearLayout(this);
+        applicationLimits.setOrientation(LinearLayout.VERTICAL);
+        applicationLimits.setVisibility(View.GONE);
+        Button applicationChoice = addButton(getString(R.string.choose_apps));
+        applicationChoice.setOnClickListener(view -> applicationLimits.setVisibility(
+                applicationLimits.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
+        addSection(applicationLimits);
+        Map<String, String> labels = installedAppLabels();
+        if (labels.isEmpty()) {
+            addParagraph(getString(R.string.app_limits_none));
+        } else {
+            for (String packageName : labels.keySet()) {
+                LinearLayout appRow = new LinearLayout(this);
+                appRow.setOrientation(LinearLayout.VERTICAL);
+                appRow.setPadding(dp(8), dp(4), dp(8), dp(6));
+                appRow.setBackgroundColor(0xff263238);
+                String label = labels.containsKey(packageName)
+                        ? labels.get(packageName)
+                        : packageName;
+                Button appName = new Button(this);
+                appName.setText(label);
+                appName.setAllCaps(false);
+                applyTvButtonFocus(appName);
+                LinearLayout.LayoutParams nameParams = matchWrapParams();
+                nameParams.bottomMargin = dp(2);
+                appRow.addView(appName, nameParams);
+                Long limit = appLimits.get(packageName);
+                LinearLayout editor = new LinearLayout(this);
+                editor.setOrientation(LinearLayout.VERTICAL);
+                editor.setVisibility(View.GONE);
+                appRow.addView(editor, matchWrapParams());
+                appName.setOnClickListener(view -> editor.setVisibility(
+                        editor.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
+                MinuteLimitControl control = addAppLimitControl(editor, packageName, limit);
+                appLimitControls.put(packageName, control);
+                applicationLimits.addView(appRow, matchWrapParams());
+            }
+        }
 
         addSubheading(getString(R.string.change_pin_title));
         EditText newPin = addInput(getString(R.string.new_pin_hint), true);
@@ -675,7 +730,7 @@ public final class MainActivity extends LocalizedActivity {
             setButtonBusy(save, true, getString(R.string.saving));
             backgroundExecutor.execute(() -> {
                 try {
-                    boolean settingsSaved = store.updateSettings(
+                    boolean settingsOk = store.updateSettings(
                             dailyLimit,
                             scope,
                             selected,
@@ -687,6 +742,8 @@ public final class MainActivity extends LocalizedActivity {
                             parentModeGestureEnabled,
                             systemSettingsProtectionEnabled
                     );
+                    boolean appLimitsOk = applyAppLimitSettings();
+                    boolean settingsSaved = settingsOk && appLimitsOk;
                     boolean pinSaved = replacementPin.isEmpty() || store.changePin(replacementPin);
                     postToScreen(generation, () -> {
                         if (!settingsSaved) {
@@ -775,6 +832,54 @@ public final class MainActivity extends LocalizedActivity {
         appSelectionSummary.setText(count == 0
                 ? getString(R.string.apps_not_selected)
                 : getResources().getQuantityString(R.plurals.apps_selected, count, count));
+    }
+
+    private boolean applyAppLimitSettings() {
+        try {
+            for (Map.Entry<String, MinuteLimitControl> entry : appLimitControls.entrySet()) {
+                String packageName = entry.getKey();
+                MinuteLimitControl control = entry.getValue();
+                CheckBox enabled = appLimitEnabledChecks.get(packageName);
+                boolean apply = enabled != null && enabled.isChecked();
+                if (apply) {
+                    store.setAppLimitMillis(packageName, control.getLimitMillis());
+                } else {
+                    store.removeAppLimit(packageName);
+                }
+            }
+            return true;
+        } catch (RuntimeException exception) {
+            return false;
+        }
+    }
+
+    private Map<String, String> installedAppLabels() {
+        Map<String, String> labels = new LinkedHashMap<>();
+        PackageManager manager = getPackageManager();
+        collectInstalledLabels(Intent.CATEGORY_LEANBACK_LAUNCHER, manager, labels);
+        collectInstalledLabels(Intent.CATEGORY_LAUNCHER, manager, labels);
+        return labels;
+    }
+
+    @SuppressWarnings("deprecation")
+    private void collectInstalledLabels(String category, PackageManager manager,
+                                        Map<String, String> destination) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_MAIN).addCategory(category);
+            for (ResolveInfo info : manager.queryIntentActivities(intent, 0)) {
+                if (info.activityInfo == null) {
+                    continue;
+                }
+                String packageName = info.activityInfo.packageName;
+                if (destination.containsKey(packageName)) {
+                    continue;
+                }
+                CharSequence loaded = info.loadLabel(manager);
+                destination.put(packageName, loaded == null ? packageName : loaded.toString());
+            }
+        } catch (SecurityException ignored) {
+            // Package query is restricted; fall back to raw package names.
+        }
     }
 
     private void updateServiceStatus() {
@@ -1307,6 +1412,42 @@ public final class MainActivity extends LocalizedActivity {
         return control;
     }
 
+    private MinuteLimitControl addAppLimitControl(
+            LinearLayout container, String packageName, Long limitMillis) {
+        long initial = limitMillis == null ? 0L : limitMillis / 60_000L;
+        MinuteLimitControl control = new MinuteLimitControl(initial);
+        CheckBox enabled = new CheckBox(this);
+        enabled.setText(R.string.app_limit_enable);
+        enabled.setTextColor(Color.WHITE);
+        enabled.setTextSize(14f);
+        enabled.setChecked(limitMillis != null);
+        applyRowFocus(enabled);
+        appLimitEnabledChecks.put(packageName, enabled);
+        container.addView(enabled, matchWrapParams());
+
+        LinearLayout limitBox = new LinearLayout(this);
+        limitBox.setOrientation(LinearLayout.VERTICAL);
+        limitBox.setVisibility(enabled.isChecked() ? View.VISIBLE : View.GONE);
+
+        control.valueView.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams valueParams = matchWrapParams();
+        valueParams.bottomMargin = dp(3);
+        limitBox.addView(control.valueView, valueParams);
+
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        buttons.setGravity(Gravity.CENTER);
+        addLimitButton(buttons, "−15", () -> control.adjust(-15L));
+        addLimitButton(buttons, "−1", () -> control.adjust(-1L));
+        addLimitButton(buttons, "+1", () -> control.adjust(1L));
+        addLimitButton(buttons, "+15", () -> control.adjust(15L));
+        limitBox.addView(buttons, matchWrapParams());
+        enabled.setOnCheckedChangeListener((view, checked) ->
+                limitBox.setVisibility(checked ? View.VISIBLE : View.GONE));
+        container.addView(limitBox, matchWrapParams());
+        return control;
+    }
+
     private void addLimitButton(LinearLayout row, String text, Runnable action) {
         Button button = new Button(this);
         button.setText(text);
@@ -1535,6 +1676,29 @@ public final class MainActivity extends LocalizedActivity {
             minutes = LimitMath.adjustDailyMinutes(initialMinutes, 0L);
             valueView = textView("", 21f, Color.WHITE);
             valueView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+            valueView.setFocusable(true);
+            valueView.setClickable(true);
+            applyRowFocus(valueView);
+            valueView.setOnClickListener(view -> {
+                EditText input = new EditText(MainActivity.this);
+                input.setInputType(InputType.TYPE_CLASS_NUMBER);
+                input.setText(String.valueOf(minutes));
+                input.selectAll();
+                AlertDialog dialog = new AlertDialog.Builder(MainActivity.this)
+                        .setTitle(R.string.daily_limit_title).setView(input)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(android.R.string.ok, null).create();
+                dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                        .setOnClickListener(button -> {
+                            try {
+                                long value = LimitMath.parseDailyMinutes(input.getText().toString());
+                                minutes = value;
+                                updateText();
+                                dialog.dismiss();
+                            } catch (NumberFormatException exception) { input.setError("1–1440"); }
+                        }));
+                dialog.show();
+            });
             updateText();
         }
 

@@ -442,6 +442,7 @@ public final class LimiterAccessibilityService extends AccessibilityService {
                 );
         Long appLimit = appLimitsMillis.get(activePackage);
         boolean appTargetActive = enforcementEnabled && interactive && appLimit != null;
+        globalTargetActive = globalTargetActive && !appTargetActive;
         boolean targetActive = globalTargetActive || appTargetActive;
 
         ConfigStore.DayState dayState = store.getDayState(day);
@@ -459,7 +460,12 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         long pendingAppUsed = pendingValue == null ? 0L : pendingValue;
         long appUsed = storedAppUsed > Long.MAX_VALUE - pendingAppUsed
                 ? Long.MAX_VALUE : storedAppUsed + pendingAppUsed;
-        long appRemaining = appTargetActive ? Math.max(0L, appLimit - appUsed) : Long.MAX_VALUE;
+        long appBudget;
+        try { appBudget = Math.addExact(appLimit == null ? 0L : appLimit,
+                dayState.getAppBonusMillis(activePackage)); }
+        catch (ArithmeticException exception) { appBudget = dayState.getAppBonusMillis(activePackage) > 0L
+                ? Long.MAX_VALUE : Long.MIN_VALUE; }
+        long appRemaining = appTargetActive ? Math.max(0L, appBudget - appUsed) : Long.MAX_VALUE;
         long remaining = Math.min(globalRemaining, appRemaining);
 
         if (!targetActive) {
@@ -896,27 +902,48 @@ public final class LimiterAccessibilityService extends AccessibilityService {
         }
 
         title.setText(R.string.extension_prompt);
-        Button firstChoice = null;
-        LinearLayout choiceRow = null;
-        for (int index = 0; index < ExtensionDurationPolicy.CHOICES_MINUTES.length; index++) {
-            int minutes = ExtensionDurationPolicy.CHOICES_MINUTES[index];
-            if (index % 2 == 0) {
-                choiceRow = new LinearLayout(this);
-                choiceRow.setOrientation(LinearLayout.HORIZONTAL);
-                LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-                rowParams.bottomMargin = dp(4);
-                panel.addView(choiceRow, rowParams);
-            }
-            Button choice = overlayButton(extensionLabel(minutes));
-            choice.setOnClickListener(view -> grantExtension(minutes));
-            choiceRow.addView(choice, choiceButtonParams());
-            if (firstChoice == null) {
-                firstChoice = choice;
-            }
-        }
+        final int[] selectedIndex = new int[]{4};
+        TextView valueView = overlayText(
+                extensionLabel(ExtensionDurationPolicy.CHOICES_MINUTES[selectedIndex[0]]),
+                26f,
+                Color.WHITE
+        );
+        valueView.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams valueParams = wrapParams(dp(6));
+        panel.addView(valueView, valueParams);
+
+        LinearLayout stepRow = new LinearLayout(this);
+        stepRow.setOrientation(LinearLayout.HORIZONTAL);
+        stepRow.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams stepParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        stepParams.bottomMargin = dp(4);
+        panel.addView(stepRow, stepParams);
+
+        Button minus = overlayButton(getString(R.string.decrease_minutes));
+        minus.setOnClickListener(view -> {
+            selectedIndex[0] = Math.max(0, selectedIndex[0] - 1);
+            valueView.setText(
+                    extensionLabel(ExtensionDurationPolicy.CHOICES_MINUTES[selectedIndex[0]]));
+        });
+        stepRow.addView(minus, choiceButtonParams());
+
+        Button plus = overlayButton(getString(R.string.increase_minutes));
+        plus.setOnClickListener(view -> {
+            selectedIndex[0] = Math.min(
+                    ExtensionDurationPolicy.CHOICES_MINUTES.length - 1,
+                    selectedIndex[0] + 1);
+            valueView.setText(
+                    extensionLabel(ExtensionDurationPolicy.CHOICES_MINUTES[selectedIndex[0]]));
+        });
+        stepRow.addView(plus, choiceButtonParams());
+
+        Button firstChoice = overlayButton(getString(R.string.continue_label));
+        firstChoice.setOnClickListener(view -> grantExtension(
+                ExtensionDurationPolicy.CHOICES_MINUTES[selectedIndex[0]]));
+        panel.addView(firstChoice, buttonParams());
 
         Button settings = overlayButton(getString(R.string.open_timer_settings));
         settings.setOnClickListener(view -> openParentSettings());

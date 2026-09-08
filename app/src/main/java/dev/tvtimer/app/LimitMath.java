@@ -8,6 +8,12 @@ public final class LimitMath {
     private LimitMath() {
     }
 
+    public static long parseDailyMinutes(String text) {
+        long value = Long.parseLong(text.trim());
+        if (value < 1L || value > 1440L) throw new NumberFormatException();
+        return value;
+    }
+
     public static long elapsedDelta(long previousElapsed, long currentElapsed) {
         if (previousElapsed < 0L || currentElapsed <= previousElapsed) {
             return 0L;

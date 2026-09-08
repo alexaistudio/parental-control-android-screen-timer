@@ -29,6 +29,9 @@
     <string name="scope_all">Всё устройство и все приложения</string>
     <string name="scope_selected">Только выбранные приложения</string>
     <string name="choose_apps">Выбрать приложения</string>
+    <string name="app_limits_title">Лимиты приложений</string>
+    <string name="app_limits_none">Сначала выберите приложения</string>
+    <string name="app_limit_enable">Лимит включён</string>
     <string name="accessibility_notice">Для работы нужно вручную включить службу специальных возможностей. Она получает только имя активного приложения, не читает текст окон, не использует сеть и показывает таймер поверх изображения.</string>
     <string name="accessibility_consent">Я понимаю назначение службы и разрешаю определять активное приложение для применения лимита</string>
     <string name="usb_recovery_setup_notice">USB Recovery включён по умолчанию. Только файл Recovery, Recovery.txt или File Recovery в корне флешки откроет родительский режим; обычные USB-устройства и зарядка игнорируются. Функцию можно выключить в настройках.</string>
@@ -85,6 +88,9 @@
     </plurals>
     <string name="usage_warning_example">Ребёнок увидит: «Ты уже смотришь 20 минут. Продолжить?» — «Да, продолжить» или «Нет, закончить».</string>
     <string name="extension_title">Автопродление после временного кода</string>
+    <string name="continue_label">Продолжить</string>
+    <string name="decrease_minutes">− Меньше</string>
+    <string name="increase_minutes">+ Больше</string>
     <string name="extension_auto_hour">Сразу продолжать на 1 час</string>
     <string name="extension_auto_ninety_minutes">Сразу продолжать на 1 час 30 минут</string>
     <string name="extension_auto_two_hours">Сразу продолжать на 2 часа</string>

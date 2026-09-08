@@ -68,6 +68,16 @@ public final class DiagnosticsActivity extends Activity {
         saveParams.leftMargin = dp(8);
         actions.addView(save, saveParams);
 
+        Button clear = button(R.string.clear_log);
+        clear.setOnClickListener(view -> {
+            ControllerLog.clear();
+            refreshLog();
+            Toast.makeText(this, R.string.log_cleared, Toast.LENGTH_SHORT).show();
+        });
+        LinearLayout.LayoutParams clearParams = weightedButton();
+        clearParams.leftMargin = dp(8);
+        actions.addView(clear, clearParams);
+
         Button refresh = button(R.string.refresh_log);
         refresh.setOnClickListener(view -> refreshLog());
         LinearLayout.LayoutParams refreshParams = matchWrap();

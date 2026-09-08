@@ -27,6 +27,9 @@
     <string name="scope_all">The whole device and all apps</string>
     <string name="scope_selected">Selected apps only</string>
     <string name="choose_apps">Choose apps</string>
+    <string name="app_limits_title">App limits</string>
+    <string name="app_limits_none">Select apps first</string>
+    <string name="app_limit_enable">Limit enabled</string>
     <string name="accessibility_notice">The accessibility service must be enabled manually. It receives only the active app name, never reads window text, does not use the network, and displays the timer over the picture.</string>
     <string name="accessibility_consent">I understand the purpose of the service and allow it to identify the active app in order to apply the time limit</string>
     <string name="usb_recovery_setup_notice">USB Recovery is enabled by default. Only a Recovery, Recovery.txt, or File Recovery file in the flash-drive root opens parent mode; ordinary USB devices and charging are ignored. You can disable this feature in settings.</string>
@@ -81,6 +84,9 @@
     </plurals>
     <string name="usage_warning_example">Your child will see: “You have been watching for 20 minutes. Keep watching?” — “Yes, continue” or “No, finish”.</string>
     <string name="extension_title">Automatic extension after a temporary code</string>
+    <string name="continue_label">Continue</string>
+    <string name="decrease_minutes">− Less</string>
+    <string name="increase_minutes">+ More</string>
     <string name="extension_auto_hour">Automatically continue for 1 hour</string>
     <string name="extension_auto_ninety_minutes">Automatically continue for 1 hour 30 minutes</string>
     <string name="extension_auto_two_hours">Automatically continue for 2 hours</string>

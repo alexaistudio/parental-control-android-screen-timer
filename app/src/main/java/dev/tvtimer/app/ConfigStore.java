@@ -51,6 +51,7 @@ public final class ConfigStore {
     private static final String KEY_BLOCKER_AUDIO_VOLUME = "blocker_audio_volume";
     private static final String KEY_APP_LIMITS = "app_limits";
     private static final String KEY_APP_USAGE = "app_usage";
+    private static final String KEY_APP_BONUSES = "app_bonuses";
 
     public static final long DEFAULT_LIMIT_MILLIS = 60L * 60L * 1_000L;
     public static final long MAINTENANCE_WINDOW_MILLIS = 2L * 60L * 1_000L;
@@ -365,7 +366,8 @@ public final class ConfigStore {
         return new DayState(
                 preferences.getLong(KEY_USAGE_MILLIS, 0L),
                 preferences.getLong(KEY_BONUS_MILLIS, 0L),
-                decodeLongMap(preferences.getString(KEY_APP_USAGE, ""))
+                decodeLongMap(preferences.getString(KEY_APP_USAGE, "")),
+                decodeSignedLongMap(preferences.getString(KEY_APP_BONUSES, ""))
         );
     }
 
@@ -426,6 +428,22 @@ public final class ConfigStore {
         return preferences.edit().putString(KEY_APP_LIMITS, encodeLongMap(limits)).commit();
     }
 
+    /** Сбрасывает дневной бонус/штраф конкретного приложения (на текущий день). */
+    public boolean resetAppBonus(String dayKey, String packageName) {
+        if (!isValidPackageName(packageName)) {
+            throw new IllegalArgumentException("Invalid application package");
+        }
+        ensureDay(dayKey);
+        Map<String, Long> bonuses = decodeSignedLongMap(preferences.getString(KEY_APP_BONUSES, ""));
+        if (bonuses.containsKey(packageName)) {
+            bonuses.remove(packageName);
+            return preferences.edit()
+                    .putString(KEY_APP_BONUSES, encodeSignedLongMap(bonuses))
+                    .commit();
+        }
+        return true;
+    }
+
     public boolean setDailyLimitMillis(long limitMillis) {
         if (limitMillis < 60_000L || limitMillis > 24L * 60L * 60L * 1_000L) {
             throw new IllegalArgumentException("Invalid daily limit");
@@ -474,6 +492,32 @@ public final class ConfigStore {
                 .putLong(KEY_REMOTE_NOTICE_UNTIL, until)
                 .commit()) {
             throw new IllegalStateException("Unable to save remote adjustment");
+        }
+        return new RemoteAdjustment(id, minutes, safeComment, until);
+    }
+
+    public synchronized RemoteAdjustment applyRemoteAppAdjustment(
+            String dayKey, String packageName, int minutes, String comment, long nowMillis) {
+        if (!isValidPackageName(packageName) || minutes == 0 || Math.abs((long) minutes) > 1_440L) {
+            throw new IllegalArgumentException("Invalid application adjustment");
+        }
+        ensureDay(dayKey);
+        Map<String, Long> bonuses = decodeSignedLongMap(preferences.getString(KEY_APP_BONUSES, ""));
+        long current = bonuses.containsKey(packageName) ? bonuses.get(packageName) : 0L;
+        long delta = minutes * 60_000L;
+        long updated;
+        try { updated = Math.addExact(current, delta); }
+        catch (ArithmeticException exception) { updated = delta > 0L ? Long.MAX_VALUE : Long.MIN_VALUE + 1L; }
+        bonuses.put(packageName, updated);
+        long id = preferences.getLong(KEY_REMOTE_NOTICE_ID, 0L) + 1L;
+        String safeComment = comment == null ? "" : comment.trim();
+        if (safeComment.length() > 120) safeComment = safeComment.substring(0, 120);
+        long until = nowMillis + 5_000L;
+        if (!preferences.edit().putString(KEY_APP_BONUSES, encodeSignedLongMap(bonuses))
+                .putLong(KEY_REMOTE_NOTICE_ID, id).putInt(KEY_REMOTE_NOTICE_MINUTES, minutes)
+                .putString(KEY_REMOTE_NOTICE_COMMENT, safeComment)
+                .putLong(KEY_REMOTE_NOTICE_UNTIL, until).commit()) {
+            throw new IllegalStateException("Unable to save application adjustment");
         }
         return new RemoteAdjustment(id, minutes, safeComment, until);
     }
@@ -587,6 +631,7 @@ public final class ConfigStore {
                 || KEY_REMOTE_NOTICE_COMMENT.equals(key)
                 || KEY_REMOTE_NOTICE_UNTIL.equals(key)
                 || KEY_APP_LIMITS.equals(key)
+                || KEY_APP_BONUSES.equals(key)
                 || KEY_LANGUAGE.equals(key);
     }
 
@@ -606,6 +651,7 @@ public final class ConfigStore {
                     .putLong(KEY_USAGE_MILLIS, 0L)
                     .putLong(KEY_BONUS_MILLIS, 0L)
                     .putString(KEY_APP_USAGE, "")
+                    .putString(KEY_APP_BONUSES, "")
                     .apply();
         }
     }
@@ -617,6 +663,14 @@ public final class ConfigStore {
     }
 
     private static Map<String, Long> decodeLongMap(String encoded) {
+        return decodeLongMap(encoded, false);
+    }
+
+    private static Map<String, Long> decodeSignedLongMap(String encoded) {
+        return decodeLongMap(encoded, true);
+    }
+
+    private static Map<String, Long> decodeLongMap(String encoded, boolean allowNegative) {
         Map<String, Long> values = new HashMap<>();
         if (encoded == null || encoded.isBlank()) {
             return values;
@@ -629,7 +683,7 @@ public final class ConfigStore {
             String key = item.substring(0, separator);
             try {
                 long value = Long.parseLong(item.substring(separator + 1));
-                if (isValidPackageName(key) && value >= 0L) {
+                if (isValidPackageName(key) && (allowNegative || value >= 0L)) {
                     values.put(key, value);
                 }
             } catch (NumberFormatException ignored) {
@@ -640,12 +694,20 @@ public final class ConfigStore {
     }
 
     private static String encodeLongMap(Map<String, Long> values) {
+        return encodeLongMap(values, false);
+    }
+
+    private static String encodeSignedLongMap(Map<String, Long> values) {
+        return encodeLongMap(values, true);
+    }
+
+    private static String encodeLongMap(Map<String, Long> values, boolean allowNegative) {
         StringBuilder encoded = new StringBuilder();
         java.util.List<String> keys = new java.util.ArrayList<>(values.keySet());
         Collections.sort(keys);
         for (String key : keys) {
             Long value = values.get(key);
-            if (!isValidPackageName(key) || value == null || value < 0L) continue;
+            if (!isValidPackageName(key) || value == null || (!allowNegative && value < 0L)) continue;
             if (encoded.length() > 0) encoded.append(';');
             encoded.append(key).append('=').append(value);
         }
@@ -673,11 +735,14 @@ public final class ConfigStore {
         private final long usedMillis;
         private final long bonusMillis;
         private final Map<String, Long> appUsageMillis;
+        private final Map<String, Long> appBonusMillis;
 
-        DayState(long usedMillis, long bonusMillis, Map<String, Long> appUsageMillis) {
+        DayState(long usedMillis, long bonusMillis, Map<String, Long> appUsageMillis,
+                 Map<String, Long> appBonusMillis) {
             this.usedMillis = usedMillis;
             this.bonusMillis = bonusMillis;
             this.appUsageMillis = Collections.unmodifiableMap(new HashMap<>(appUsageMillis));
+            this.appBonusMillis = Collections.unmodifiableMap(new HashMap<>(appBonusMillis));
         }
 
         public long getUsedMillis() {
@@ -695,6 +760,11 @@ public final class ConfigStore {
 
         public Map<String, Long> getAppUsageMillis() {
             return appUsageMillis;
+        }
+
+        public long getAppBonusMillis(String packageName) {
+            Long value = appBonusMillis.get(packageName);
+            return value == null ? 0L : value;
         }
     }
 

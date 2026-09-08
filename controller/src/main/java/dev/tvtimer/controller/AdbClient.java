@@ -318,6 +318,16 @@ final class AdbClient {
                 + " --method removeAppLimit --extra " + shellQuote("package:s:" + packageName)));
     }
 
+    synchronized TimerState adjustAppBonus(String packageName, int minutes) throws Exception {
+        if (minutes == 0 || Math.abs((long) minutes) > 1_440L) {
+            throw new IllegalArgumentException("Enter from 1 to 1440 minutes");
+        }
+        ensureControlConnection();
+        return TimerState.parse(runShell("content call --uri " + REMOTE_URI
+                + " --method adjustAppBonus --extra " + shellQuote("minutes:i:" + minutes)
+                + " --extra " + shellQuote("package:s:" + packageName)));
+    }
+
     private TimerState callWithMinutes(String method, int minutes, String packageName) throws Exception {
         if (minutes < 1 || minutes > 1440) throw new IllegalArgumentException("Enter from 1 to 1440 minutes");
         ensureControlConnection();
@@ -406,8 +416,11 @@ final class AdbClient {
                 String decoded = new String(Base64.decode(appsMatcher.group(1), Base64.URL_SAFE), StandardCharsets.UTF_8);
                 for (String line : decoded.split("\\n")) {
                     String[] values = line.split("\\t", -1);
-                    if (values.length == 4) apps.add(new AppTimerState(values[0], values[1],
-                            Long.parseLong(values[2]), Long.parseLong(values[3])));
+                    if (values.length >= 4) {
+                        long appBonus = values.length >= 5 ? Long.parseLong(values[4]) : 0L;
+                        apps.add(new AppTimerState(values[0], values[1],
+                                Long.parseLong(values[2]), Long.parseLong(values[3]), appBonus));
+                    }
                 }
             }
             return new TimerState(daily, used, bonus, remaining,
@@ -424,12 +437,23 @@ final class AdbClient {
 
     static final class AppTimerState {
         final String packageName, label;
-        final long limitMillis, usedMillis;
+        final long limitMillis, usedMillis, bonusMillis;
         AppTimerState(String packageName, String label, long limitMillis, long usedMillis) {
+            this(packageName, label, limitMillis, usedMillis, 0L);
+        }
+        AppTimerState(String packageName, String label, long limitMillis, long usedMillis,
+                      long bonusMillis) {
             this.packageName = packageName; this.label = label;
             this.limitMillis = limitMillis; this.usedMillis = usedMillis;
+            this.bonusMillis = bonusMillis;
         }
-        @Override public String toString() { return label; }
+        long getBonusMillis() { return bonusMillis; }
+        @Override public String toString() {
+            if (bonusMillis == 0L) return label;
+            long minutes = Math.abs(bonusMillis) / 60_000L;
+            return label + String.format(java.util.Locale.getDefault(), " (%s%02d:%02d)",
+                    bonusMillis > 0L ? "+" : "−", minutes / 60L, minutes % 60L);
+        }
     }
 
     private File materializeEmbeddedApk() throws Exception {
@@ -594,7 +618,7 @@ final class AdbClient {
         // libadb-android 3.1.1 overflows while opening destinations longer than
         // roughly 104 bytes. Open only the short interactive shell destination,
         // then write the actual command through that stream.
-        try (AdbStream stream = manager.openStream("shell:")) {
+        try (AdbStream stream = manager.openStream("shell:sh")) {
             OutputStream output = stream.openOutputStream();
             output.write((command + "; echo " + END_MARKER + "\n")
                     .getBytes(StandardCharsets.UTF_8));
@@ -626,7 +650,7 @@ final class AdbClient {
                     break;
                 }
                 output.append(new String(buffer, 0, count, StandardCharsets.UTF_8));
-                if (completionMarker != null && output.indexOf(completionMarker) >= 0) {
+                if (completionMarker != null && ShellCompletion.isComplete(output.toString(), completionMarker)) {
                     break;
                 }
             }

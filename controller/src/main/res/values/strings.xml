@@ -6,7 +6,7 @@
     <string name="remote_code">Постоянный PIN или временный код (4–8 цифр)</string>
     <string name="remote_not_refreshed">Получаю остаток времени…</string>
     <string name="remote_refresh">Обновить остаток</string>
-    <string name="remote_minutes">Минуты</string>
+    <string name="remote_minutes">На сегодня, мин</string>
     <string name="remote_subtract">− Убрать</string>
     <string name="remote_add">+ Добавить</string>
     <string name="remote_comment">Комментарий на экране ТВ (необязательно)</string>
@@ -16,11 +16,11 @@
     <string name="remote_limit_on">Лимит включён</string>
     <string name="remote_updated">ТВ обновлён</string>
     <string name="global_limit_title">Общее время на все приложения</string>
-    <string name="app_limits_title">Задать отдельный лимит приложению</string>
+    <string name="app_limits_title">Лимит выбранного приложения: «Сохранить» задаёт лимит, +/− даёт бонус/штраф только на сегодня (сброс в полночь)</string>
     <string name="minutes_per_day">Минут в день</string>
     <string name="save">Сохранить</string>
     <string name="remove">Убрать лимит</string>
-    <string name="advanced_connection">Дополнительное подключение / сопряжение</string>
+    <string name="advanced_connection">Ввести адрес вручную</string>
     <string name="header_subtitle">Находит ваше Android-устройство, устанавливает Android Screen Timer и помогает включить защиту — без отдельного ADB-приложения.</string>
     <string name="wifi_path_title">Wi‑Fi — установить прямо с этого телефона</string>
     <string name="step_one_summary">Основной способ для Android 11+: включите «Беспроводную отладку» на целевом устройстве. Сначала выполните сопряжение, затем подключение и INSTALL.</string>
@@ -28,9 +28,9 @@
     <string name="usb_path_title">USB — другой способ</string>
     <string name="usb_path_summary">Обычный кабель телефон ↔ телевизор чаще всего не работает: оба устройства являются USB-host. Используйте компьютер с ADB или установите APK с флешки.</string>
     <string name="show_usb_instructions">Что делать через USB</string>
-    <string name="step_two_title">2. Найдите устройство по сети</string>
+    <string name="step_two_title">Ваши телевизоры</string>
     <string name="scan_hint">Телефон и целевое устройство должны быть в одной Wi‑Fi сети. Поиск идёт только внутри вашей локальной сети.</string>
-    <string name="scan">Найти по Wi‑Fi / сети</string>
+    <string name="scan">Найти телевизор</string>
     <string name="manual_title">Сопряжение или ручной адрес</string>
     <string name="ip_address">IP устройства, например 192.168.1.50</string>
     <string name="pair_port">Порт сопряжения</string>
@@ -44,7 +44,7 @@
     <string name="disable_debug_after">Выключить беспроводную отладку после установки (удалённое управление перестанет работать)</string>
     <string name="install">INSTALL — установить Android Screen Timer</string>
     <string name="status_title">Ход работы</string>
-    <string name="status_ready">Готово к поиску. Никакие данные не уходят в интернет.</string>
+    <string name="status_ready">Нажмите «Найти телевизор».</string>
     <string name="status_scanning">Ищу Android-устройства…</string>
     <string name="status_none">Устройство не объявило ADB в сети, порт 5555 тоже не найден. Откройте на цели «Беспроводная отладка». IP и порт с её главного экрана введите как порт подключения; отдельный порт из окна шестизначного кода — как порт сопряжения.</string>
     <string name="status_found">Найдено устройств: %1$d. Выберите нужное.</string>
@@ -89,4 +89,16 @@
     <string name="copy_log_failed">Не удалось открыть буфер обмена</string>
     <string name="log_saved">Журнал сохранён</string>
     <string name="save_log_failed">Не удалось сохранить журнал</string>
+    <string name="clear_log">Очистить</string>
+    <string name="log_cleared">Журнал очищен</string>
+    <string name="invalid_minutes">Введите минуты от 1 до 1440</string>
+<string name="help_title">Справка</string>
+<string name="installation_title">Установка и обслуживание ТВ</string>
+<string name="choose_app">Выбрать приложение</string>
+<string name="today_minutes">Изменение на сегодня, мин</string>
+<string name="add_today">Добавить на сегодня</string>
+<string name="subtract_today">Убавить на сегодня</string>
+<string name="save_daily">Сохранить дневной лимит</string>
+<string name="change_tv">Другой телевизор</string>
+<string name="app_budget_summary">Лимит: %1$s · Сегодня: %2$s\nИспользовано: %3$s</string>
 </resources>

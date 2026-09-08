@@ -1,518 +1,92 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/rootScroll"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/controller_background"
-    android:fillViewport="true">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:paddingLeft="16dp"
-        android:paddingTop="14dp"
-        android:paddingRight="16dp"
-        android:paddingBottom="32dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="end|center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/app_name"
-                android:textColor="@color/controller_text"
-                android:textSize="24sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/buttonRu"
-                android:layout_width="52dp"
-                android:layout_height="44dp"
-                android:minHeight="0dp"
-                android:text="RU"
-                android:textAllCaps="false" />
-
-            <Button
-                android:id="@+id/buttonEn"
-                android:layout_width="52dp"
-                android:layout_height="44dp"
-                android:minHeight="0dp"
-                android:text="EN"
-                android:textAllCaps="false" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="@string/header_subtitle"
-            android:textColor="@color/controller_muted"
-            android:textSize="15sp" />
-
-        <Button
-            android:id="@+id/buttonDiagnostics"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_marginTop="10dp"
-            android:text="@string/open_diagnostics"
-            android:textAllCaps="false" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/panel_background"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/wifi_path_title"
-                android:textColor="@color/controller_text"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/step_one_summary"
-                android:textColor="@color/controller_muted"
-                android:textSize="14sp" />
-
-            <Button
-                android:id="@+id/buttonInstructions"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="10dp"
-                android:text="@string/show_instructions"
-                android:textAllCaps="false" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:text="@string/usb_path_title"
-                android:textColor="@color/controller_text"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/usb_path_summary"
-                android:textColor="@color/controller_muted"
-                android:textSize="14sp" />
-
-            <Button
-                android:id="@+id/buttonUsbInstructions"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="8dp"
-                android:text="@string/show_usb_instructions"
-                android:textAllCaps="false" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/panelRemoteControl"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/panel_background"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/remote_control_title"
-                android:textColor="@color/controller_text"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:text="@string/remote_control_hint"
-                android:textColor="@color/controller_muted"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/textRemoteRemaining"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/remote_not_refreshed"
-                android:textColor="@color/controller_text"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/textRemoteDetails"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:textColor="@color/controller_muted"
-                android:textSize="13sp" />
-
-            <Button
-                android:id="@+id/buttonRemoteRefresh"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="8dp"
-                android:text="@string/remote_refresh"
-                android:textAllCaps="false" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/global_limit_title"
-                android:textColor="@color/controller_text"
-                android:textStyle="bold" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <EditText
-                    android:id="@+id/editGlobalLimit"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_weight="1"
-                    android:hint="@string/minutes_per_day"
-                    android:inputType="number" />
-                <Button
-                    android:id="@+id/buttonSaveGlobalLimit"
-                    android:layout_width="wrap_content"
-                    android:layout_height="50dp"
-                    android:text="@string/save"
-                    android:textAllCaps="false" />
-            </LinearLayout>
-
-            <CheckBox
-                android:id="@+id/checkAppLimits"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/app_limits_title" />
-
-            <LinearLayout
-                android:id="@+id/panelAppLimits"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <Spinner
-                    android:id="@+id/spinnerApps"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp" />
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <EditText
-                        android:id="@+id/editAppLimit"
-                        android:layout_width="0dp"
-                        android:layout_height="50dp"
-                        android:layout_weight="1"
-                        android:hint="@string/minutes_per_day"
-                        android:inputType="number" />
-                    <Button
-                        android:id="@+id/buttonSaveAppLimit"
-                        android:layout_width="wrap_content"
-                        android:layout_height="50dp"
-                        android:text="@string/save"
-                        android:textAllCaps="false" />
-                    <Button
-                        android:id="@+id/buttonRemoveAppLimit"
-                        android:layout_width="wrap_content"
-                        android:layout_height="50dp"
-                        android:text="@string/remove"
-                        android:textAllCaps="false" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <EditText
-                    android:id="@+id/editRemoteMinutes"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_weight="1"
-                    android:autofillHints=""
-                    android:hint="@string/remote_minutes"
-                    android:inputType="number"
-                    android:maxLines="1"
-                    android:text="5" />
-
-                <Button
-                    android:id="@+id/buttonRemoteSubtract"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginLeft="8dp"
-                    android:layout_weight="1"
-                    android:text="@string/remote_subtract"
-                    android:textAllCaps="false" />
-
-                <Button
-                    android:id="@+id/buttonRemoteAdd"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginLeft="8dp"
-                    android:layout_weight="1"
-                    android:text="@string/remote_add"
-                    android:textAllCaps="false" />
-            </LinearLayout>
-
-            <EditText
-                android:id="@+id/editRemoteComment"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:autofillHints=""
-                android:hint="@string/remote_comment"
-                android:inputType="textCapSentences"
-                android:maxLength="32"
-                android:maxLines="1" />
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/buttonAdvancedConnection"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="12dp"
-            android:text="@string/advanced_connection"
-            android:textAllCaps="false" />
-
-        <LinearLayout
-            android:id="@+id/panelManualConnection"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/panel_background"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/step_two_title"
-                android:textColor="@color/controller_text"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/textScanHint"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="@string/scan_hint"
-                android:textColor="@color/controller_muted"
-                android:textSize="14sp" />
-
-            <Button
-                android:id="@+id/buttonScan"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="10dp"
-                android:text="@string/scan"
-                android:textAllCaps="false" />
-
-            <ProgressBar
-                android:id="@+id/progressScan"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="4dp"
-                android:layout_marginTop="8dp"
-                android:indeterminate="true"
-                android:visibility="gone" />
-
-            <LinearLayout
-                android:id="@+id/deviceList"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:orientation="vertical" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/panel_background"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/manual_title"
-                android:textColor="@color/controller_text"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <EditText
-                android:id="@+id/editHost"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:autofillHints=""
-                android:hint="@string/ip_address"
-                android:inputType="text|textNoSuggestions"
-                android:maxLines="1" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <EditText
-                    android:id="@+id/editPairPort"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_weight="1"
-                    android:autofillHints=""
-                    android:hint="@string/pair_port"
-                    android:inputType="number"
-                    android:maxLines="1" />
-
-                <EditText
-                    android:id="@+id/editConnectPort"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginLeft="8dp"
-                    android:layout_weight="1"
-                    android:autofillHints=""
-                    android:hint="@string/connect_port"
-                    android:inputType="number"
-                    android:maxLines="1" />
-            </LinearLayout>
-
-            <EditText
-                android:id="@+id/editPairCode"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:autofillHints="oneTimeCode"
-                android:hint="@string/pair_code"
-                android:inputType="numberPassword"
-                android:maxLength="6"
-                android:maxLines="1" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/buttonPair"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_weight="1"
-                    android:text="@string/pair"
-                    android:textAllCaps="false" />
-
-                <Button
-                    android:id="@+id/buttonConnect"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginLeft="8dp"
-                    android:layout_weight="1"
-                    android:text="@string/connect"
-                    android:textAllCaps="false" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/panel_background"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/step_three_title"
-                android:textColor="@color/controller_text"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <CheckBox
-                android:id="@+id/checkAccessibility"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:checked="true"
-                android:text="@string/configure_accessibility" />
-
-            <CheckBox
-                android:id="@+id/checkDeviceOwner"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:checked="false"
-                android:text="@string/configure_device_owner" />
-
-            <CheckBox
-                android:id="@+id/checkDisableDebug"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:checked="false"
-                android:text="@string/disable_debug_after" />
-
-            <Button
-                android:id="@+id/buttonInstall"
-                android:layout_width="match_parent"
-                android:layout_height="54dp"
-                android:layout_marginTop="10dp"
-                android:enabled="true"
-                android:text="@string/install"
-                android:textAllCaps="false"
-                android:textStyle="bold" />
-
-            <ProgressBar
-                android:id="@+id/progressInstall"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="8dp"
-                android:layout_marginTop="8dp"
-                android:max="100"
-                android:progress="0"
-                android:visibility="gone" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/panel_background"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/status_title"
-                android:textColor="@color/controller_text"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/textStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="@string/status_ready"
-                android:textColor="@color/controller_muted"
-                android:textIsSelectable="true"
-                android:textSize="14sp" />
-
-        </LinearLayout>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/rootScroll" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/controller_background" android:fillViewport="true">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_horizontal" android:orientation="vertical" android:paddingLeft="16dp" android:paddingTop="14dp" android:paddingRight="16dp" android:paddingBottom="32dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="end|center_vertical" android:orientation="horizontal">
+      <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/app_name" android:textColor="@color/controller_text" android:textSize="24sp" android:textStyle="bold" />
+      <Button android:id="@+id/buttonRu" android:layout_width="52dp" android:layout_height="wrap_content" android:minHeight="48dp" android:text="RU" android:textAllCaps="false" android:layout_marginTop="6dp" />
+      <Button android:id="@+id/buttonEn" android:layout_width="52dp" android:layout_height="wrap_content" android:minHeight="48dp" android:text="EN" android:textAllCaps="false" android:layout_marginTop="6dp" />
     </LinearLayout>
+    <Button android:id="@+id/buttonHelp" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/help_title" android:textAllCaps="false" android:layout_marginTop="6dp" />
+    <LinearLayout android:id="@+id/panelDiscovery" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:background="@drawable/panel_background" android:orientation="vertical">
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/step_two_title" android:textColor="@color/controller_text" android:textSize="18sp" android:textStyle="bold" />
+      <TextView android:id="@+id/textScanHint" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/scan_hint" android:textColor="@color/controller_muted" android:textSize="14sp" />
+      <Button android:id="@+id/buttonScan" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/scan" android:textAllCaps="false" android:minHeight="48dp" />
+      <ProgressBar android:id="@+id/progressScan" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="8dp" android:indeterminate="true" android:visibility="gone" />
+      <LinearLayout android:id="@+id/deviceList" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="vertical" />
+    </LinearLayout>
+    <LinearLayout android:id="@+id/panelRemoteControl" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:background="@drawable/panel_background" android:orientation="vertical" android:visibility="gone">
+      <Button android:id="@+id/buttonChangeTv" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/change_tv" android:layout_marginTop="6dp" android:minHeight="48dp" />
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/remote_control_title" android:textColor="@color/controller_text" android:textSize="18sp" android:textStyle="bold" />
+      <TextView android:id="@+id/textRemoteRemaining" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/remote_not_refreshed" android:textColor="@color/controller_text" android:textSize="20sp" android:textStyle="bold" />
+      <TextView android:id="@+id/textRemoteDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:textColor="@color/controller_muted" android:textSize="13sp" />
+      <Button android:id="@+id/buttonRemoteRefresh" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/remote_refresh" android:textAllCaps="false" android:minHeight="48dp" />
+      <Button android:id="@+id/buttonGlobal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/global_limit_title" android:layout_marginTop="6dp" android:minHeight="48dp" />
+      <Button android:id="@+id/buttonApps" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/app_limits_title" android:textAllCaps="false" android:layout_marginTop="6dp" />
+      <LinearLayout android:id="@+id/panelAppLimits" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+        <Button android:id="@+id/buttonChooseApp" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/choose_app" android:textAllCaps="false" android:layout_marginTop="6dp" />
+        <TextView android:id="@+id/textAppSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="12dp" android:textColor="@color/controller_muted" android:textSize="14sp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+          <EditText android:id="@+id/editAppLimit" android:layout_width="match_parent" android:layout_height="50dp" android:hint="@string/minutes_per_day" android:inputType="number" />
+          <Button android:id="@+id/buttonSaveAppLimit" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/save_daily" android:textAllCaps="false" android:layout_marginTop="6dp" android:minHeight="48dp" />
+          <EditText android:id="@+id/editAppBonus" android:layout_width="match_parent" android:layout_height="56dp" android:inputType="number" android:hint="@string/today_minutes" android:text="15" />
+          <Button android:id="@+id/buttonAddAppLimit" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/add_today" android:textAllCaps="false" android:layout_marginTop="6dp" android:minHeight="48dp" />
+          <Button android:id="@+id/buttonSubtractAppLimit" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/subtract_today" android:textAllCaps="false" android:layout_marginTop="6dp" android:minHeight="48dp" />
+          <Button android:id="@+id/buttonRemoveAppLimit" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/remove" android:textAllCaps="false" android:layout_marginTop="6dp" android:minHeight="48dp" />
+        </LinearLayout>
+      </LinearLayout>
+      <LinearLayout android:id="@+id/panelGlobal" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="@string/global_limit_title" android:textColor="@color/controller_text" android:textStyle="bold" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+          <EditText android:id="@+id/editGlobalLimit" android:layout_width="0dp" android:layout_height="50dp" android:layout_weight="1" android:hint="@string/minutes_per_day" android:inputType="number" />
+          <Button android:id="@+id/buttonSaveGlobalLimit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/save" android:textAllCaps="false" android:layout_marginTop="6dp" android:minHeight="48dp" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+          <EditText android:id="@+id/editRemoteMinutes" android:layout_width="0dp" android:layout_height="50dp" android:layout_weight="1" android:autofillHints="" android:hint="@string/remote_minutes" android:inputType="number" android:maxLines="1" android:text="5" />
+          <Button android:id="@+id/buttonRemoteSubtract" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginLeft="8dp" android:layout_weight="1" android:text="@string/remote_subtract" android:textAllCaps="false" android:layout_marginTop="6dp" android:minHeight="48dp" />
+          <Button android:id="@+id/buttonRemoteAdd" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginLeft="8dp" android:layout_weight="1" android:text="@string/remote_add" android:textAllCaps="false" android:layout_marginTop="6dp" android:minHeight="48dp" />
+        </LinearLayout>
+        <EditText android:id="@+id/editRemoteComment" android:layout_width="match_parent" android:layout_height="50dp" android:autofillHints="" android:hint="@string/remote_comment" android:inputType="textCapSentences" android:maxLength="32" android:maxLines="1" />
+      </LinearLayout>
+    </LinearLayout>
+    <Button android:id="@+id/buttonAdvancedConnection" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/advanced_connection" android:textAllCaps="false" android:minHeight="48dp" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:background="@drawable/panel_background" android:orientation="vertical" android:id="@+id/panelManualConnection" android:visibility="gone">
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/manual_title" android:textColor="@color/controller_text" android:textSize="18sp" android:textStyle="bold" />
+      <EditText android:id="@+id/editHost" android:layout_width="match_parent" android:layout_height="50dp" android:autofillHints="" android:hint="@string/ip_address" android:inputType="text|textNoSuggestions" android:maxLines="1" />
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <EditText android:id="@+id/editPairPort" android:layout_width="0dp" android:layout_height="50dp" android:layout_weight="1" android:autofillHints="" android:hint="@string/pair_port" android:inputType="number" android:maxLines="1" />
+        <EditText android:id="@+id/editConnectPort" android:layout_width="0dp" android:layout_height="50dp" android:layout_marginLeft="8dp" android:layout_weight="1" android:autofillHints="" android:hint="@string/connect_port" android:inputType="number" android:maxLines="1" />
+      </LinearLayout>
+      <EditText android:id="@+id/editPairCode" android:layout_width="match_parent" android:layout_height="50dp" android:autofillHints="oneTimeCode" android:hint="@string/pair_code" android:inputType="numberPassword" android:maxLength="6" android:maxLines="1" />
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <Button android:id="@+id/buttonPair" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/pair" android:textAllCaps="false" android:layout_marginTop="6dp" android:minHeight="48dp" />
+        <Button android:id="@+id/buttonConnect" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginLeft="8dp" android:layout_weight="1" android:text="@string/connect" android:textAllCaps="false" android:layout_marginTop="6dp" android:minHeight="48dp" />
+      </LinearLayout>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:background="@drawable/panel_background" android:orientation="vertical">
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/status_title" android:textColor="@color/controller_text" android:textSize="18sp" android:textStyle="bold" />
+      <TextView android:id="@+id/textStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/status_ready" android:textColor="@color/controller_muted" android:textIsSelectable="true" android:textSize="14sp" />
+    </LinearLayout>
+    <LinearLayout android:id="@+id/panelHelp" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+      <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/header_subtitle" android:textColor="@color/controller_muted" android:textSize="15sp" />
+      <Button android:id="@+id/buttonDiagnostics" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/open_diagnostics" android:textAllCaps="false" android:minHeight="48dp" />
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:background="@drawable/panel_background" android:orientation="vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/wifi_path_title" android:textColor="@color/controller_text" android:textSize="18sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/step_one_summary" android:textColor="@color/controller_muted" android:textSize="14sp" />
+        <Button android:id="@+id/buttonInstructions" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/show_instructions" android:textAllCaps="false" android:minHeight="48dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:text="@string/usb_path_title" android:textColor="@color/controller_text" android:textSize="16sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="@string/usb_path_summary" android:textColor="@color/controller_muted" android:textSize="14sp" />
+        <Button android:id="@+id/buttonUsbInstructions" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="@string/show_usb_instructions" android:textAllCaps="false" android:minHeight="48dp" />
+      </LinearLayout>
+    </LinearLayout>
+    <Button android:id="@+id/buttonInstallation" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/installation_title" android:textAllCaps="false" android:layout_marginTop="6dp" />
+    <LinearLayout android:id="@+id/panelInstallation" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:background="@drawable/panel_background" android:orientation="vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/step_three_title" android:textColor="@color/controller_text" android:textSize="18sp" android:textStyle="bold" />
+        <CheckBox android:id="@+id/checkAccessibility" android:layout_width="match_parent" android:layout_height="wrap_content" android:checked="true" android:text="@string/configure_accessibility" />
+        <CheckBox android:id="@+id/checkDeviceOwner" android:layout_width="match_parent" android:layout_height="wrap_content" android:checked="false" android:text="@string/configure_device_owner" />
+        <CheckBox android:id="@+id/checkDisableDebug" android:layout_width="match_parent" android:layout_height="wrap_content" android:checked="false" android:text="@string/disable_debug_after" />
+        <Button android:id="@+id/buttonInstall" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:enabled="true" android:text="@string/install" android:textAllCaps="false" android:textStyle="bold" android:minHeight="48dp" />
+        <ProgressBar android:id="@+id/progressInstall" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="8dp" android:layout_marginTop="8dp" android:max="100" android:progress="0" android:visibility="gone" />
+      </LinearLayout>
+    </LinearLayout>
+  </LinearLayout>
 </ScrollView>

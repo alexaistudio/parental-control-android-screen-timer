@@ -55,6 +55,14 @@ final class ControllerLog {
                 + " device=" + safe(Build.MANUFACTURER) + " " + safe(Build.MODEL));
     }
 
+    static void clear() {
+        synchronized (LOCK) {
+            write(logFile(), new byte[0], false);
+            write(resultsFile(), new byte[0], false);
+        }
+        Log.i(TAG, "Log cleared by user");
+    }
+
     static void info(String source, String message) {
         Log.i(TAG, source + ": " + SecretRedactor.redact(message));
         append("INFO", source, message, null, Thread.currentThread().getName());

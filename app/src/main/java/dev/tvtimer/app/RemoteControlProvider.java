@@ -53,6 +53,16 @@ public final class RemoteControlProvider extends ContentProvider {
                         requiredMinutes(request, true) * 60_000L);
                 return state(day, false);
             }
+            if ("adjustAppBonus".equals(method)) {
+                String packageName = request.getString("package", "").trim();
+                int delta = requiredMinutes(request, false);
+                ConfigStore.RemoteAdjustment adjustment = store.applyRemoteAppAdjustment(
+                        day, packageName, delta, request.getString("comment", ""), now);
+                Bundle result = state(day, true);
+                result.putLong("noticeId", adjustment.getId());
+                result.putInt("changedMinutes", adjustment.getMinutes());
+                return result;
+            }
             if ("removeAppLimit".equals(method)) {
                 store.removeAppLimit(request.getString("package", "").trim());
                 return state(day, false);
@@ -98,7 +108,8 @@ public final class RemoteControlProvider extends ContentProvider {
             String label = labels.get(packageName).replace('\t', ' ').replace('\n', ' ');
             payload.append(packageName).append('\t').append(label).append('\t')
                     .append(limits.containsKey(packageName) ? limits.get(packageName) : 0L).append('\t')
-                    .append(dayState.getAppUsedMillis(packageName)).append('\n');
+                    .append(dayState.getAppUsedMillis(packageName)).append('\t')
+                    .append(dayState.getAppBonusMillis(packageName)).append('\n');
         }
         return Base64.encodeToString(payload.toString().getBytes(StandardCharsets.UTF_8), Base64.URL_SAFE | Base64.NO_WRAP);
     }

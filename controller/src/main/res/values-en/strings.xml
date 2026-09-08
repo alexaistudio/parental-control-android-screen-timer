@@ -6,7 +6,7 @@
     <string name="remote_code">Permanent PIN or temporary code (4–8 digits)</string>
     <string name="remote_not_refreshed">Loading remaining time…</string>
     <string name="remote_refresh">Refresh remaining time</string>
-    <string name="remote_minutes">Minutes</string>
+    <string name="remote_minutes">For today, min</string>
     <string name="remote_subtract">− Remove</string>
     <string name="remote_add">+ Add</string>
     <string name="remote_comment">Message on the TV screen (optional)</string>
@@ -16,11 +16,11 @@
     <string name="remote_limit_on">Limit is on</string>
     <string name="remote_updated">TV updated</string>
     <string name="global_limit_title">Total time for all apps</string>
-    <string name="app_limits_title">Set a separate app limit</string>
+    <string name="app_limits_title">Selected app limit: Save sets it, +/− gives a today-only bonus/penalty (resets at midnight)</string>
     <string name="minutes_per_day">Minutes per day</string>
     <string name="save">Save</string>
     <string name="remove">Remove limit</string>
-    <string name="advanced_connection">Advanced connection / pairing</string>
+    <string name="advanced_connection">Enter address manually</string>
     <string name="header_subtitle">Finds your Android device, installs Android Screen Timer, and helps enable protection — no separate ADB app required.</string>
     <string name="wifi_path_title">Wi-Fi — install directly from this phone</string>
     <string name="step_one_summary">The main method for Android 11+: enable Wireless debugging on the target. Pair once, then connect and tap INSTALL.</string>
@@ -28,9 +28,9 @@
     <string name="usb_path_title">USB — a separate method</string>
     <string name="usb_path_summary">A normal phone ↔ TV cable usually cannot work because both devices are USB hosts. Use a computer with ADB or install the APK from a flash drive.</string>
     <string name="show_usb_instructions">What to do over USB</string>
-    <string name="step_two_title">2. Find the device over the network</string>
+    <string name="step_two_title">Your TVs</string>
     <string name="scan_hint">The phone and target device must use the same Wi‑Fi network. Discovery stays inside your local network.</string>
-    <string name="scan">Find over Wi-Fi / network</string>
+    <string name="scan">Find TV</string>
     <string name="manual_title">Pairing or manual address</string>
     <string name="ip_address">Device IP, for example 192.168.1.50</string>
     <string name="pair_port">Pairing port</string>
@@ -44,7 +44,7 @@
     <string name="disable_debug_after">Turn off wireless debugging after installation (remote control will stop working)</string>
     <string name="install">INSTALL Android Screen Timer</string>
     <string name="status_title">Progress</string>
-    <string name="status_ready">Ready to scan. No data is sent to the internet.</string>
+    <string name="status_ready">Tap Find TV to begin.</string>
     <string name="status_scanning">Looking for Android devices…</string>
     <string name="status_none">The target did not advertise ADB and port 5555 was not found. Open Wireless debugging on the target. Enter the IP and port from its main screen as the connection port; enter the separate port from the six-digit-code dialog as the pairing port.</string>
     <string name="status_found">Devices found: %1$d. Select yours.</string>
@@ -89,4 +89,16 @@
     <string name="copy_log_failed">Clipboard is unavailable</string>
     <string name="log_saved">Log saved</string>
     <string name="save_log_failed">Could not save the log</string>
+    <string name="clear_log">Clear</string>
+    <string name="log_cleared">Log cleared</string>
+    <string name="invalid_minutes">Enter minutes from 1 to 1440</string>
+<string name="help_title">Help</string>
+<string name="installation_title">TV installation and maintenance</string>
+<string name="choose_app">Choose app</string>
+<string name="today_minutes">Adjustment for today, min</string>
+<string name="add_today">Add for today</string>
+<string name="subtract_today">Subtract for today</string>
+<string name="save_daily">Save daily limit</string>
+<string name="change_tv">Switch TV</string>
+<string name="app_budget_summary">Limit: %1$s · Today: %2$s\nUsed: %3$s</string>
 </resources>
